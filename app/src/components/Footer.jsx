@@ -18,8 +18,8 @@ export function Footer() {
               <Link to="/terms" style={{ transition: 'color 0.2s' }}>Terms of Service</Link>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.8125rem', color: 'var(--on-surface-variant)' }}>
-              <a href="#">Escrow Guarantee</a>
-              <a href="#" style={{ textDecoration: 'underline' }}>SAT Compliance</a>
+              <Link to="/escrow">Escrow Guarantee</Link>
+              <Link to="/sat-compliance" style={{ textDecoration: 'underline' }}>SAT Compliance</Link>
             </div>
           </div>
         </div>

@@ -2,18 +2,26 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 export function DashboardPage() {
+  // En producción, esto vendría de un hook useAuth o useUser
+  const user = {
+    name: 'Marcos Rivera',
+    title: 'Senior Consultant',
+    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOp1V8Mo5Q1XsJxMKf9KjTxJQK7vMgHpGQqI-kcVH8ul_iJSzb2Vb2rdJYxgpS2cT5uxHRs2EKZQuoB0JaOrAtfQWufuaZ62ch2CTCTDjS1JF2tMWMiZQflbbqNnl1dvP6IIHCNPUPyGNcZYsjW4TNBe_TISTt94kT-_avawausQKV5ASglsnF-Ma8Se12kn51Tn7mqUcD79Wg-GwvAlFdWUr7D2o-xFqfMhYAerC1mzF8xB5RaIuJMHLtwB8Wefo93-MORNCeF_Io',
+    isVerified: true
+  };
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       {/* Sidebar */}
       <aside className="sidebar" style={{ width: '18rem', padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', padding: '0.5rem' }}>
           <div style={{ position: 'relative' }}>
-            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOp1V8Mo5Q1XsJxMKf9KjTxJQK7vMgHpGQqI-kcVH8ul_iJSzb2Vb2rdJYxgpS2cT5uxHRs2EKZQuoB0JaOrAtfQWufuaZ62ch2CTCTDjS1JF2tMWMiZQflbbqNnl1dvP6IIHCNPUPyGNcZYsjW4TNBe_TISTt94kT-_avawausQKV5ASglsnF-Ma8Se12kn51Tn7mqUcD79Wg-GwvAlFdWUr7D2o-xFqfMhYAerC1mzF8xB5RaIuJMHLtwB8Wefo93-MORNCeF_Io" alt="Marcos Rivera" style={{ width: '3rem', height: '3rem', borderRadius: '50%', objectFit: 'cover' }} />
+            <img src={user.avatarUrl} alt={user.name} style={{ width: '3rem', height: '3rem', borderRadius: '50%', objectFit: 'cover' }} />
             <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', background: 'var(--secondary)', borderRadius: '50%', border: '2px solid white' }}></div>
           </div>
           <div>
-            <h2 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '0.9375rem', color: 'var(--primary)' }}>Marcos Rivera</h2>
-            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Senior Consultant • Verified</p>
+            <h2 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '0.9375rem', color: 'var(--primary)' }}>{user.name}</h2>
+            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{user.title} • {user.isVerified ? 'Verified' : 'Pending'}</p>
           </div>
         </div>
 

@@ -3,6 +3,19 @@ import { Link } from 'react-router-dom';
 import { Footer } from '../components/Footer';
 
 export function VerificationPage() {
+  const [file, setFile] = React.useState(null);
+  const fileInputRef = React.useRef(null);
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  const triggerFileSelect = () => {
+    fileInputRef.current.click();
+  };
+
   return (
     <>
       {/* Minimal Nav */}
@@ -25,10 +38,10 @@ export function VerificationPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div>
               <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)' }}>PROGRESO GENERAL</p>
-              <p style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--secondary)' }}>65% Completado</p>
+              <p style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--secondary)' }}>{file ? '75%' : '65%'} Completado</p>
             </div>
             <div style={{ width: '3rem', height: '3rem', borderRadius: '50%', border: '3px solid var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(45,188,254,0.05)' }}>
-              <span className="material-symbols-outlined icon-filled" style={{ color: 'var(--secondary)', fontSize: '20px' }}>check_circle</span>
+              <span className="material-symbols-outlined icon-filled" style={{ color: 'var(--secondary)', fontSize: '20px' }}>{file ? 'check_circle' : 'pending'}</span>
             </div>
           </div>
         </div>
@@ -37,8 +50,8 @@ export function VerificationPage() {
         <div style={{ display: 'flex', marginBottom: '3rem', position: 'relative' }}>
           {['Perfil', 'Biometría', 'SAT & Fiscal', 'CONOCER'].map((step, i) => (
             <div key={step} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
-              <div style={{ height: '3px', background: i < 3 ? 'var(--secondary)' : 'var(--surface-container)', marginBottom: '0.75rem', borderRadius: i === 0 ? '4px 0 0 4px' : i === 3 ? '0 4px 4px 0' : '' }}></div>
-              <span style={{ fontSize: '0.8125rem', fontWeight: i === 2 ? 600 : 500, color: i === 2 ? 'var(--secondary)' : i < 2 ? 'var(--secondary)' : 'var(--on-surface-variant)' }}>{step}</span>
+              <div style={{ height: '3px', background: i < (file ? 3 : 2) ? 'var(--secondary)' : 'var(--surface-container)', marginBottom: '0.75rem', borderRadius: i === 0 ? '4px 0 0 4px' : i === 3 ? '0 4px 4px 0' : '' }}></div>
+              <span style={{ fontSize: '0.8125rem', fontWeight: (i === 2 && !file) || (i === 3 && file) ? 600 : 500, color: i < (file ? 3 : 2) ? 'var(--secondary)' : 'var(--on-surface-variant)' }}>{step}</span>
             </div>
           ))}
         </div>
@@ -66,7 +79,7 @@ export function VerificationPage() {
                 <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', textAlign: 'center', border: '1px solid rgba(45,188,254,0.2)' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--secondary)', marginBottom: '0.5rem', display: 'block' }}>photo_camera</span>
                   <p style={{ fontWeight: 500, fontSize: '0.875rem', marginBottom: '0.25rem' }}>Captura Facial Liveness</p>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Requiere cámara activa</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}><span className="material-symbols-outlined icon-filled" style={{ fontSize: '12px' }}>check_circle</span> Completado</span>
                 </div>
               </div>
             </div>
@@ -84,19 +97,32 @@ export function VerificationPage() {
               </div>
               <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Validación de Constancia de Situación Fiscal y cumplimiento ante el SAT para emisión de facturas institucionales.</p>
 
-              <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '2rem', textAlign: 'center', marginBottom: '1.5rem' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '36px', color: 'var(--on-surface-variant)', marginBottom: '0.75rem', display: 'block' }}>upload_file</span>
-                <p style={{ fontWeight: 600, fontSize: '0.9375rem', marginBottom: '0.25rem' }}>Cargar Constancia de Situación Fiscal</p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '1.25rem' }}>PDF original (no mayor a 3 meses de antigüedad). Max 5MB.</p>
-                <button className="btn btn-primary" style={{ borderRadius: 'var(--radius-lg)' }}>Seleccionar Archivo</button>
+              <div style={{ background: file ? 'rgba(45,188,254,0.03)' : 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '2rem', textAlign: 'center', marginBottom: '1.5rem', border: file ? '2px dashed var(--secondary)' : '2px dashed transparent', transition: 'all 0.3s' }}>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  style={{ display: 'none' }} 
+                  accept=".pdf"
+                />
+                <span className="material-symbols-outlined" style={{ fontSize: '36px', color: file ? 'var(--secondary)' : 'var(--on-surface-variant)', marginBottom: '0.75rem', display: 'block' }}>{file ? 'task' : 'upload_file'}</span>
+                <p style={{ fontWeight: 600, fontSize: '0.9375rem', marginBottom: '0.25rem' }}>{file ? file.name : 'Cargar Constancia de Situación Fiscal'}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '1.25rem' }}>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'PDF original (no mayor a 3 meses de antigüedad). Max 5MB.'}</p>
+                <button 
+                  className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} 
+                  style={{ borderRadius: 'var(--radius-lg)' }}
+                  onClick={triggerFileSelect}
+                >
+                  {file ? 'Cambiar Archivo' : 'Seleccionar Archivo'}
+                </button>
               </div>
 
               <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--on-surface-variant)', marginBottom: '0.125rem' }}>ÚLTIMA VALIDACIÓN</p>
-                  <p style={{ fontWeight: 500, fontSize: '0.875rem' }}>Pendiente de carga de documento</p>
+                  <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--on-surface-variant)', marginBottom: '0.125rem' }}>ESTADO ACTUAL</p>
+                  <p style={{ fontWeight: 500, fontSize: '0.875rem', color: file ? 'var(--secondary)' : 'inherit' }}>{file ? 'Documento listo para envío' : 'Pendiente de carga de documento'}</p>
                 </div>
-                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>info</span>
+                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>{file ? 'check_circle' : 'info'}</span>
               </div>
             </div>
 

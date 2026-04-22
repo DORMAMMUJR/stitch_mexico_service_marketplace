@@ -1,8 +1,10 @@
-import { defineConfig } from '@prisma/config'
+import { defineConfig, env } from 'prisma/config'
+import 'dotenv/config'
 
 export default defineConfig({
   earlyAccess: true,
-  migrations: {
-    connectionUrl: process.env.DATABASE_URL,
+  engine: 'classic',
+  datasource: {
+    url: env('DATABASE_URL'),
   },
 })

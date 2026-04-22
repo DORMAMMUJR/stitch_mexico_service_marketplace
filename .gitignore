@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+.env
+.env.*
+dist/
+build/
+*.log
+.vercel
+app/node_modules/
+server/node_modules/
+server/src/seed-pamela*
+server/prisma/seed.sql

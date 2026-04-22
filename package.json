@@ -12,6 +12,7 @@
     "dev": "npm run dev:frontend",
     "build:frontend": "npm run build --workspace=app",
     "build:backend": "npm run build --workspace=server",
-    "build": "npm run build:frontend"
+    "build": "npm run build:frontend",
+    "vercel-build": "npm run build:frontend && rm -rf public && mv app/dist public"
   }
 }

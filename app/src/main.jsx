@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { DirectoryPage } from './pages/DirectoryPage';
 // import { HomePage } from './pages/HomePage';
-// import { CategoriesPage } from './pages/CategoriesPage';
+import { CategoriesPage } from './pages/CategoriesPage';
 // import { ProfilePage } from './pages/ProfilePage';
 // import { DashboardPage } from './pages/DashboardPage';
 // import { VerificationPage } from './pages/VerificationPage';
@@ -23,7 +23,7 @@ ReactDOM.createRoot(document.getElementById('app')).render(
       <Routes>
         <Route path="/" element={<DirectoryPage />} /> {/* Redirigimos el Home al Directorio por ahora */}
         <Route path="/directory" element={<DirectoryPage />} />
-        <Route path="/categories" element={<PlaceholderPage title="Categories" />} />
+        <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/profile/:id" element={<PlaceholderPage title="Professional Profile" />} />
         <Route path="/dashboard" element={<PlaceholderPage title="Dashboard" />} />
         <Route path="/verification" element={<PlaceholderPage title="Trust Center / Verification" />} />

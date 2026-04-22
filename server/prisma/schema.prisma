@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  passwordHash        String
+  role                Role      @default(CLIENT)
+  name                String
+  phone               String?
+  avatarUrl           String?
+  emailVerified       Boolean   @default(false)
+  privacyConsentedAt  DateTime?  // Consentimiento aviso privacidad
+  biometricConsentAt  DateTime?  // Consentimiento explícito biométricos
+  deletionRequestedAt DateTime?  // Solicitud de supresión ARCO
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  ordersAsClient      Order[]   @relation("ClientOrders")
+  reviewsGiven        Review[]  @relation("ReviewAuthor")
+  notifications       Notification[]
+  refreshTokens       RefreshToken[]
+}
+
+model Professional {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  title              String
+  bio                String?
+  category           Category
+  subcategories      String[]
+  hourlyRate         Decimal?  @db.Decimal(10, 2)
+  currency           String    @default("MXN")
+  latitude           Float?
+  longitude          Float?
+  city               String?
+  state              String?
+
+  // Verification
+  isVerified         Boolean   @default(false)
+  verificationStatus VerificationStatus @default(PENDING)
+  satConstancia      String?   // URL del documento
+  satVerifiedAt      DateTime?
+  biometricDone      Boolean   @default(false)
+  conocerCerts       String[]  // Array de códigos EC
+
+  // Stripe / Payouts
+  stripeAccountId    String?   // Stripe Connected Account ID
+  payoutEnabled      Boolean   @default(false)  // true cuando Stripe verifica la cuenta
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relations
+  orders             Order[]   @relation("ProfessionalOrders")
+  reviews            Review[]  @relation("ReviewTarget")
+  documents          VerificationDocument[]
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  clientId          String
+  professionalId    String
+  status            OrderStatus @default(DRAFT)
+  description       String
+  agreedPrice       Decimal     @db.Decimal(10, 2)
+  currency          String      @default("MXN")
+
+  // Escrow
+  paymentIntentId   String?     // ID de la pasarela
+  escrowFundedAt    DateTime?
+  escrowReleasedAt  DateTime?
+
+  // Dispute
+  disputeReason     String?
+  disputeOpenedAt   DateTime?
+  disputeResolvedAt DateTime?
+  disputeResolution DisputeResolution?
+
+  // Timestamps
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  completedAt       DateTime?
+
+  // Relations
+  client            User        @relation("ClientOrders", fields: [clientId], references: [id])
+  professional      Professional @relation("ProfessionalOrders", fields: [professionalId], references: [id])
+  review            Review?
+  timeline          OrderEvent[]
+}
+
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  event     String   // 'created', 'funded', 'in_progress', 'completed', 'disputed', etc.
+  metadata  Json?
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id])
+}
+
+model Review {
+  id              String   @id @default(cuid())
+  orderId         String   @unique  // 1:1 con order — solo se puede reseñar si hay orden completada
+  authorId        String
+  professionalId  String
+  rating          Int      // 1-5
+  comment         String?
+  isVerified      Boolean  @default(true) // Siempre true porque solo clientes con orden completada
+  createdAt       DateTime @default(now())
+
+  order           Order        @relation(fields: [orderId], references: [id])
+  author          User         @relation("ReviewAuthor", fields: [authorId], references: [id])
+  professional    Professional @relation("ReviewTarget", fields: [professionalId], references: [id])
+}
+
+model VerificationDocument {
+  id              String   @id @default(cuid())
+  professionalId  String
+  type            DocType
+  fileUrl         String
+  status          DocStatus @default(PENDING)
+  reviewedBy      String?   // Admin user ID
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime @default(now())
+
+  professional    Professional @relation(fields: [professionalId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  metadata  Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model RefreshToken {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  userId      String
+  familyId    String   // Agrupa tokens de una misma sesión
+  used        Boolean  @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([userId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime @default(now())
+}
+
+enum Role {
+  CLIENT
+  PROFESSIONAL
+  ADMIN
+}
+
+enum Category {
+  LEGAL
+  FINANCE_TAX
+  ENGINEERING
+  IT_SECURITY
+  PLUMBING
+  ELECTRICAL
+  HVAC
+  GENERAL_MAINTENANCE
+}
+
+enum OrderStatus {
+  DRAFT
+  PAGO_PENDIENTE
+  FONDOS_EN_ESCROW
+  EN_PROGRESO
+  COMPLETADO
+  EN_DISPUTA
+  PAYOUT_INICIADO
+  PAYOUT_COMPLETADO
+  PAYOUT_FALLIDO
+  CANCELADO
+  REEMBOLSADO
+}
+
+enum VerificationStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum DocType {
+  INE
+  PASSPORT
+  SAT_CONSTANCIA
+  CONOCER_CERT
+  COMPROBANTE_DOMICILIO
+}
+
+enum DocStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DisputeResolution {
+  FAVOR_CLIENT
+  FAVOR_PROFESSIONAL
+  PARTIAL_REFUND
+  TIMEOUT_RELEASE
+}
+
+enum NotificationType {
+  ORDER_STATUS
+  PAYMENT_STATUS
+  VERIFICATION_UPDATE
+  NEW_MESSAGE
+  REVIEW_RECEIVED
+  SYSTEM
+}

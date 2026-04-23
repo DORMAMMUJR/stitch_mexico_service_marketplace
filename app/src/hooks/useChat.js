@@ -1,11 +1,10 @@
 import { useState, useCallback } from 'react';
-import { hasVisoEnabled, getGreeting } from '../lib/professionalKnowledge';
+import { getGreeting, getLocalResponse } from '../lib/professionalKnowledge';
 
 /**
- * Hook de chat con sistema de 3 niveles:
- * 1. VISO (n8n)     → Si el profesional tiene visoEnabled: true
- * 2. OpenAI API     → Fallback general vía backend seguro
- * 3. Mensaje simple → Si el backend también falla
+ * Hook de chat con sistema de 2 niveles:
+ * 1. OpenAI API     → Vía backend seguro (/api/chat)
+ * 2. Mensaje simple → Si el backend falla, respuesta local
  */
 export function useChat(professionalName) {
   const [messages, setMessages] = useState([
@@ -33,61 +32,30 @@ export function useChat(professionalName) {
     try {
       let reply = null;
 
-      // ─── Nivel 1: VISO / n8n (profesionales con integración completa) ───
-      if (hasVisoEnabled(professionalName)) {
-        try {
-          const WEBHOOK_URL = import.meta.env.VITE_VISO_WEBHOOK_URL;
-          if (WEBHOOK_URL) {
-            const res = await fetch(WEBHOOK_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                message: text,
-                professional: professionalName,
-                sessionId: `web-${professionalName?.replace(/\s+/g, '-').toLowerCase()}`,
-                source: 'web_profile',
-                timestamp: new Date().toISOString(),
-              }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              reply = data.output || data.message || data.text;
-            }
-          }
-        } catch (e) {
-          console.warn("Nivel 1 (n8n) falló:", e);
+      // ─── Nivel 1: OpenAI via backend ───────────────────────────────────
+      try {
+        const history = messages.slice(-6).map(m => ({ sender: m.sender, text: m.text }));
+        history.push({ sender: 'user', text });
+
+        const res = await fetch(`/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            professional: professionalName,
+            history,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          reply = data.output || data.message;
         }
+      } catch (e) {
+        console.warn("Backend AI falló:", e);
       }
 
-      // ─── Nivel 2: OpenAI via backend (fallback para todos los demás) ───
+      // ─── Nivel 2: Respuesta local de último recurso ────────────────────
       if (!reply) {
-        try {
-          // /api es relativa: en dev Vite la proxea, en Seenode es same-origin
-          const history = messages.slice(-6).map(m => ({ sender: m.sender, text: m.text }));
-          history.push({ sender: 'user', text }); // incluir el mensaje actual
-
-          const res = await fetch(`/api/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              message: text,
-              professional: professionalName,
-              history,
-            }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            reply = data.output || data.message;
-          }
-        } catch (e) {
-          console.warn("Nivel 2 (Backend AI) falló:", e);
-        }
-      }
-
-      // ─── Nivel 3: Mensaje local de último recurso ───
-      if (!reply) {
-        // Importación dinámica evitada importando getLocalResponse arriba
-        const { getLocalResponse } = await import('../lib/professionalKnowledge');
         reply = getLocalResponse(professionalName, text);
       }
 

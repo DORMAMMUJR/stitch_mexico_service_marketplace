@@ -109,8 +109,8 @@ app.post('/api/chat', async (req, res) => {
       return res.status(500).json({ error: 'OpenAI no configurado en el servidor' });
     }
 
-    const systemPrompt = `Eres el asistente virtual de ${professional || 'un profesional'} en KonectIA, 
-la plataforma líder de servicios profesionales en México.
+    const systemPrompt = `Eres el asistente virtual de ${professional || 'un profesional'} en Intecnia, 
+el portal corporativo líder de servicios y proveedores en México.
 
 Tu misión:
 - Responder preguntas sobre los servicios del profesional de forma clara y concisa
@@ -169,7 +169,7 @@ app.get('*', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`🚀 KonectIA corriendo en http://localhost:${port}`);
+  console.log(`🚀 Intecnia corriendo en http://localhost:${port}`);
   console.log(`   ENV: ${process.env.NODE_ENV}`);
   console.log(`   Frontend: ${frontendDist}`);
 });

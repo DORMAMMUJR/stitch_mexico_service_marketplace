@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 export function NavbarIntecnia({ activePage }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <nav className="nav-top">
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '4rem' }}>
@@ -17,13 +19,22 @@ export function NavbarIntecnia({ activePage }) {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button style={{ padding: '0.5rem', color: 'var(--on-surface-variant)', border: 'none', background: 'transparent' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>notifications</span>
-          </button>
-          <Link to="/dashboard" className="btn btn-primary" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
+          <Link to="/dashboard" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
             Dashboard
           </Link>
+          {/* Hamburger */}
+          <button className="hamburger-btn" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Menú">
+            <span className="material-symbols-outlined" style={{ fontSize: '28px' }}>{mobileOpen ? 'close' : 'menu'}</span>
+          </button>
         </div>
+      </div>
+
+      {/* Mobile Menu */}
+      <div className={`mobile-menu ${mobileOpen ? 'open' : ''}`}>
+        <Link to="/" className="nav-link" onClick={() => setMobileOpen(false)}>Marketplace</Link>
+        <Link to="/directory" className="nav-link" onClick={() => setMobileOpen(false)}>Directorio</Link>
+        <Link to="/categories" className="nav-link" onClick={() => setMobileOpen(false)}>Categorías</Link>
+        <Link to="/dashboard" className="nav-link" onClick={() => setMobileOpen(false)}>Dashboard</Link>
       </div>
     </nav>
   );

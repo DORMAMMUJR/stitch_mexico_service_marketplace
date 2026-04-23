@@ -1,126 +1,134 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useRef } from 'react';
+import { useParams } from 'react-router-dom';
+import { NavbarIntecnia } from '../components/NavbarIntecnia';
+import { Footer } from '../components/Footer';
 import { NotifBanner } from '../components/NotifBanner';
 import { ChatWidget } from '../components/ChatWidget';
-
+import { useProfile } from '../hooks/useProfile';
 
 export function IntecniaProfilePage() {
+  const { id } = useParams();
+  const { data: profile, isLoading, error } = useProfile(id);
+  const chatRef = useRef(null);
+
+  const scrollToChat = () => {
+    chatRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Datos por defecto si no hay ID o si la data no carga
+  const prof = profile || {
+    name: 'Pamela Osnaya',
+    title: 'Psicóloga Clínica',
+    bio: 'Especialista en terapia de pareja, adolescentes y procesos post-separación. Con más de 10 años de experiencia acompañando a personas y familias en momentos de cambio y crecimiento personal.',
+    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=160&h=180&fit=crop&crop=face',
+    isVerified: true,
+    biometricDone: true,
+    satVerifiedAt: true,
+    yearsExp: '10+',
+    projectsCount: '25+',
+    successRate: '98%',
+    rating: '4.9',
+  };
+
+  const reviews = [
+    { name: 'Laura M.', date: 'Hace 2 semanas', stars: 5, text: 'Excelente profesional. Me ayudó muchísimo con mi proceso de duelo post-separación. La recomiendo ampliamente.' },
+    { name: 'Carlos R.', date: 'Hace 1 mes', stars: 5, text: 'Mi hijo adolescente ha mejorado notablemente desde que comenzó las sesiones. Muy agradecido.' },
+    { name: 'Patricia G.', date: 'Hace 2 meses', stars: 4, text: 'Muy profesional y empática. Las sesiones en línea funcionan perfectamente.' },
+  ];
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar */}
-      <nav className="sidebar" style={{ width: '16rem', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ marginBottom: '2rem', padding: '0.5rem' }}>
-          <h1 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)', letterSpacing: '-0.02em' }}>Intecnia</h1>
-          <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.125rem' }}>Professional Services</p>
-        </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          <Link to="/intecnia-profile" className="sidebar-link active"><span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px' }}>account_circle</span> Overview</Link>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>work</span> Portfolio</Link>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>business_center</span> Services</Link>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>star</span> Reviews</Link>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>chat</span> Contact</Link>
-        </div>
-        <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
-          <button className="btn" style={{ width: '100%', justifyContent: 'center', background: 'var(--secondary)', color: 'var(--on-secondary)', borderRadius: 'var(--radius-lg)', marginBottom: '1rem' }}>Upgrade to Premium</button>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>help</span> Help Center</Link>
-          <Link to="/" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>logout</span> Log out</Link>
-        </div>
-      </nav>
+    <>
+      <NavbarIntecnia />
 
-      {/* Main */}
-      <main className="main-with-sidebar" style={{ flex: 1, marginLeft: '16rem', display: 'flex', flexDirection: 'column' }}>
-        {/* Top Nav */}
-        <header className="nav-top" style={{ position: 'sticky' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem', height: '4rem' }}>
-            <nav style={{ display: 'flex', gap: '0.25rem' }} className="hide-mobile">
-              <Link to="/" className="nav-link">Marketplace</Link>
-              <Link to="#" className="nav-link active">My Schedule</Link>
-              <Link to="#" className="nav-link">Messages</Link>
-              <Link to="#" className="nav-link">Network</Link>
-            </nav>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <button style={{ padding: '0.5rem', color: 'var(--on-surface-variant)', border: 'none', background: 'transparent' }}><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>notifications</span></button>
-              <button style={{ padding: '0.5rem', color: 'var(--on-surface-variant)', border: 'none', background: 'transparent' }}><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>settings</span></button>
-              <button className="btn btn-primary" style={{ borderRadius: 'var(--radius-lg)' }}>Book Session</button>
-              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmq4mm-ts_P-P5pSawrgKDhStNLY6e-uuSni2ZeTXeN-O0looXQ41SLjYeSHEhaP7UqdbyS5ptqviCZHASXSKwNRbFtUrI82uA9bxWmDx71nAZ9WbrdxwfTWqU2K_doUQwsx41TCGcgtI7BrAjzfDjdNOp73zuU6c0XJdGXBzaMsCk9tNIwxtvAGkq7u87ZRRcnBeldNr6uTauvkONlWGrkylmea19MEeoSfKVCau_55eSRyhESeiWITK1fmgySFgedTAuniRM3r0b" alt="User" style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--surface-container)' }} />
-            </div>
-          </div>
-        </header>
-
-        <NotifBanner />
-
-        {/* Content */}
-        <div style={{ padding: '2rem', display: 'grid', gridTemplateColumns: '1fr 340px', gap: '2rem', flex: 1, maxWidth: '1200px' }}>
-          {/* Left */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Profile Card */}
-            <div className="card" style={{ padding: '2rem', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: 0, right: 0, width: '12rem', height: '12rem', background: 'linear-gradient(135deg,rgba(182,199,233,0.2),transparent)', borderBottomLeftRadius: '4rem' }}></div>
-              <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative' }}>
-                  <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrwPmE9CoFFSgITGHpmV4gf3JXz5_d_KKsl3NpeD-gLu8Q0a0xTgEbSzkqZKlxU8gKQvVptrjClTG2PI8cYgiAZEq1TPchX9BJvojFC6KI93Onksd5UPL3z2FPpQ-8J8Jd6sf0NQdVoF523XtpDfak4CWHO1OqI_36cvxI6IsAZD_ijxR9SnWdbug6vb__VCyf86_XVn4P4HLLepW7PJsJKygS9vFiSLJLTUZl1Z_KCY4hkMdOyIQFNQDXXS8FD8zmxRarlYif8hhq" alt="Dr. Roberto Silva" style={{ width: '8rem', height: '8rem', borderRadius: 'var(--radius-xl)', objectFit: 'cover', boxShadow: 'var(--ambient-shadow)' }} />
-                  <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: 'var(--surface-container-highest)', padding: '3px', borderRadius: '50%', border: '3px solid var(--surface-container-lowest)' }}>
-                    <span className="material-symbols-outlined icon-filled" style={{ fontSize: '14px', color: 'var(--secondary)' }}>verified</span>
-                  </div>
+      <div className="container layout-profile">
+        {/* Left Column */}
+        <div>
+          {/* Profile Card */}
+          <div className="card animate-in stagger-1" style={{ padding: '2.5rem', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative' }}>
+                <img src={prof.avatarUrl} alt={prof.name} style={{ width: '8rem', height: '9rem', borderRadius: 'var(--radius-xl)', objectFit: 'cover', boxShadow: 'var(--ambient-shadow)' }} />
+                <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: 'var(--surface-container-lowest)', padding: '3px', borderRadius: '50%', border: '3px solid var(--surface-container-lowest)' }}>
+                  <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: 'var(--secondary)' }}>verified</span>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <div>
-                      <h1 style={{ fontFamily: 'Manrope', fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>Dr. Roberto Silva</h1>
-                      <p style={{ color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>Consultor Fiscal Senior & Estratega Financiero</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.375rem' }}>
-                      <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '12px' }}>fingerprint</span> Biometric Verified</span>
-                      <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '12px' }}>account_balance</span> SAT Compliant</span>
-                    </div>
-                  </div>
-                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', lineHeight: 1.6, marginBottom: '1.25rem', maxWidth: '500px' }}>
-                    Especialista en reestructuración fiscal corporativa con más de 15 años de experiencia. Asesorando a empresas Fortune 500 en optimización de procesos contables y cumplimiento normativo en México.
-                  </p>
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button className="btn btn-primary"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>mail</span> Mensaje Directo</button>
-                    <button className="btn btn-outline">Descargar CV</button>
-                  </div>
+              </div>
+              <div style={{ flex: 1, minWidth: '240px' }}>
+                <h1 style={{ fontFamily: 'Manrope', fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>{prof.name}</h1>
+                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem', marginBottom: '1rem' }}>{prof.title}</p>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                  {prof.biometricDone && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '14px' }}>fingerprint</span> BIOMETRÍA</span>}
+                  {prof.satVerifiedAt && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '14px' }}>account_balance</span> SAT</span>}
+                  {prof.isVerified && <span className="badge badge-green"><span className="material-symbols-outlined icon-filled" style={{ fontSize: '14px' }}>verified</span> CERTIFICADA</span>}
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button onClick={scrollToChat} className="btn btn-primary">
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chat</span> Mensaje Directo
+                  </button>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div className="card-elevated" style={{ padding: '1.5rem' }}>
-                <h3 className="text-title-lg" style={{ color: 'var(--primary)', marginBottom: '0.75rem' }}>Especialidades</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {['trending_up|Optimización Fiscal', 'gavel|Auditoría Preventiva', 'public|Tributación Internacional'].map(s => {
-                    const [icon, label] = s.split('|');
-                    return (
-                      <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--on-surface-variant)' }}>
-                        <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: '20px' }}>{icon}</span>
-                        {label}
+          {/* About */}
+          <div className="card animate-in stagger-2" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
+            <h2 className="text-headline-md" style={{ color: 'var(--primary)', marginBottom: '1rem', fontSize: '1.25rem' }}>Sobre Mí</h2>
+            <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.8, marginBottom: '2rem' }}>{prof.bio}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1.5rem' }}>
+              {[
+                { val: prof.yearsExp, label: 'AÑOS EXP.' },
+                { val: prof.projectsCount, label: 'PROYECTOS' },
+                { val: prof.successRate, label: 'ÉXITO' },
+                { val: prof.rating, label: '★ RATING' },
+              ].map(s => (
+                <div key={s.label}>
+                  <p style={{ fontFamily: 'Manrope', fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>{s.val}</p>
+                  <p className="text-label-md" style={{ textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>{s.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Reviews */}
+          <div className="card animate-in stagger-3" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)' }}>Reseñas Recientes</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                <span className="material-symbols-outlined icon-filled" style={{ fontSize: '18px', color: '#f59e0b' }}>star</span>
+                <span style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)' }}>{prof.rating}</span>
+                <span style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem' }}>({reviews.length} reseñas)</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {reviews.map((r, i) => (
+                <div key={i} className="review-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: 'var(--secondary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--secondary)' }}>person</span>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="card-elevated" style={{ padding: '1.5rem' }}>
-                <h3 className="text-title-lg" style={{ color: 'var(--primary)', marginBottom: '0.75rem' }}>Métricas de Confianza</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
-                  <div>
-                    <p style={{ fontFamily: 'Manrope', fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>98%</p>
-                    <p className="text-label-md" style={{ textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>CASOS DE ÉXITO</p>
+                      <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--primary)' }}>{r.name}</span>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{r.date}</span>
                   </div>
-                  <div>
-                    <p style={{ fontFamily: 'Manrope', fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>15+</p>
-                    <p className="text-label-md" style={{ textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>AÑOS EXP.</p>
+                  <div style={{ display: 'flex', gap: '2px', marginBottom: '0.5rem' }}>
+                    {Array.from({ length: r.stars }).map((_, j) => (
+                      <span key={j} className="material-symbols-outlined icon-filled" style={{ fontSize: '14px', color: '#f59e0b' }}>star</span>
+                    ))}
                   </div>
+                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', lineHeight: 1.6 }}>{r.text}</p>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
-
-          {/* Right: AI Chat */}
-          <ChatWidget professionalName="Dr. Roberto Silva" />
         </div>
-      </main>
-    </div>
+
+        {/* Right Column: AI Chat */}
+        <div ref={chatRef}>
+          <ChatWidget professionalName={prof.name} />
+        </div>
+      </div>
+
+      <Footer />
+    </>
   );
 }

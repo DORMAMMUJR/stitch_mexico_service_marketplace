@@ -27,7 +27,7 @@ export function ChatWidget({ professionalName }) {
   };
 
   return (
-    <div className="card" style={{ position: 'sticky', top: '5rem', display: 'flex', flexDirection: 'column', height: '560px' }}>
+    <div className="card chat-sticky-desktop" style={{ position: 'sticky', top: '5rem', display: 'flex', flexDirection: 'column', height: '560px' }}>
       <div style={{ padding: '1.25rem', background: 'var(--primary)', borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span className="material-symbols-outlined" style={{ color: 'var(--secondary-container)' }}>smart_toy</span>

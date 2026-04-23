@@ -34,7 +34,8 @@ app.use(cors({
 app.use(express.json());
 
 // ─── Servir el build del frontend React ──────────────────────────────────────
-const frontendDist = path.join(__dirname, '../../app/dist');
+// En Seenode solo se copia la carpeta server/ — el frontend va en server/public/
+const frontendDist = path.join(__dirname, '../public');
 app.use(express.static(frontendDist));
 
 // Healthcheck

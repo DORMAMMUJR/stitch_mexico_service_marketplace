@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { NotifBanner } from '../components/NotifBanner';
+import { ChatWidget } from '../components/ChatWidget';
+
 
 export function IntecniaProfilePage() {
   return (
@@ -116,50 +118,7 @@ export function IntecniaProfilePage() {
           </div>
 
           {/* Right: AI Chat */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '520px', position: 'sticky', top: '5rem' }}>
-            <div style={{ padding: '1rem 1.25rem', background: 'var(--surface-bright)', borderBottom: '1px solid var(--surface-container-low)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', background: 'var(--primary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="material-symbols-outlined" style={{ color: 'var(--on-primary)', fontSize: '18px' }}>smart_toy</span>
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--primary)' }}>Asistente de Reservas AI</h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.6875rem', color: 'var(--on-surface-variant)' }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--secondary-container)' }}></span> En línea y listo para agendar
-                  </div>
-                </div>
-              </div>
-              <button style={{ color: 'var(--on-surface-variant)', border: 'none', background: 'transparent' }}><span className="material-symbols-outlined">more_vert</span></button>
-            </div>
-
-            <div id="chat-messages" className="chat-messages" style={{ flex: 1, background: 'var(--background)' }}>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <div style={{ width: '1.5rem', height: '1.5rem', borderRadius: '50%', background: 'var(--primary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '12px', color: 'var(--on-primary)' }}>smart_toy</span>
-                </div>
-                <div className="chat-bubble bot">Hola, soy el asistente virtual de Intecnia. Veo que te interesa una consulta con el Dr. Roberto Silva. ¿Para qué fecha estabas buscando?</div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <div className="chat-bubble user">Necesito una asesoría para la próxima semana, preferiblemente el lunes por la mañana.</div>
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <div style={{ width: '1.5rem', height: '1.5rem', borderRadius: '50%', background: 'var(--primary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '12px', color: 'var(--on-primary)' }}>smart_toy</span>
-                </div>
-                <div className="chat-bubble bot">Revisando la agenda del Dr. Silva en tiempo real... Tengo estos horarios disponibles para el lunes:</div>
-              </div>
-            </div>
-
-            <div className="chat-input-area">
-              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 1rem' }}>
-                <input id="chat-input" type="text" placeholder="Escribe tu mensaje..." style={{ flex: 1, background: 'transparent', fontSize: '0.875rem', padding: '0.375rem 0', border: 'none', outline: 'none' }} />
-                <button id="chat-send" style={{ color: 'var(--primary-container)', border: 'none', background: 'transparent' }}><span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px' }}>send</span></button>
-              </div>
-              <p style={{ textAlign: 'center', fontSize: '0.625rem', color: 'var(--on-surface-variant)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '10px' }}>lock</span> Chat seguro encriptado
-              </p>
-            </div>
-          </div>
+          <ChatWidget professionalName="Dr. Roberto Silva" />
         </div>
       </main>
     </div>

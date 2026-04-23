@@ -62,12 +62,11 @@ export function useChat(professionalName) {
       // ─── Nivel 2: OpenAI via backend (fallback para todos los demás) ───
       if (!reply) {
         try {
-          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-          // Pasar las últimas 6 interacciones como historial de contexto
+          // /api es relativa: en dev Vite la proxea, en Seenode es same-origin
           const history = messages.slice(-6).map(m => ({ sender: m.sender, text: m.text }));
           history.push({ sender: 'user', text }); // incluir el mensaje actual
 
-          const res = await fetch(`${API_URL}/chat`, {
+          const res = await fetch(`/api/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

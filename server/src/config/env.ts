@@ -5,40 +5,32 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const envSchema = z.object({
-  // Core
+  // ─── Core (requeridas para arrancar) ────────────────────────────
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('3000'),
   DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().url(),
-  FRONTEND_URL: z.string().url(),
+  OPENAI_API_KEY: z.string(),
 
-  // Auth
-  JWT_PRIVATE_KEY: z.string(),
-  JWT_PUBLIC_KEY: z.string(),
+  // ─── Auth (opcional hasta implementar módulo de auth) ───────────
+  JWT_PRIVATE_KEY: z.string().optional(),
+  JWT_PUBLIC_KEY: z.string().optional(),
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
 
-  // Payments (Stripe/Conekta/MP - setting up Stripe for now)
+  // ─── Payments (opcional — Stripe no implementado aún) ───────────
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_CONNECT_CLIENT_ID: z.string().optional(),
 
-  // Notifications
+  // ─── Notificaciones (opcional) ───────────────────────────────────
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().email().optional(),
-  
-  // Storage
-  S3_BUCKET: z.string().optional(),
-  S3_REGION: z.string().optional(),
-  AWS_ACCESS_KEY_ID: z.string().optional(),
-  AWS_SECRET_ACCESS_KEY: z.string().optional(),
-  S3_SIGNED_URL_EXPIRY: z.string().default('3600'),
 
-  // Webhooks
+  // ─── Webhooks (opcional) ─────────────────────────────────────────
   N8N_WEBHOOK_SECRET: z.string().optional(),
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
 
-  // KYC
+  // ─── KYC (opcional) ──────────────────────────────────────────────
   METAMAP_API_KEY: z.string().optional(),
   METAMAP_WEBHOOK_SECRET: z.string().optional(),
 });

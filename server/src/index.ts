@@ -1,35 +1,30 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+import path from 'path';
 import pg from 'pg';
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const pool = new pg.Pool({ 
+// Conexión directa a PostgreSQL (Seenode)
+const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
 });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+
 const app = express();
 const port = process.env.PORT || 3000;
 
 const allowedOrigins = [
-  // Desarrollo local
   'http://localhost:5173',
   'http://localhost:4173',
-  // Agrega aquí tu dominio de Vercel y Seenode cuando los tengas:
-  // 'https://konectia.vercel.app',
-  // 'https://web-XXXXX.up-de-fra1-k8s-1.apps.run-on-seenode.com',
+  'http://localhost:3000',
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Permite peticiones sin origin (Postman, curl, server-to-server)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.some(o => origin.startsWith(o)) || origin.includes('seenode.com') || origin.includes('vercel.app')) {
+    if (allowedOrigins.some(o => origin.startsWith(o)) || origin.includes('seenode.com')) {
       return callback(null, true);
     }
     callback(new Error(`CORS bloqueado para: ${origin}`));
@@ -38,18 +33,18 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Healthcheck
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
+// ─── Servir el build del frontend React ──────────────────────────────────────
+const frontendDist = path.join(__dirname, '../../app/dist');
+app.use(express.static(frontendDist));
 
-// Root route
-app.get('/', (req, res) => {
-  res.json({ 
-    message: '🚀 KonectIA API Backend is running!',
-    status: 'online',
-    endpoints: ['/health', '/api/professionals/:id', '/api/chat']
-  });
+// Healthcheck
+app.get('/health', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.json({ status: 'ok', env: process.env.NODE_ENV, db: result.rows[0].now });
+  } catch (err) {
+    res.json({ status: 'ok', env: process.env.NODE_ENV, db: 'no conectada' });
+  }
 });
 
 /**
@@ -59,21 +54,24 @@ app.get('/', (req, res) => {
 app.get('/api/professionals/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Buscamos al profesional y traemos sus datos de usuario asociados
-    const professional = await prisma.professional.findUnique({
-      where: { id },
-    });
 
-    if (!professional) {
+    const profResult = await pool.query(
+      'SELECT * FROM "Professional" WHERE id = $1',
+      [id]
+    );
+
+    if (profResult.rows.length === 0) {
       return res.status(404).json({ message: 'Profesional no encontrado' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: professional.userId }
-    });
+    const professional = profResult.rows[0];
 
-    // Construimos la respuesta que espera el frontend
+    const userResult = await pool.query(
+      'SELECT * FROM "User" WHERE id = $1',
+      [professional.userId]
+    );
+    const user = userResult.rows[0];
+
     res.json({
       id: professional.id,
       name: user?.name || 'Profesional Certificado',
@@ -83,8 +81,8 @@ app.get('/api/professionals/:id', async (req, res) => {
       isVerified: professional.isVerified,
       biometricDone: professional.biometricDone,
       satVerifiedAt: professional.satVerifiedAt,
-      yearsExp: '10+', // Esto podría ser una lógica basada en createdAt
-      projectsCount: '25+', 
+      yearsExp: '10+',
+      projectsCount: '25+',
       successRate: '98%',
       rating: '4.9'
     });
@@ -95,9 +93,8 @@ app.get('/api/professionals/:id', async (req, res) => {
 });
 
 /**
- * AI Chat Endpoint (OpenAI fallback for professionals without VISO)
+ * AI Chat Endpoint (OpenAI fallback)
  * POST /api/chat
- * Body: { message, professional, history? }
  */
 app.post('/api/chat', async (req, res) => {
   try {
@@ -112,7 +109,6 @@ app.post('/api/chat', async (req, res) => {
       return res.status(500).json({ error: 'OpenAI no configurado en el servidor' });
     }
 
-    // System prompt adaptado al profesional
     const systemPrompt = `Eres el asistente virtual de ${professional || 'un profesional'} en KonectIA, 
 la plataforma líder de servicios profesionales en México.
 
@@ -125,7 +121,6 @@ Tu misión:
 Si el usuario quiere agendar, pide su nombre y número de teléfono o correo para que el profesional le contacte.
 Mantén respuestas cortas (máximo 3 oraciones). No uses markdown con asteriscos.`;
 
-    // Construir historial de conversación para contexto
     const chatHistory = history.slice(-6).map((m: { sender: string; text: string }) => ({
       role: m.sender === 'user' ? 'user' : 'assistant',
       content: m.text,
@@ -138,7 +133,7 @@ Mantén respuestas cortas (máximo 3 oraciones). No uses markdown con asteriscos
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Modelo económico y rápido
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           ...chatHistory,
@@ -168,6 +163,13 @@ Mantén respuestas cortas (máximo 3 oraciones). No uses markdown con asteriscos
   }
 });
 
+// ─── SPA Fallback ────────────────────────────────────────────────────────────
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendDist, 'index.html'));
+});
+
 app.listen(port, () => {
-  console.log(`🚀 KonectIA Backend running at http://localhost:${port}`);
+  console.log(`🚀 KonectIA corriendo en http://localhost:${port}`);
+  console.log(`   ENV: ${process.env.NODE_ENV}`);
+  console.log(`   Frontend: ${frontendDist}`);
 });

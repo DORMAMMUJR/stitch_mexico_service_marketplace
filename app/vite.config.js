@@ -6,8 +6,15 @@ export default defineConfig({
 
   server: {
     port: 5173,
-    host: true,              // Escucha en 0.0.0.0 (necesario en contenedores)
-    allowedHosts: 'all',     // Permite cualquier host externo (Seenode, Vercel, etc.)
+    host: true,
+    allowedHosts: 'all',
+    // En desarrollo: redirige /api → Express en :3000
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
   },
 
   preview: {

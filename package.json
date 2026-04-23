@@ -10,9 +10,10 @@
     "dev:frontend": "npm run dev --workspace=app",
     "dev:backend": "npm run dev --workspace=server",
     "dev": "npm run dev:frontend",
-    "build:frontend": "npm run build --workspace=app",
-    "build:backend": "npm run build --workspace=server",
-    "build": "npm run build:frontend",
-    "vercel-build": "npm run build:frontend && rm -rf public && mv app/dist public"
+
+    "build": "npm run build --workspace=app && npm run build --workspace=server",
+    "start": "node server/dist/index.js",
+
+    "install:all": "npm install --workspace=app && npm install --workspace=server"
   }
 }

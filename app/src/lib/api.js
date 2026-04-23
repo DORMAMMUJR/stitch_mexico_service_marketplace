@@ -1,4 +1,6 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// En dev: Vite proxea /api → localhost:3000 (ver vite.config.js)
+// En prod (Seenode): mismo origen, Express maneja /api directamente
+const BASE_URL = '/api';
 
 export async function apiFetch(endpoint, options = {}) {
   const response = await fetch(`${BASE_URL}${endpoint}`, {

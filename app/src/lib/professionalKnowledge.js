@@ -30,57 +30,6 @@ export const PROFESSIONAL_KNOWLEDGE = {
     greeting: '¡Hola! Soy el asistente de Pamela Osnaya, Psicóloga Clínica especializada en terapia de pareja, adolescentes y post-separación. ¿En qué puedo ayudarte?',
   },
 
-  // ─── Agrega aquí más profesionales ───────────────────────────────────────
-
-  'Dr. Roberto Silva': {
-    visoEnabled: false,
-    name: 'Dr. Roberto Silva',
-    title: 'Consultor Fiscal Senior',
-    price: '$1,500 MXN por asesoría',
-    schedule: 'Lunes a Viernes, 9am – 6pm',
-    location: 'Monterrey y en línea',
-    specialties: ['Optimización Fiscal', 'Auditoría Preventiva', 'Tributación Internacional'],
-    faqs: [
-      { q: ['precio', 'costo', 'cuánto', 'tarifa'], a: 'La asesoría inicial con el Dr. Silva tiene un costo de $1,500 MXN. Incluye revisión de situación actual y diagnóstico.' },
-      { q: ['cita', 'agendar', 'horario', 'reservar', 'lunes', 'semana'], a: '¡Claro! Tengo disponibilidad la próxima semana. Para agendar tu cita, por favor indícame tu nombre completo, teléfono y el horario que prefieres.' },
-      { q: ['gracias', 'ok', 'perfecto'], a: '¡De nada! Tu cita ha quedado pre-registrada. El equipo se contactará contigo para confirmar los detalles finales. ¡Que tengas excelente día!' },
-      { q: ['nombre', 'telefono', 'teléfono', 'mi nombre', 'soy'], a: 'Perfecto, he tomado tus datos. Hemos agendado tu cita provisionalmente. En breve el equipo del Dr. Silva te contactará para confirmar. ¡Gracias!' }
-    ],
-    greeting: 'Hola, soy el asistente virtual del Dr. Roberto Silva. ¿En qué te puedo ayudar hoy? Si deseas agendar una cita, solo dímelo.',
-  },
-
-  'Roberto Méndez': {
-    visoEnabled: false, // Usa respuestas locales por ahora
-    name: 'Roberto Méndez',
-    title: 'Plomero Certificado',
-    price: 'Desde $350 MXN por servicio',
-    schedule: 'Lunes a Sábado, 8am – 6pm',
-    location: 'Zapopan y área metropolitana de Guadalajara',
-    specialties: ['Sistemas hidroneumáticos', 'Reparación de fugas', 'Instalaciones nuevas'],
-    faqs: [
-      { q: ['precio', 'costo', 'cuánto cobra', 'tarifa'], a: 'Los servicios de Roberto inician desde $350 MXN. El costo final depende del trabajo específico. Puede darte un presupuesto sin costo.' },
-      { q: ['urgente', 'emergencia', 'fuga', 'urgencia'], a: 'Roberto atiende emergencias. Contáctalo directamente para una respuesta inmediata en el área de Zapopan.' },
-      { q: ['cita', 'agendar', 'disponible', 'horario'], a: 'Roberto atiende de Lunes a Sábado de 8am a 6pm. ¿Deseas que te contactemos para coordinar una visita?' },
-      { q: ['garantía', 'garantia'], a: 'Todos los trabajos de Roberto incluyen garantía. Pregúntale los detalles según el tipo de servicio.' },
-    ],
-    greeting: 'Hola, soy el asistente de Roberto Méndez, Plomero Certificado con 8 años de experiencia. ¿En qué te puedo ayudar?',
-  },
-
-  'Lucía Gutiérrez': {
-    visoEnabled: false,
-    name: 'Lucía Gutiérrez',
-    title: 'Instalaciones Sanitarias',
-    price: 'Desde $300 MXN',
-    schedule: 'Lunes a Viernes, 9am – 5pm',
-    location: 'Guadalajara',
-    specialties: ['Remodelación de baños', 'Cocinas', 'Instalaciones sanitarias'],
-    faqs: [
-      { q: ['precio', 'costo', 'cuánto', 'tarifa'], a: 'Los servicios de Lucía inician desde $300 MXN. Te puede dar un presupuesto personalizado sin compromiso.' },
-      { q: ['baño', 'cocina', 'remodelación'], a: 'Lucía se especializa en remodelaciones de baños y cocinas con trabajo garantizado.' },
-      { q: ['cita', 'agendar', 'horario'], a: 'Atiende de Lunes a Viernes de 9am a 5pm. ¿Quieres que te contactemos?' },
-    ],
-    greeting: 'Hola, soy el asistente de Lucía Gutiérrez, especialista en instalaciones sanitarias. ¿En qué te puedo ayudar?',
-  },
 };
 
 /**

@@ -11,13 +11,13 @@ export function HomePage() {
       {/* Hero Section */}
       <section className="hero-gradient" style={{ padding: '5rem 1.5rem 3rem', textAlign: 'center', color: 'var(--on-primary)' }}>
         <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--primary-fixed-dim)', marginBottom: '1rem' }}>
-          THE DIGITAL INSTITUTION
+          LA INSTITUCIÓN DIGITAL
         </p>
         <h1 style={{ fontFamily: 'Manrope', fontSize: 'clamp(2.25rem,5vw,3.5rem)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1, maxWidth: '700px', margin: '0 auto 1.25rem' }}>
           ¿Qué profesional buscas hoy?
         </h1>
         <p style={{ fontSize: '1rem', color: 'var(--primary-fixed-dim)', maxWidth: '520px', margin: '0 auto 2rem', lineHeight: 1.6 }}>
-          Connect with Mexico's most authoritative network of verified consultants, legal experts, and technical specialists.
+          Conecta con la red más autorizada de México de consultores verificados, expertos legales y especialistas técnicos.
         </p>
         {/* Search Bar */}
         <div style={{ maxWidth: '560px', margin: '0 auto', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-xl)', padding: '0.5rem', display: 'flex', alignItems: 'center', boxShadow: 'var(--ambient-shadow-lg)' }}>
@@ -26,25 +26,25 @@ export function HomePage() {
             <input type="text" placeholder="e.g. Abogado Fiscal, Consultor IT, Ingeniero..." style={{ flex: 1, padding: '0.75rem 0', fontSize: '0.875rem', color: 'var(--on-surface)', background: 'transparent', border: 'none', outline: 'none' }} id="hero-search" />
           </div>
           <Link to="/directory" className="btn btn-primary" style={{ borderRadius: 'var(--radius-md)', padding: '0.625rem 1.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-            SEARCH <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_forward</span>
+            BUSCAR <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_forward</span>
           </Link>
         </div>
       </section>
 
       {/* Trust & Compliance Bar */}
       <div className="trust-bar">
-        <span className="trust-item" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>TRUST & COMPLIANCE</span>
+        <span className="trust-item" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>CONFIANZA Y CUMPLIMIENTO</span>
         <span className="trust-item">
           <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: 'var(--secondary)' }}>verified_user</span>
-          SAT Compliant
+          Cumplimiento SAT
         </span>
         <span className="trust-item">
           <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--on-surface-variant)' }}>fingerprint</span>
-          Biometric Security
+          Seguridad Biométrica
         </span>
         <span className="trust-item">
           <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: 'var(--secondary)' }}>shield</span>
-          100% Verified Identities
+          Identidades 100% Verificadas
         </span>
       </div>
 
@@ -52,11 +52,11 @@ export function HomePage() {
       <section style={{ padding: '4rem 1.5rem' }} className="container">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h2 className="text-headline-md" style={{ color: 'var(--primary)', marginBottom: '0.25rem' }}>Explore Expertise</h2>
-            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem' }}>Browse vetted professionals by institutional category.</p>
+            <h2 className="text-headline-md" style={{ color: 'var(--primary)', marginBottom: '0.25rem' }}>Explora Especialidades</h2>
++            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem' }}>Explora profesionales verificados por categoría institucional.</p>
           </div>
           <Link to="/categories" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', textDecoration: 'none' }}>
-            VIEW ALL CATEGORIES <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>chevron_right</span>
+            VER TODAS LAS CATEGORÍAS <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>chevron_right</span>
           </Link>
         </div>
 
@@ -70,8 +70,8 @@ export function HomePage() {
             <div style={{ position: 'absolute', right: '1.5rem', bottom: '1.5rem', opacity: 0.06, fontSize: '8rem', color: 'var(--primary)' }}>
               <span className="material-symbols-outlined" style={{ fontSize: 'inherit' }}>balance</span>
             </div>
-            <h3 className="text-headline-md" style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>Legal & Compliance</h3>
-            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', maxWidth: '380px' }}>Corporate law, tax audits, intellectual property, and labor regulations handled by top-tier firms.</p>
+            <h3 className="text-headline-md" style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>Legal y Cumplimiento</h3>
++            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', maxWidth: '380px' }}>Derecho corporativo, auditorías fiscales, propiedad intelectual y regulaciones laborales manejadas por firmas de alto nivel.</p>
           </div>
 
           {/* Finance & Tax */}
@@ -79,8 +79,8 @@ export function HomePage() {
             <div className="cat-icon" style={{ background: 'rgba(10,29,55,0.06)', color: 'var(--primary)' }}>
               <span className="material-symbols-outlined">account_balance</span>
             </div>
-            <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.375rem' }}>Finance & Tax</h3>
-            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem', lineHeight: 1.5 }}>Certified accountants, financial advisors, and wealth management experts.</p>
+            <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.375rem' }}>Finanzas e Impuestos</h3>
++            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem', lineHeight: 1.5 }}>Contadores certificados, asesores financieros y expertos en gestión patrimonial.</p>
           </Link>
 
           {/* Engineering */}
@@ -88,8 +88,8 @@ export function HomePage() {
             <div className="cat-icon" style={{ background: 'rgba(10,29,55,0.06)', color: 'var(--primary)' }}>
               <span className="material-symbols-outlined">engineering</span>
             </div>
-            <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.375rem' }}>Engineering</h3>
-            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem', lineHeight: 1.5 }}>Civil, structural, and industrial engineering consultants.</p>
+            <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.375rem' }}>Ingeniería</h3>
++            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem', lineHeight: 1.5 }}>Consultores en ingeniería civil, estructural e industrial.</p>
           </Link>
 
           {/* IT & Security */}
@@ -97,14 +97,14 @@ export function HomePage() {
             <div className="cat-icon" style={{ background: 'rgba(231,83,29,0.08)', color: 'var(--on-tertiary-container)' }}>
               <span className="material-symbols-outlined">security</span>
             </div>
-            <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.375rem' }}>IT & Security</h3>
-            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem', lineHeight: 1.5 }}>Systems architects, cybersecurity auditors, and data specialists.</p>
+            <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.375rem' }}>TI y Seguridad</h3>
++            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem', lineHeight: 1.5 }}>Arquitectos de sistemas, auditores de ciberseguridad y especialistas en datos.</p>
           </Link>
 
           {/* Enterprise CTA */}
           <Link to="/categories" style={{ background: 'var(--primary)', borderRadius: 'var(--radius-xl)', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '1rem', cursor: 'pointer', textDecoration: 'none' }}>
-            <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1.125rem', color: 'var(--on-primary)' }}>Need a bespoke team?</h3>
-            <button className="btn" style={{ background: 'var(--surface-container-lowest)', color: 'var(--primary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', border: 'none' }}>ENTERPRISE SOLUTIONS</button>
+            <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1.125rem', color: 'var(--on-primary)' }}>¿Necesitas un equipo a medida?</h3>
++            <button className="btn" style={{ background: 'var(--surface-container-lowest)', color: 'var(--primary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', border: 'none' }}>SOLUCIONES EMPRESARIALES</button>
           </Link>
         </div>
       </section>

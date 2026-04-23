@@ -21,27 +21,27 @@ export function DashboardPage() {
           </div>
           <div>
             <h2 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '0.9375rem', color: 'var(--primary)' }}>{user.name}</h2>
-            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{user.title} • {user.isVerified ? 'Verified' : 'Pending'}</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{user.title} • {user.isVerified ? 'Verificado' : 'Pendiente'}</p>
           </div>
         </div>
 
         <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          <Link to="/dashboard" className="sidebar-link active"><span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px' }}>dashboard</span> Dashboard</Link>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>work</span> Active Projects</Link>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>insights</span> Analytics</Link>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>forum</span> Client Messages</Link>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>account_balance_wallet</span> Finances</Link>
+          <Link to="/dashboard" className="sidebar-link active"><span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px' }}>dashboard</span> Tablero</Link>
++          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>work</span> Proyectos Activos</Link>
++          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>insights</span> Estadísticas</Link>
++          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>forum</span> Mensajes de Clientes</Link>
++          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>account_balance_wallet</span> Finanzas</Link>
         </nav>
 
         <div style={{ marginTop: 'auto' }}>
           <div style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-xl)', padding: '1.25rem', textAlign: 'center', marginBottom: '1rem' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '24px', color: 'var(--tertiary-container)', marginBottom: '0.5rem', display: 'block' }}>workspace_premium</span>
-            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>Unlock advanced analytics.</p>
-            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem' }}>Go Premium</button>
+            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>Desbloquea estadísticas avanzadas.</p>
++            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem' }}>Hacerse Premium</button>
           </div>
           <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <Link to="#" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>help</span> Help Center</Link>
-            <Link to="/" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span> Log Out</Link>
+            <Link to="#" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>help</span> Centro de Ayuda</Link>
++            <Link to="/" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span> Cerrar Sesión</Link>
           </div>
         </div>
       </aside>
@@ -51,12 +51,12 @@ export function DashboardPage() {
         {/* Header */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '3rem' }}>
           <div>
-            <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>OVERVIEW</p>
-            <h1 style={{ fontFamily: 'Manrope', fontSize: 'clamp(2rem,4vw,3rem)', fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.02em' }}>Performance</h1>
+            <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN</p>
++            <h1 style={{ fontFamily: 'Manrope', fontSize: 'clamp(2rem,4vw,3rem)', fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.02em' }}>Rendimiento</h1>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem' }} className="hide-mobile">
-            <button className="btn btn-outline"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>calendar_today</span> Last 30 Days</button>
-            <button className="btn btn-secondary"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span> Export</button>
+            <button className="btn btn-outline"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>calendar_today</span> Últimos 30 Días</button>
++            <button className="btn btn-secondary"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span> Exportar</button>
           </div>
         </header>
 
@@ -66,8 +66,8 @@ export function DashboardPage() {
           <div className="card" style={{ padding: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
               <div>
-                <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1.125rem', color: 'var(--on-surface)', marginBottom: '0.25rem' }}>Total Profile Views</h3>
-                <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Organic & promoted traffic</p>
+                <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1.125rem', color: 'var(--on-surface)', marginBottom: '0.25rem' }}>Visitas Totales al Perfil</h3>
++                <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Tráfico orgánico y promocionado</p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'var(--surface-container-low)', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-full)' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--secondary)' }}>trending_up</span>
@@ -94,13 +94,13 @@ export function DashboardPage() {
               <div style={{ width: '3rem', height: '3rem', background: 'var(--surface-container)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '24px', color: 'var(--primary)' }}>touch_app</span>
               </div>
-              <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.25rem' }}>Total Interactions</h3>
-              <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Clicks on portfolio & contact</p>
+              <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.25rem' }}>Interacciones Totales</h3>
++              <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Clics en portafolio y contacto</p>
             </div>
             <div>
               <p style={{ fontFamily: 'Manrope', fontSize: '3rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.02em' }}>842</p>
               <div className="progress-bar" style={{ marginTop: '1rem' }}><div className="progress-fill" style={{ width: '65%', background: 'var(--primary)' }}></div></div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.75rem' }}>65% conversion to profile view</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.75rem' }}>65% de conversión a vista de perfil</p>
             </div>
           </div>
 
@@ -115,10 +115,10 @@ export function DashboardPage() {
                 <h2 style={{ fontFamily: 'Manrope', fontSize: '1.5rem', fontWeight: 700, color: 'var(--on-primary)', letterSpacing: '-0.01em' }}>Asistencia IA</h2>
               </div>
               <p style={{ color: 'var(--primary-fixed-dim)', lineHeight: 1.6, maxWidth: '450px', marginBottom: '1rem' }}>
-                Your intelligent assistant is actively managing initial inquiries, qualifying leads, and scheduling consultations while you focus on delivery.
+                Tu asistente inteligente está gestionando activamente consultas iniciales, calificando prospectos y agendando consultas mientras tú te enfocas en el trabajo.
               </p>
               <Link to="#" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--secondary-container)', textDecoration: 'none' }}>
-                Configure Bot Parameters <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_forward</span>
+                Configurar Parámetros del Bot <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_forward</span>
               </Link>
             </div>
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>

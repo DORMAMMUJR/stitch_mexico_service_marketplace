@@ -54,10 +54,10 @@ export function ProfilePage() {
                 <h1 style={{ fontFamily: 'Manrope', fontSize: '2rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>{profile.name}</h1>
                 <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem', marginBottom: '1rem' }}>{profile.title || 'Profesional Certificado'}</p>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                  {profile.biometricDone && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '14px' }}>fingerprint</span> BIOMETRIC VERIFIED</span>}
-                  {profile.satVerifiedAt && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '14px' }}>account_balance</span> SAT COMPLIANT</span>}
+                  {profile.biometricDone && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '14px' }}>fingerprint</span> BIOMETRÍA VERIFICADA</span>}
+                  {profile.satVerifiedAt && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '14px' }}>account_balance</span> CUMPLIMIENTO SAT</span>}
                 </div>
-                {profile.isVerified && <span className="badge badge-cyan"><span className="material-symbols-outlined icon-filled" style={{ fontSize: '14px' }}>verified</span> CONOCER CERTIFIED</span>}
+                {profile.isVerified && <span className="badge badge-cyan"><span className="material-symbols-outlined icon-filled" style={{ fontSize: '14px' }}>verified</span> CERTIFICADO CONOCER</span>}
               </div>
             </div>
           </div>

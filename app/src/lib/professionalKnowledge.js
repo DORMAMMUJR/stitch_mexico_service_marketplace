@@ -32,6 +32,23 @@ export const PROFESSIONAL_KNOWLEDGE = {
 
   // ─── Agrega aquí más profesionales ───────────────────────────────────────
 
+  'Dr. Roberto Silva': {
+    visoEnabled: false,
+    name: 'Dr. Roberto Silva',
+    title: 'Consultor Fiscal Senior',
+    price: '$1,500 MXN por asesoría',
+    schedule: 'Lunes a Viernes, 9am – 6pm',
+    location: 'Monterrey y en línea',
+    specialties: ['Optimización Fiscal', 'Auditoría Preventiva', 'Tributación Internacional'],
+    faqs: [
+      { q: ['precio', 'costo', 'cuánto', 'tarifa'], a: 'La asesoría inicial con el Dr. Silva tiene un costo de $1,500 MXN. Incluye revisión de situación actual y diagnóstico.' },
+      { q: ['cita', 'agendar', 'horario', 'reservar', 'lunes', 'semana'], a: '¡Claro! Tengo disponibilidad la próxima semana. Para agendar tu cita, por favor indícame tu nombre completo, teléfono y el horario que prefieres.' },
+      { q: ['gracias', 'ok', 'perfecto'], a: '¡De nada! Tu cita ha quedado pre-registrada. El equipo se contactará contigo para confirmar los detalles finales. ¡Que tengas excelente día!' },
+      { q: ['nombre', 'telefono', 'teléfono', 'mi nombre', 'soy'], a: 'Perfecto, he tomado tus datos. Hemos agendado tu cita provisionalmente. En breve el equipo del Dr. Silva te contactará para confirmar. ¡Gracias!' }
+    ],
+    greeting: 'Hola, soy el asistente virtual del Dr. Roberto Silva. ¿En qué te puedo ayudar hoy? Si deseas agendar una cita, solo dímelo.',
+  },
+
   'Roberto Méndez': {
     visoEnabled: false, // Usa respuestas locales por ahora
     name: 'Roberto Méndez',

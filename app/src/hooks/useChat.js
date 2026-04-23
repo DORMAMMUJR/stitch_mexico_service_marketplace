@@ -35,51 +35,61 @@ export function useChat(professionalName) {
 
       // ─── Nivel 1: VISO / n8n (profesionales con integración completa) ───
       if (hasVisoEnabled(professionalName)) {
-        const WEBHOOK_URL = import.meta.env.VITE_VISO_WEBHOOK_URL;
-        if (WEBHOOK_URL) {
-          const res = await fetch(WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              message: text,
-              professional: professionalName,
-              sessionId: `web-${professionalName?.replace(/\s+/g, '-').toLowerCase()}`,
-              source: 'web_profile',
-              timestamp: new Date().toISOString(),
-            }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            reply = data.output || data.message || data.text;
+        try {
+          const WEBHOOK_URL = import.meta.env.VITE_VISO_WEBHOOK_URL;
+          if (WEBHOOK_URL) {
+            const res = await fetch(WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                message: text,
+                professional: professionalName,
+                sessionId: `web-${professionalName?.replace(/\s+/g, '-').toLowerCase()}`,
+                source: 'web_profile',
+                timestamp: new Date().toISOString(),
+              }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              reply = data.output || data.message || data.text;
+            }
           }
+        } catch (e) {
+          console.warn("Nivel 1 (n8n) falló:", e);
         }
       }
 
       // ─── Nivel 2: OpenAI via backend (fallback para todos los demás) ───
       if (!reply) {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-        // Pasar las últimas 6 interacciones como historial de contexto
-        const history = messages.slice(-6).map(m => ({ sender: m.sender, text: m.text }));
-        history.push({ sender: 'user', text }); // incluir el mensaje actual
+        try {
+          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+          // Pasar las últimas 6 interacciones como historial de contexto
+          const history = messages.slice(-6).map(m => ({ sender: m.sender, text: m.text }));
+          history.push({ sender: 'user', text }); // incluir el mensaje actual
 
-        const res = await fetch(`${API_URL}/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: text,
-            professional: professionalName,
-            history,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          reply = data.output || data.message;
+          const res = await fetch(`${API_URL}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: text,
+              professional: professionalName,
+              history,
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            reply = data.output || data.message;
+          }
+        } catch (e) {
+          console.warn("Nivel 2 (Backend AI) falló:", e);
         }
       }
 
-      // ─── Nivel 3: Mensaje genérico de último recurso ───
+      // ─── Nivel 3: Mensaje local de último recurso ───
       if (!reply) {
-        reply = `Gracias por tu mensaje. El equipo de ${professionalName || 'este profesional'} te contactará pronto para darte toda la información.`;
+        // Importación dinámica evitada importando getLocalResponse arriba
+        const { getLocalResponse } = await import('../lib/professionalKnowledge');
+        reply = getLocalResponse(professionalName, text);
       }
 
       setMessages((prev) => [

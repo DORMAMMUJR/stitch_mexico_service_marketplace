@@ -120,6 +120,51 @@ export function IntecniaProfilePage() {
               ))}
             </div>
           </div>
+          {/* Portfolio */}
+          <div className="card animate-in stagger-4" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '1.25rem' }}>Portafolio y Experiencia</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              {[
+                { img: 'https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=400&h=250&fit=crop', label: 'Terapia de Pareja', sub: '120+ sesiones realizadas' },
+                { img: 'https://images.unsplash.com/photo-1544027993-37dbfe43562a?w=400&h=250&fit=crop', label: 'Adolescentes', sub: '85+ pacientes atendidos' },
+              ].map((p) => (
+                <div key={p.label} style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', position: 'relative', height: '160px' }}>
+                  <img src={p.img} alt={p.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 30%, transparent)' }}></div>
+                  <div style={{ position: 'absolute', bottom: '0.75rem', left: '0.75rem', color: '#fff' }}>
+                    <p style={{ fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--secondary-fixed-dim)', fontWeight: 600 }}>{p.sub}</p>
+                    <h4 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.9375rem', marginTop: '0.125rem' }}>{p.label}</h4>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Pricing / Packages */}
+          <div className="card animate-in stagger-5" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '1.25rem' }}>Paquetes y Servicios</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {[
+                { name: 'Consulta Inicial', price: '$350 MXN', desc: 'Sesión de 50 min. Diagnóstico y plan de trabajo personalizado.', popular: false },
+                { name: 'Paquete Mensual', price: '$1,200 MXN', desc: '4 sesiones al mes. Seguimiento semanal con reportes de avance.', popular: true },
+                { name: 'Terapia de Pareja', price: '$500 MXN', desc: 'Sesión de 75 min para parejas. Trabajo en comunicación y conflicto.', popular: false },
+              ].map((pkg) => (
+                <div key={pkg.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', border: pkg.popular ? '2px solid var(--secondary)' : 'var(--glass-border)', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <h4 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--primary)' }}>{pkg.name}</h4>
+                      {pkg.popular && <span style={{ fontSize: '0.625rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: 'var(--secondary)', color: 'var(--on-secondary)', padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)' }}>POPULAR</span>}
+                    </div>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem' }}>{pkg.desc}</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--secondary)' }}>{pkg.price}</p>
+                    <p style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)' }}>por sesión</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Right Column: AI Chat */}

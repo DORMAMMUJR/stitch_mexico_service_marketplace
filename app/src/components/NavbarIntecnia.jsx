@@ -22,6 +22,10 @@ export function NavbarIntecnia({ activePage }) {
           <Link to="/dashboard" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
             Dashboard
           </Link>
+          <button style={{ padding: '0.5rem', color: 'var(--on-surface-variant)', border: 'none', background: 'transparent', position: 'relative' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>notifications</span>
+            <span style={{ position: 'absolute', top: '6px', right: '6px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--secondary)', border: '2px solid var(--surface-container-lowest)' }}></span>
+          </button>
           {/* Hamburger */}
           <button className="hamburger-btn" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Menú">
             <span className="material-symbols-outlined" style={{ fontSize: '28px' }}>{mobileOpen ? 'close' : 'menu'}</span>

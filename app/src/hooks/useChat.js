@@ -14,7 +14,7 @@ export function useChat(professionalName) {
   const sendMessage = useCallback(async (text) => {
     if (!text.trim()) return;
 
-    // Add user message
+    // Añadir mensaje del usuario
     const userMsg = {
       id: Date.now(),
       sender: 'user',
@@ -22,45 +22,49 @@ export function useChat(professionalName) {
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMsg]);
+    setIsTyping(true); // ← Activa el indicador "escribiendo..."
 
-    // Conexión real con n8n / VISO
+    // Conexión con n8n / VISO
     try {
       const WEBHOOK_URL = import.meta.env.VITE_VISO_WEBHOOK_URL;
+      if (!WEBHOOK_URL) throw new Error('VITE_VISO_WEBHOOK_URL no configurado');
+
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
           professional: professionalName,
-          timestamp: new Date(),
-          source: 'web_profile'
+          sessionId: `web-${professionalName?.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`,
+          source: 'web_profile',
+          timestamp: new Date().toISOString(),
         }),
       });
 
-      if (!response.ok) throw new Error('Error en la comunicación con VISO');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const data = await response.json();
-      
+
       const botMsg = {
         id: Date.now() + 1,
         sender: 'bot',
-        text: data.output || data.message || `He recibido tu mensaje. El asistente de ${professionalName} se pondrá en contacto pronto.`,
+        text: data.output || data.message || data.text || `Gracias por tu mensaje. El equipo de ${professionalName} te responderá pronto.`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botMsg]);
     } catch (err) {
       console.error('VISO Error:', err);
-      const errorMsg = {
-        id: Date.now() + 1,
-        sender: 'bot',
-        text: 'Lo siento, tuve un problema al conectar con mi cerebro IA. Por favor, intenta de nuevo en unos momentos.',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMsg]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          sender: 'bot',
+          text: 'Lo siento, tuve un problema al conectarme. Por favor intenta de nuevo en unos momentos.',
+          timestamp: new Date(),
+        },
+      ]);
     } finally {
-      setIsTyping(false);
+      setIsTyping(false); // ← Siempre apaga el indicador
     }
   }, [professionalName]);
 

@@ -41,7 +41,7 @@ export function ProfilePage() {
       <NotifBanner />
       <NavbarKonectia />
 
-      <div className="container" style={{ padding: '2rem 1.5rem 4rem', display: 'grid', gridTemplateColumns: '1fr 380px', gap: '2rem', alignItems: 'start' }}>
+      <div className="container layout-profile">
         {/* Left Column */}
         <div>
           {/* Profile Card */}

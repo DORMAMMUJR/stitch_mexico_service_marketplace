@@ -11,9 +11,9 @@ export function DashboardPage() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="dashboard-layout">
       {/* Sidebar */}
-      <aside className="sidebar" style={{ width: '18rem', padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
+      <aside className="sidebar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', padding: '0.5rem' }}>
           <div style={{ position: 'relative' }}>
             <img src={user.avatarUrl} alt={user.name} style={{ width: '3rem', height: '3rem', borderRadius: '50%', objectFit: 'cover' }} />
@@ -47,21 +47,21 @@ export function DashboardPage() {
       </aside>
 
       {/* Main Content */}
-      <main className="main-with-sidebar" style={{ flex: 1, marginLeft: '18rem', padding: '3rem' }}>
+      <main className="dashboard-main">
         {/* Header */}
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '3rem' }}>
+        <header className="flex-between" style={{ marginBottom: '3rem' }}>
           <div>
             <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN</p>
-+            <h1 style={{ fontFamily: 'Manrope', fontSize: 'clamp(2rem,4vw,3rem)', fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.02em' }}>Rendimiento</h1>
+            <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Rendimiento</h1>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }} className="hide-mobile">
+          <div className="dashboard-header-actions hide-mobile">
             <button className="btn btn-outline"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>calendar_today</span> Últimos 30 Días</button>
-+            <button className="btn btn-secondary"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span> Exportar</button>
+            <button className="btn btn-secondary"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span> Exportar</button>
           </div>
         </header>
 
         {/* Bento Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
+        <div className="layout-bento">
           {/* Profile Views Card */}
           <div className="card" style={{ padding: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>

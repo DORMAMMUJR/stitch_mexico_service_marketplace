@@ -202,7 +202,7 @@ img { display: block; max-width: 100%; }
 /* ── Sidebar ── */
 .sidebar {
   position: fixed; left: 0; top: 0; bottom: 0;
-  width: 16rem; z-index: 40;
+  width: 18rem; z-index: 40;
   background: var(--surface-container-lowest);
   display: flex; flex-direction: column;
   padding: 1.5rem;
@@ -347,17 +347,68 @@ img { display: block; max-width: 100%; }
 .animate-in { animation: fadeInUp 0.4s ease forwards; }
 .animate-fade { animation: fadeIn 0.3s ease forwards; }
 
+/* ── Responsive Layout Classes ── */
+
+/* Dashboard: sidebar + main */
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+}
+.dashboard-main {
+  flex: 1;
+  margin-left: 18rem;
+  padding: 3rem;
+}
+
+/* Directory: filters sidebar + results */
+.layout-directory {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 1.5rem;
+  padding: 0 1.5rem 3rem;
+}
+
+/* Profile: content + chat */
+.layout-profile {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 2rem;
+  align-items: start;
+  padding: 2rem 1.5rem 4rem;
+}
+
+/* Dashboard metrics bento grid */
+.layout-bento {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+}
+
+/* Dashboard header actions */
+.dashboard-header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
 /* ── Responsive ── */
 @media (max-width: 1024px) {
   .sidebar { display: none; }
-  .main-with-sidebar { margin-left: 0 !important; }
+  .dashboard-main { margin-left: 0; }
+  .layout-directory { grid-template-columns: 1fr; }
+  .layout-profile { grid-template-columns: 1fr; }
+  .layout-bento { grid-template-columns: 1fr; }
+  .hide-mobile { display: none !important; }
 }
 @media (max-width: 768px) {
   .text-display-lg { font-size: 2rem; }
   .text-headline-md { font-size: 1.375rem; }
-  .hide-mobile { display: none !important; }
+  .dashboard-main { padding: 1.5rem; }
+  .layout-profile { padding: 1rem 1rem 3rem; }
 }
 
 /* ── Utility ── */
 .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-center { display: flex; align-items: center; }
+.flex-col { display: flex; flex-direction: column; }

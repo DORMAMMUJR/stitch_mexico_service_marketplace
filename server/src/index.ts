@@ -16,12 +16,40 @@ const prisma = new PrismaClient({ adapter });
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+const allowedOrigins = [
+  // Desarrollo local
+  'http://localhost:5173',
+  'http://localhost:4173',
+  // Agrega aquí tu dominio de Vercel y Seenode cuando los tengas:
+  // 'https://konectia.vercel.app',
+  // 'https://web-XXXXX.up-de-fra1-k8s-1.apps.run-on-seenode.com',
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permite peticiones sin origin (Postman, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.some(o => origin.startsWith(o)) || origin.includes('seenode.com') || origin.includes('vercel.app')) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS bloqueado para: ${origin}`));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
 // Healthcheck
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: '🚀 KonectIA API Backend is running!',
+    status: 'online',
+    endpoints: ['/health', '/api/professionals/:id', '/api/chat']
+  });
 });
 
 /**

@@ -4,10 +4,17 @@ import { NavbarKonectia } from '../components/NavbarKonectia';
 import { Footer } from '../components/Footer';
 
 const professionals = [
-  { id: 1, name: 'Roberto Méndez', title: 'MASTER PLUMBER • PREMIUM', jobs: 142, exp: '8y', rating: 4.9, desc: 'Expert en sistemas hidroneumáticos y fugas críticas. Respuesta rápida en toda el área de Zapopan. Certificado...', img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face', tier: 'premium' },
-  { id: 2, name: 'Lucía Gutiérrez', title: 'INSTALACIONES SANITARIAS • STANDARD', jobs: 89, exp: '5y', rating: 4.7, desc: 'Especialista en remodelaciones de baños y cocinas. Trabajo garantizado y presupuestos sin compromiso en la zona...', img: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face', tier: 'standard' },
-  { id: 3, name: 'Jorge Hernández', title: 'INDUSTRIAL PLUMBING • PREMIUM', jobs: 210, exp: '15y', rating: 5.0, desc: 'Servicio institucional para comercios y residencias de alto nivel. Especialista en calderas y sistemas de presión...', img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face', tier: 'premium' },
-  { id: 4, name: 'Sandra Ortiz', title: 'DOMESTIC MAINTENANCE • STANDARD', jobs: 65, exp: '3y', rating: 4.8, desc: 'Mantenimiento preventivo y correctivo. Rapidez y honestidad. Atención personalizada para departamentos...', img: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop&crop=face', tier: 'standard' },
+  { 
+    id: 1, 
+    name: 'Pamela Osnaya', 
+    title: 'PSICÓLOGA CLÍNICA • PREMIUM', 
+    jobs: 85, 
+    exp: '10y', 
+    rating: 5.0, 
+    desc: 'Especialista en terapia de pareja, adolescentes y post-separación. Consulta presencial en CDMX y en línea. Sesiones personalizadas con enfoque cognitivo-conductual.', 
+    img: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face', 
+    tier: 'premium' 
+  }
 ];
 
 export function DirectoryPage() {
@@ -30,8 +37,8 @@ export function DirectoryPage() {
       <div className="container" style={{ padding: '0 1.5rem 1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>Plomeros urgentes en Zapopan</h1>
-            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>14 profesionales verificados encontrados cerca de tu ubicación</p>
+            <h1 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>Psicólogos Clínicos Verificados</h1>
+            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>1 profesional verificado encontrado en tu área</p>
           </div>
           <button className="btn btn-outline" style={{ fontSize: '0.8125rem' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>tune</span>

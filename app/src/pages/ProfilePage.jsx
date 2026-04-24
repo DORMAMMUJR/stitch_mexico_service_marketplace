@@ -68,7 +68,7 @@ export function ProfilePage() {
             <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.7, marginBottom: '2rem' }}>
               {profile.bio || 'Este profesional aún no ha completado su descripción institucional.'}
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1.5rem' }}>
+            <div className="grid-4">
               {[
                 { val: profile.yearsExp || '0+', label: 'AÑOS EXP.' },
                 { val: profile.projectsCount || '0+', label: 'PROYECTOS' },
@@ -85,7 +85,7 @@ export function ProfilePage() {
 
           {/* Portfolio */}
           <h2 className="text-headline-md" style={{ color: 'var(--primary)', marginBottom: '1rem' }}>Portafolio Destacado</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="grid-2">
             <div style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden', position: 'relative', height: '200px', cursor: 'pointer' }}>
               <img src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&h=250&fit=crop" alt="Automatización" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top,rgba(0,3,10,0.8) 30%,transparent)' }}></div>

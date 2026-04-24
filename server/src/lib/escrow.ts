@@ -1,11 +1,11 @@
-import { PrismaClient, OrderStatus, Order, OrderEvent, DisputeResolution } from '@prisma/client';
+import { PrismaClient, Prisma, OrderStatus, Order, OrderEvent, DisputeResolution } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 export class EscrowStateMachine {
   
   static async transition(orderId: string, newState: OrderStatus, metadata: any = {}): Promise<Order> {
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const order = await tx.order.findUnique({ where: { id: orderId } });
       
       if (!order) {

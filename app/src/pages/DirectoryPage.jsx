@@ -119,7 +119,7 @@ export function DirectoryPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '1.25rem' }}>
             {professionals.map(p => (
               <div key={p.id} className="pro-card" style={{ cursor: 'pointer' }}>
-                <Link to={`/profile/${p.id}`} style={{ display: 'block', color: 'inherit' }}>
+                <Link to={`/intecnia-profile/${p.id}`} style={{ display: 'block', color: 'inherit' }}>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
                     <div style={{ position: 'relative' }}>
                       <img src={p.img} alt={p.name} style={{ width: '3.5rem', height: '3.5rem', borderRadius: 'var(--radius-lg)', objectFit: 'cover' }} />

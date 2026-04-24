@@ -20,7 +20,7 @@ export function IntecniaProfilePage() {
     name: 'Pamela Osnaya',
     title: 'Psicóloga Clínica',
     bio: 'Especialista en terapia de pareja, adolescentes y procesos post-separación. Con más de 10 años de experiencia acompañando a personas y familias en momentos de cambio y crecimiento personal.',
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=160&h=180&fit=crop&crop=face',
+    avatarUrl: '/pamela.jpg',
     isVerified: true,
     biometricDone: true,
     satVerifiedAt: true,

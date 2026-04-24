@@ -12,8 +12,8 @@ const professionals = [
     exp: '10y', 
     rating: 5.0, 
     desc: 'Especialista en terapia de pareja, adolescentes y post-separación. Consulta presencial en CDMX y en línea. Sesiones personalizadas con enfoque cognitivo-conductual.', 
-    img: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face', 
-    tier: 'premium' 
+    img: '/pamela.jpg', 
+    tier: 'premium'  
   }
 ];
 

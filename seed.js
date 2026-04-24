@@ -90,7 +90,7 @@ async function seed() {
       'seed_placeholder',
       'PROFESSIONAL',
       'Pamela Osnaya',
-      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=160&h=180&fit=crop&crop=face',
+      '/pamela.jpg',
       true,
     ]);
 

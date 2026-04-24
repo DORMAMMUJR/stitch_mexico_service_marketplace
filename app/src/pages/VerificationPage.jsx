@@ -56,7 +56,7 @@ export function VerificationPage() {
           ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '2rem' }}>
+        <div className="grid-sidebar-right">
           {/* Left Column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             {/* Biometric Identity */}
@@ -70,7 +70,7 @@ export function VerificationPage() {
                 </div>
               </div>
               <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Utilizamos tecnología de grado bancario para validar su identidad mediante reconocimiento facial y cotejo de INE/Pasaporte.</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="grid-2">
                 <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', textAlign: 'center' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--primary)', marginBottom: '0.5rem', display: 'block' }}>badge</span>
                   <p style={{ fontWeight: 500, fontSize: '0.875rem', marginBottom: '0.25rem' }}>INE / Pasaporte</p>

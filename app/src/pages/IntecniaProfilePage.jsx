@@ -73,7 +73,7 @@ export function IntecniaProfilePage() {
           <div className="card animate-in stagger-2" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
             <h2 className="text-headline-md" style={{ color: 'var(--primary)', marginBottom: '1rem', fontSize: '1.25rem' }}>Sobre Mí</h2>
             <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.8, marginBottom: '2rem' }}>{prof.bio}</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1.5rem' }}>
+            <div className="grid-4">
               {[
                 { val: prof.yearsExp, label: 'AÑOS EXP.' },
                 { val: prof.projectsCount, label: 'PROYECTOS' },
@@ -123,7 +123,7 @@ export function IntecniaProfilePage() {
           {/* Portfolio */}
           <div className="card animate-in stagger-4" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
             <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '1.25rem' }}>Portafolio y Experiencia</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="grid-2">
               {[
                 { img: 'https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=400&h=250&fit=crop', label: 'Terapia de Pareja', sub: '120+ sesiones realizadas' },
                 { img: 'https://images.unsplash.com/photo-1544027993-37dbfe43562a?w=400&h=250&fit=crop', label: 'Adolescentes', sub: '85+ pacientes atendidos' },

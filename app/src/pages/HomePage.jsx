@@ -28,8 +28,7 @@ export function HomePage() {
           Conecta con la red más autorizada de México de consultores verificados, expertos legales y especialistas técnicos.
         </p>
 
-        {/* Search Bar - Real Form */}
-        <form onSubmit={handleSearch} className="hero-search-container animate-in stagger-4" style={{ maxWidth: '600px', margin: '0 auto', borderRadius: 'var(--radius-xl)', padding: '0.375rem', display: 'flex', alignItems: 'center' }}>
+        <form onSubmit={handleSearch} className="hero-search-container animate-in stagger-4" style={{ maxWidth: '600px', margin: '0 auto', borderRadius: 'var(--radius-xl)', padding: '0.375rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, padding: '0 1.25rem' }}>
             <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: '22px' }}>search</span>
             <input

@@ -495,6 +495,13 @@ img { display: block; max-width: 100%; }
 .layout-bento { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
 .dashboard-header-actions { display: flex; gap: 0.75rem; }
 
+/* Responsive Grid Utilities */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
+.grid-sidebar-right { display: grid; grid-template-columns: 1fr 320px; gap: 2rem; }
+.flex-row-mobile-col { display: flex; flex-direction: row; gap: 1rem; }
+.flex-wrap-center { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
 /* ── Responsive ── */
 @media (max-width: 1024px) {
   .sidebar { display: none; }
@@ -505,12 +512,34 @@ img { display: block; max-width: 100%; }
   .hide-mobile { display: none !important; }
   .hamburger-btn { display: block; }
 }
+
 @media (max-width: 768px) {
   .text-display-lg { font-size: 2rem; }
   .text-headline-md { font-size: 1.375rem; }
   .dashboard-main { padding: 1.5rem; }
   .layout-profile { padding: 1rem 1rem 3rem; }
   .chat-sticky-desktop { position: static !important; height: auto !important; min-height: 400px; }
+  
+  /* Grid Overrides for Mobile */
+  .grid-2 { grid-template-columns: 1fr; }
+  .grid-4 { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+  .grid-sidebar-right { grid-template-columns: 1fr; }
+  .flex-row-mobile-col { flex-direction: column; }
+  
+  /* Container Overrides */
+  .container { padding: 0 1rem; }
+  section[style*="padding: 5rem 1.5rem"] { padding: 3rem 1rem !important; }
+  section[style*="padding: '5rem 1.5rem'"] { padding: 3rem 1rem !important; }
+
+  /* Hero Section Overrides */
+  .hero-gradient[style] { padding: 4rem 1rem 3rem !important; }
+  .hero-search-container { flex-direction: column; border-radius: var(--radius-lg) !important; padding: 1rem !important; gap: 0.75rem; }
+  .hero-search-container > div { padding: 0 !important; width: 100%; }
+  .hero-search-container input { width: 100%; text-align: center; }
+  .hero-search-container .btn { width: 100%; justify-content: center; }
+  
+  /* Footer */
+  .footer { padding: 2rem 1rem; }
 }
 
 /* ── Utility ── */

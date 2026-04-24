@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { NavbarKonectia } from '../components/NavbarKonectia';
+import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 import { TrustBar } from '../components/TrustBar';
 
@@ -14,7 +14,7 @@ export function CategoriesPage() {
 
   return (
     <>
-      <NavbarKonectia />
+      <NavbarIntecnia />
 
       {/* Hero Banner */}
       <section style={{ margin: '1.5rem', borderRadius: 'var(--radius-xl)', overflow: 'hidden', background: 'var(--primary)', position: 'relative', padding: '3rem 2.5rem', display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'center' }}>

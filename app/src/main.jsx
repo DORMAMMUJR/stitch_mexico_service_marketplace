@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HomePage } from './pages/HomePage';
 import { DirectoryPage } from './pages/DirectoryPage';
 import { CategoriesPage } from './pages/CategoriesPage';
-import { ProfilePage } from './pages/ProfilePage';
+
 import { IntecniaProfilePage } from './pages/IntecniaProfilePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { VerificationPage } from './pages/VerificationPage';
@@ -30,7 +30,7 @@ ReactDOM.createRoot(document.getElementById('app')).render(
           <Route path="/" element={<HomePage />} />
           <Route path="/directory" element={<DirectoryPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
-          <Route path="/profile/:id" element={<ProfilePage />} />
+          <Route path="/profile/:id" element={<IntecniaProfilePage />} />
           <Route path="/intecnia-profile" element={<IntecniaProfilePage />} />
           <Route path="/intecnia-profile/:id" element={<IntecniaProfilePage />} />
           <Route path="/dashboard" element={<DashboardPage />} />

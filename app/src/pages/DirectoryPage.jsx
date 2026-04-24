@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { NavbarKonectia } from '../components/NavbarKonectia';
+import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 
 const professionals = [
@@ -20,7 +20,7 @@ const professionals = [
 export function DirectoryPage() {
   return (
     <>
-      <NavbarKonectia />
+      <NavbarIntecnia />
 
       {/* Breadcrumb */}
       <div className="container" style={{ padding: '1rem 1.5rem' }}>

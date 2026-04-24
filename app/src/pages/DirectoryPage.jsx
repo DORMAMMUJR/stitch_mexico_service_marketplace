@@ -5,7 +5,7 @@ import { Footer } from '../components/Footer';
 
 const professionals = [
   { 
-    id: 'prof_pamela_osnaya_001', 
+    id: 'prof-pamela-001', 
     name: 'Pamela Osnaya', 
     title: 'PSICÓLOGA CLÍNICA • PREMIUM', 
     jobs: 85, 

@@ -124,10 +124,10 @@ if (process.env.AWS_REGION && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_S
   }
   
   storage = multer.diskStorage({
-    destination: uploadsDir,
-    filename: (_req: any, file: any, cb: any) => {
+    destination: (req: any, file: any, cb: any) => cb(null, uploadsDir),
+    filename: (req: any, file: any, cb: any) => {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + path.extname(file.originalname));
+      cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
     },
   });
 

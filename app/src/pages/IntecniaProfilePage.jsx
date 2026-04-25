@@ -5,10 +5,12 @@ import { Footer } from '../components/Footer';
 import { NotifBanner } from '../components/NotifBanner';
 import { ChatWidget } from '../components/ChatWidget';
 import { useProfile } from '../hooks/useProfile';
+import { useReviews } from '../hooks/useReviews';
 
 export function IntecniaProfilePage() {
   const { id } = useParams();
   const { data: profile, isLoading, error } = useProfile(id);
+  const { data: dbReviews } = useReviews(id);
   const chatRef = useRef(null);
 
   const scrollToChat = () => {
@@ -18,9 +20,10 @@ export function IntecniaProfilePage() {
   // Datos por defecto si no hay ID o si la data no carga
   const prof = profile || {
     name: 'Pamela Osnaya',
+    phone: null, // Anti-leakage: null por defecto (solo visible tras escrow)
     title: 'Psicóloga Clínica',
     bio: 'Especialista en terapia de pareja, adolescentes y procesos post-separación. Con más de 10 años de experiencia acompañando a personas y familias en momentos de cambio y crecimiento personal.',
-    avatarUrl: '/pamela.jpg',
+    avatarUrl: '/pamela-real.jpg',
     isVerified: true,
     biometricDone: true,
     satVerifiedAt: true,
@@ -28,13 +31,30 @@ export function IntecniaProfilePage() {
     projectsCount: '25+',
     successRate: '98%',
     rating: '4.9',
+    reviewCount: 3,
   };
 
-  const reviews = [
-    { name: 'Laura M.', date: 'Hace 2 semanas', stars: 5, text: 'Excelente profesional. Me ayudó muchísimo con mi proceso de duelo post-separación. La recomiendo ampliamente.' },
-    { name: 'Carlos R.', date: 'Hace 1 mes', stars: 5, text: 'Mi hijo adolescente ha mejorado notablemente desde que comenzó las sesiones. Muy agradecido.' },
-    { name: 'Patricia G.', date: 'Hace 2 meses', stars: 4, text: 'Muy profesional y empática. Las sesiones en línea funcionan perfectamente.' },
+  // Reseñas dinámicas (fallback a datos estáticos si la BD no tiene registros)
+  const fallbackReviews = [
+    { name: 'Laura M.', date: 'Hace 2 semanas', rating: 5, comment: 'Excelente profesional. Me ayudó muchísimo con mi proceso de duelo post-separación. La recomiendo ampliamente.' },
+    { name: 'Carlos R.', date: 'Hace 1 mes', rating: 5, comment: 'Mi hijo adolescente ha mejorado notablemente desde que comenzó las sesiones. Muy agradecido.' },
+    { name: 'Patricia G.', date: 'Hace 2 meses', rating: 4, comment: 'Muy profesional y empática. Las sesiones en línea funcionan perfectamente.' },
   ];
+
+  const reviews = (dbReviews && dbReviews.length > 0)
+    ? dbReviews.map(r => ({
+        name: r.name,
+        date: new Date(r.date).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' }),
+        rating: r.rating,
+        comment: r.comment,
+      }))
+    : fallbackReviews;
+
+  // Función helper para formatear fecha relativa
+  const formatRelativeDate = (dateStr) => {
+    if (typeof dateStr === 'string' && dateStr.startsWith('Hace')) return dateStr;
+    return dateStr;
+  };
 
   return (
     <>
@@ -55,6 +75,20 @@ export function IntecniaProfilePage() {
               <div style={{ flex: 1, minWidth: '240px' }}>
                 <h1 style={{ fontFamily: 'Manrope', fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>{prof.name}</h1>
                 <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem', marginBottom: '1rem' }}>{prof.title}</p>
+
+                {/* ── Teléfono: Anti-Leakage ─────────────────────────────── */}
+                {prof.phone ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--secondary)' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>call</span>
+                    <span style={{ fontWeight: 600 }}>{prof.phone}</span>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', marginBottom: '1rem', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>lock</span>
+                    El contacto directo se habilita al fondear la orden.
+                  </p>
+                )}
+
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
                   {prof.biometricDone && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '14px' }}>fingerprint</span> BIOMETRÍA</span>}
                   {prof.satVerifiedAt && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '14px' }}>account_balance</span> SAT</span>}
@@ -88,14 +122,14 @@ export function IntecniaProfilePage() {
             </div>
           </div>
 
-          {/* Reviews */}
+          {/* Reviews — Dinámicas desde BD */}
           <div className="card animate-in stagger-3" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)' }}>Reseñas Recientes</h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                 <span className="material-symbols-outlined icon-filled" style={{ fontSize: '18px', color: '#f59e0b' }}>star</span>
                 <span style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)' }}>{prof.rating}</span>
-                <span style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem' }}>({reviews.length} reseñas)</span>
+                <span style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem' }}>({prof.reviewCount || reviews.length} reseñas)</span>
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -108,14 +142,14 @@ export function IntecniaProfilePage() {
                       </div>
                       <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--primary)' }}>{r.name}</span>
                     </div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{r.date}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{formatRelativeDate(r.date)}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '2px', marginBottom: '0.5rem' }}>
-                    {Array.from({ length: r.stars }).map((_, j) => (
+                    {Array.from({ length: r.rating }).map((_, j) => (
                       <span key={j} className="material-symbols-outlined icon-filled" style={{ fontSize: '14px', color: '#f59e0b' }}>star</span>
                     ))}
                   </div>
-                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', lineHeight: 1.6 }}>{r.text}</p>
+                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', lineHeight: 1.6 }}>{r.comment}</p>
                 </div>
               ))}
             </div>

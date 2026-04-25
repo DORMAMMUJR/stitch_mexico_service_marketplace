@@ -25,7 +25,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
   }
 
   try {
-    const payload = jwt.verify(token, env.JWT_PUBLIC_KEY, { algorithms: ['RS256'] }) as JwtPayload;
+    const payload = jwt.verify(token, env.JWT_PUBLIC_KEY as string, { algorithms: ['RS256'] }) as unknown as JwtPayload;
     req.user = payload;
     next();
   } catch (err) {

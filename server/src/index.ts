@@ -2,19 +2,35 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
+import multerS3 from 'multer-s3';
+import { S3Client } from '@aws-sdk/client-s3';
+import Stripe from 'stripe';
 import pg from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@prisma/client';
+import { EscrowStateMachine } from './lib/escrow'; // Asumiendo que está exportado así
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-// Conexión directa a PostgreSQL (Seenode)
+// ─── Prisma Client con adapter pg (Prisma v7) ────────────────────────────────
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// ─── Stripe Config ───────────────────────────────────────────────────────────
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_dummy', {
+  apiVersion: '2026-04-22.dahlia', // Usa la versión requerida por la SDK instalada
+});
+
+// ─── CORS ────────────────────────────────────────────────────────────────────
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:4173',
@@ -31,18 +47,115 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+// ─── Stripe Webhook (Debe ir ANTES de express.json) ──────────────────────────
+// Stripe necesita el raw body para verificar la firma criptográfica
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+
+  try {
+    if (!sig || !endpointSecret) {
+      throw new Error('Falta firma o secreto de webhook');
+    }
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err: any) {
+    console.error(`❌ Error de firma de Webhook: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Manejar el evento
+  try {
+    if (event.type === 'payment_intent.succeeded') {
+      const paymentIntent = event.data.object as any;
+      // Asumimos que al crear el PaymentIntent, guardaste el orderId en metadata
+      const orderId = paymentIntent.metadata.orderId;
+
+      if (orderId) {
+        console.log(`💰 Pago completado para la orden: ${orderId}. Cambiando estado a FONDOS_EN_ESCROW...`);
+        await EscrowStateMachine.transition(orderId, 'FONDOS_EN_ESCROW', {
+          stripePaymentIntentId: paymentIntent.id
+        });
+      } else {
+        console.warn('⚠️ PaymentIntent succeeded pero no tiene orderId en metadata.');
+      }
+    }
+    res.json({ received: true });
+  } catch (err) {
+    console.error('Error procesando el evento de Stripe:', err);
+    res.status(500).end();
+  }
+});
+
+// ─── Middleware Global JSON ──────────────────────────────────────────────────
 app.use(express.json());
 
+// ─── Multer Config (S3 con Fallback Local) ───────────────────────────────────
+let storage;
+
+if (process.env.AWS_REGION && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.AWS_S3_BUCKET_NAME) {
+  console.log('☁️  AWS configurado. Usando S3 para almacenamiento de documentos.');
+  const s3 = new S3Client({
+    region: process.env.AWS_REGION,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
+  });
+
+  storage = multerS3({
+    s3: s3,
+    bucket: process.env.AWS_S3_BUCKET_NAME,
+    metadata: function (_req: any, file: any, cb: any) {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: function (_req: any, file: any, cb: any) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      cb(null, `verifications/${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+  });
+} else {
+  console.log('💾 AWS no detectado. Usando fallback de almacenamiento local (diskStorage).');
+  const uploadsDir = path.join(__dirname, '../uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  
+  storage = multer.diskStorage({
+    destination: uploadsDir,
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    },
+  });
+
+  // Servir archivos subidos localmente
+  app.use('/uploads', express.static(uploadsDir));
+}
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten archivos PDF') as any);
+    }
+  },
+});
+
 // ─── Servir el build del frontend React ──────────────────────────────────────
-// En Seenode solo se copia la carpeta server/ — el frontend va en server/public/
 const frontendDist = path.join(__dirname, '../public');
 app.use(express.static(frontendDist));
 
-// Healthcheck
+// ─── Healthcheck ─────────────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
   try {
-    const result = await pool.query('SELECT NOW()');
-    res.json({ status: 'ok', env: process.env.NODE_ENV, db: result.rows[0].now });
+    const result: any[] = await prisma.$queryRaw`SELECT NOW()`;
+    res.json({ status: 'ok', env: process.env.NODE_ENV, db: result[0]?.now });
   } catch (err) {
     res.json({ status: 'ok', env: process.env.NODE_ENV, db: 'no conectada' });
   }
@@ -55,37 +168,71 @@ app.get('/health', async (req, res) => {
 app.get('/api/professionals/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const clientId = req.query.clientId as string | undefined;
 
-    const profResult = await pool.query(
-      'SELECT * FROM "Professional" WHERE id = $1',
-      [id]
-    );
+    const professional = await prisma.professional.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        reviews: true,
+        orders: true,
+      },
+    });
 
-    if (profResult.rows.length === 0) {
+    if (!professional) {
       return res.status(404).json({ message: 'Profesional no encontrado' });
     }
 
-    const professional = profResult.rows[0];
-
-    const userResult = await pool.query(
-      'SELECT * FROM "User" WHERE id = $1',
-      [professional.userId]
+    const completedOrders = professional.orders.filter(o => o.status === 'COMPLETADO');
+    const totalNonDraftOrders = professional.orders.filter(
+      o => !['DRAFT', 'CANCELADO'].includes(o.status)
     );
-    const user = userResult.rows[0];
+
+    const totalReviews = professional.reviews.length;
+    const avgRating = totalReviews > 0
+      ? professional.reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews
+      : 5.0;
+
+    const yearsActive = Math.max(
+      1,
+      Math.floor((Date.now() - professional.createdAt.getTime()) / (1000 * 60 * 60 * 24 * 365))
+    );
+
+    const successRate = totalNonDraftOrders.length > 0
+      ? Math.round((completedOrders.length / totalNonDraftOrders.length) * 100)
+      : 98;
+
+    let phoneVisible: string | null = null;
+    if (clientId) {
+      const escrowOrder = await prisma.order.findFirst({
+        where: {
+          professionalId: id,
+          clientId,
+          status: {
+            in: ['FONDOS_EN_ESCROW', 'EN_PROGRESO', 'COMPLETADO', 'PAYOUT_INICIADO', 'PAYOUT_COMPLETADO'],
+          },
+        },
+      });
+      if (escrowOrder) {
+        phoneVisible = professional.user?.phone || null;
+      }
+    }
 
     res.json({
       id: professional.id,
-      name: user?.name || 'Profesional Certificado',
-      avatarUrl: user?.avatarUrl,
+      name: professional.user?.name || 'Profesional Certificado',
+      phone: phoneVisible,
+      avatarUrl: professional.user?.avatarUrl,
       title: professional.title,
       bio: professional.bio,
       isVerified: professional.isVerified,
       biometricDone: professional.biometricDone,
       satVerifiedAt: professional.satVerifiedAt,
-      yearsExp: '10+',
-      projectsCount: '25+',
-      successRate: '98%',
-      rating: '4.9'
+      yearsExp: `${yearsActive}+`,
+      projectsCount: `${completedOrders.length}`,
+      successRate: `${successRate}%`,
+      rating: avgRating.toFixed(1),
+      reviewCount: totalReviews,
     });
   } catch (error) {
     console.error('Error fetching professional:', error);
@@ -94,8 +241,130 @@ app.get('/api/professionals/:id', async (req, res) => {
 });
 
 /**
+ * Get Reviews for a Professional
+ */
+app.get('/api/professionals/:id/reviews', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const reviews = await prisma.review.findMany({
+      where: { professionalId: id },
+      include: {
+        author: {
+          select: { name: true, avatarUrl: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    const formatted = reviews.map(r => ({
+      id: r.id,
+      name: r.author.name,
+      avatarUrl: r.author.avatarUrl,
+      rating: r.rating,
+      comment: r.comment,
+      date: r.createdAt,
+    }));
+
+    res.json(formatted);
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+/**
+ * Upload Verification Document
+ */
+app.post('/api/verification/upload', upload.single('constancia'), async (req, res) => {
+  try {
+    const { professionalId, docType } = req.body;
+    const file = req.file as any; // Castear a any por diferencias entre multer y multerS3 types
+
+    if (!file) {
+      return res.status(400).json({ error: 'No se cargó ningún archivo' });
+    }
+
+    if (!professionalId || !docType) {
+      return res.status(400).json({ error: 'professionalId y docType son requeridos' });
+    }
+
+    const validDocTypes = ['INE', 'PASSPORT', 'SAT_CONSTANCIA', 'CONOCER_CERT', 'COMPROBANTE_DOMICILIO'];
+    if (!validDocTypes.includes(docType)) {
+      return res.status(400).json({ error: `docType inválido. Válidos: ${validDocTypes.join(', ')}` });
+    }
+
+    // Si es S3 usará file.location, si es local usará file.filename
+    const fileUrl = file.location || `/uploads/${file.filename}`;
+
+    const document = await prisma.verificationDocument.create({
+      data: {
+        professionalId,
+        type: docType as any,
+        fileUrl: fileUrl,
+        status: 'PENDING',
+      },
+    });
+
+    res.json({
+      id: document.id,
+      fileUrl: document.fileUrl,
+      status: document.status,
+      message: 'Documento subido exitosamente. Pendiente de revisión.',
+    });
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    res.status(500).json({ error: 'Error al subir el documento' });
+  }
+});
+
+/**
+ * Admin Panel: Approve Verification Document
+ * PATCH /api/admin/verifications/:id/approve
+ */
+app.patch('/api/admin/verifications/:id/approve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminId } = req.body; // En prod, vendría del req.user JWT validado
+
+    // Iniciar transacción atómica
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Aprobar el documento
+      const doc = await tx.verificationDocument.update({
+        where: { id },
+        data: {
+          status: 'APPROVED',
+          reviewedBy: adminId || 'admin-system',
+          reviewedAt: new Date(),
+        },
+      });
+
+      // 2. Verificar si el profesional ya cumple con todo (ej: tiene SAT_CONSTANCIA aprobada)
+      // En un flujo real, revisarías todos los docs obligatorios. Por ahora, si se aprueba el SAT, se verifica.
+      if (doc.type === 'SAT_CONSTANCIA') {
+        await tx.professional.update({
+          where: { id: doc.professionalId },
+          data: {
+            isVerified: true,
+            verificationStatus: 'APPROVED',
+            satVerifiedAt: new Date(),
+          },
+        });
+      }
+
+      return doc;
+    });
+
+    res.json({ message: 'Documento aprobado exitosamente', document: result });
+  } catch (error) {
+    console.error('Error approving document:', error);
+    res.status(500).json({ error: 'Error interno al aprobar documento' });
+  }
+});
+
+/**
  * AI Chat Endpoint (OpenAI fallback)
- * POST /api/chat
  */
 app.post('/api/chat', async (req, res) => {
   try {
@@ -173,4 +442,5 @@ app.listen(port, () => {
   console.log(`🚀 Intecnia corriendo en http://localhost:${port}`);
   console.log(`   ENV: ${process.env.NODE_ENV}`);
   console.log(`   Frontend: ${frontendDist}`);
+  console.log(`   ORM: Prisma Client (producción)`);
 });

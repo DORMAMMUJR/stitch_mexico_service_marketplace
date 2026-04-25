@@ -26,11 +26,13 @@ model User {
   reviewsGiven        Review[]  @relation("ReviewAuthor")
   notifications       Notification[]
   refreshTokens       RefreshToken[]
+  professional        Professional?
 }
 
 model Professional {
   id                 String    @id @default(cuid())
   userId             String    @unique
+  user               User      @relation(fields: [userId], references: [id])
   title              String
   bio                String?
   category           Category

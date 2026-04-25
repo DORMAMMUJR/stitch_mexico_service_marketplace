@@ -4,17 +4,69 @@ import { Footer } from '../components/Footer';
 
 export function VerificationPage() {
   const [file, setFile] = React.useState(null);
+  const [uploadState, setUploadState] = React.useState('idle'); // idle | uploading | success | error
+  const [uploadResult, setUploadResult] = React.useState(null);
+  const [uploadError, setUploadError] = React.useState('');
   const fileInputRef = React.useRef(null);
+
+  // TODO: En producción, obtener del JWT / contexto de auth
+  const professionalId = 'prof-pamela-001';
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+
+      // Validación de tamaño en frontend (5MB)
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        setUploadError('El archivo excede el límite de 5MB.');
+        return;
+      }
+
+      setFile(selectedFile);
+      setUploadState('idle');
+      setUploadError('');
+      setUploadResult(null);
     }
   };
 
   const triggerFileSelect = () => {
     fileInputRef.current.click();
   };
+
+  const handleUpload = async () => {
+    if (!file) return;
+
+    setUploadState('uploading');
+    setUploadError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('constancia', file);
+      formData.append('professionalId', professionalId);
+      formData.append('docType', 'SAT_CONSTANCIA');
+
+      const response = await fetch('/api/verification/upload', {
+        method: 'POST',
+        body: formData,
+        // No Content-Type header — browser sets multipart boundary automatically
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ error: 'Error de red' }));
+        throw new Error(errData.error || 'Error al subir el documento');
+      }
+
+      const result = await response.json();
+      setUploadResult(result);
+      setUploadState('success');
+    } catch (err) {
+      setUploadError(err.message || 'Error al subir el documento. Intente de nuevo.');
+      setUploadState('error');
+    }
+  };
+
+  const progressPercent = uploadState === 'success' ? 85 : file ? 75 : 65;
+  const currentStep = uploadState === 'success' ? 3 : file ? 3 : 2;
 
   return (
     <>
@@ -38,10 +90,10 @@ export function VerificationPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div>
               <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)' }}>PROGRESO GENERAL</p>
-              <p style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--secondary)' }}>{file ? '75%' : '65%'} Completado</p>
+              <p style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--secondary)' }}>{progressPercent}% Completado</p>
             </div>
             <div style={{ width: '3rem', height: '3rem', borderRadius: '50%', border: '3px solid var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(45,188,254,0.05)' }}>
-              <span className="material-symbols-outlined icon-filled" style={{ color: 'var(--secondary)', fontSize: '20px' }}>{file ? 'check_circle' : 'pending'}</span>
+              <span className="material-symbols-outlined icon-filled" style={{ color: 'var(--secondary)', fontSize: '20px' }}>{uploadState === 'success' ? 'check_circle' : file ? 'pending' : 'pending'}</span>
             </div>
           </div>
         </div>
@@ -50,8 +102,8 @@ export function VerificationPage() {
         <div style={{ display: 'flex', marginBottom: '3rem', position: 'relative' }}>
           {['Perfil', 'Biometría', 'SAT & Fiscal', 'CONOCER'].map((step, i) => (
             <div key={step} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
-              <div style={{ height: '3px', background: i < (file ? 3 : 2) ? 'var(--secondary)' : 'var(--surface-container)', marginBottom: '0.75rem', borderRadius: i === 0 ? '4px 0 0 4px' : i === 3 ? '0 4px 4px 0' : '' }}></div>
-              <span style={{ fontSize: '0.8125rem', fontWeight: (i === 2 && !file) || (i === 3 && file) ? 600 : 500, color: i < (file ? 3 : 2) ? 'var(--secondary)' : 'var(--on-surface-variant)' }}>{step}</span>
+              <div style={{ height: '3px', background: i < currentStep ? 'var(--secondary)' : 'var(--surface-container)', marginBottom: '0.75rem', borderRadius: i === 0 ? '4px 0 0 4px' : i === 3 ? '0 4px 4px 0' : '' }}></div>
+              <span style={{ fontSize: '0.8125rem', fontWeight: i === currentStep ? 600 : 500, color: i < currentStep ? 'var(--secondary)' : 'var(--on-surface-variant)' }}>{step}</span>
             </div>
           ))}
         </div>
@@ -112,17 +164,41 @@ export function VerificationPage() {
                   className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} 
                   style={{ borderRadius: 'var(--radius-lg)' }}
                   onClick={triggerFileSelect}
+                  disabled={uploadState === 'uploading'}
                 >
                   {file ? 'Cambiar Archivo' : 'Seleccionar Archivo'}
                 </button>
               </div>
 
+              {/* Upload error message */}
+              {uploadError && (
+                <div style={{ background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 'var(--radius-lg)', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#dc2626' }}>error</span>
+                  <p style={{ fontSize: '0.8125rem', color: '#dc2626' }}>{uploadError}</p>
+                </div>
+              )}
+
+              {/* Upload success message */}
+              {uploadState === 'success' && uploadResult && (
+                <div style={{ background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.2)', borderRadius: 'var(--radius-lg)', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span className="material-symbols-outlined icon-filled" style={{ fontSize: '18px', color: '#16a34a' }}>check_circle</span>
+                  <div>
+                    <p style={{ fontSize: '0.8125rem', color: '#16a34a', fontWeight: 600 }}>{uploadResult.message}</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>ID: {uploadResult.id}</p>
+                  </div>
+                </div>
+              )}
+
               <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--on-surface-variant)', marginBottom: '0.125rem' }}>ESTADO ACTUAL</p>
-                  <p style={{ fontWeight: 500, fontSize: '0.875rem', color: file ? 'var(--secondary)' : 'inherit' }}>{file ? 'Documento listo para envío' : 'Pendiente de carga de documento'}</p>
+                  <p style={{ fontWeight: 500, fontSize: '0.875rem', color: uploadState === 'success' ? '#16a34a' : file ? 'var(--secondary)' : 'inherit' }}>
+                    {uploadState === 'success' ? 'Documento enviado — Pendiente de revisión' : file ? 'Documento listo para envío' : 'Pendiente de carga de documento'}
+                  </p>
                 </div>
-                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>{file ? 'check_circle' : 'info'}</span>
+                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: uploadState === 'success' ? '#16a34a' : 'var(--secondary)' }}>
+                  {uploadState === 'success' ? 'verified' : file ? 'check_circle' : 'info'}
+                </span>
               </div>
             </div>
 
@@ -210,13 +286,39 @@ export function VerificationPage() {
           <Link to="#" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--on-surface-variant)', fontSize: '0.875rem', textDecoration: 'none' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span> Guardar y continuar más tarde
           </Link>
-          <button className="btn btn-primary" style={{ padding: '0.75rem 2rem', borderRadius: 'var(--radius-lg)', fontSize: '0.9375rem' }}>
-            Finalizar Verificación <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_right</span>
+          <button 
+            className="btn btn-primary" 
+            style={{ padding: '0.75rem 2rem', borderRadius: 'var(--radius-lg)', fontSize: '0.9375rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            onClick={handleUpload}
+            disabled={!file || uploadState === 'uploading' || uploadState === 'success'}
+          >
+            {uploadState === 'uploading' ? (
+              <>
+                <span className="material-symbols-outlined" style={{ fontSize: '18px', animation: 'spin 1s linear infinite' }}>progress_activity</span>
+                Subiendo...
+              </>
+            ) : uploadState === 'success' ? (
+              <>
+                <span className="material-symbols-outlined icon-filled" style={{ fontSize: '18px' }}>check_circle</span>
+                Enviado
+              </>
+            ) : (
+              <>
+                Finalizar Verificación <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_right</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
       <Footer />
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </>
   );
 }

@@ -138,7 +138,7 @@ if (process.env.AWS_REGION && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_S
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-  fileFilter: (_req, file, cb) => {
+  fileFilter: (_req: any, file: any, cb: any) => {
     if (file.mimetype === 'application/pdf') {
       cb(null, true);
     } else {

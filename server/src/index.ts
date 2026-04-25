@@ -125,7 +125,7 @@ if (process.env.AWS_REGION && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_S
   
   storage = multer.diskStorage({
     destination: uploadsDir,
-    filename: (_req, file, cb) => {
+    filename: (_req: any, file: any, cb: any) => {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       cb(null, uniqueSuffix + path.extname(file.originalname));
     },
@@ -183,14 +183,14 @@ app.get('/api/professionals/:id', async (req, res) => {
       return res.status(404).json({ message: 'Profesional no encontrado' });
     }
 
-    const completedOrders = professional.orders.filter(o => o.status === 'COMPLETADO');
+    const completedOrders = professional.orders.filter((o: any) => o.status === 'COMPLETADO');
     const totalNonDraftOrders = professional.orders.filter(
-      o => !['DRAFT', 'CANCELADO'].includes(o.status)
+      (o: any) => !['DRAFT', 'CANCELADO'].includes(o.status)
     );
 
     const totalReviews = professional.reviews.length;
     const avgRating = totalReviews > 0
-      ? professional.reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews
+      ? professional.reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / totalReviews
       : 5.0;
 
     const yearsActive = Math.max(
@@ -280,7 +280,7 @@ app.get('/api/professionals/:id/reviews', async (req, res) => {
 app.post('/api/verification/upload', upload.single('constancia'), async (req, res) => {
   try {
     const { professionalId, docType } = req.body;
-    const file = req.file as any; // Castear a any por diferencias entre multer y multerS3 types
+    const file = (req as any).file; // Castear a any por diferencias entre multer y multerS3 types
 
     if (!file) {
       return res.status(400).json({ error: 'No se cargó ningún archivo' });
@@ -329,7 +329,7 @@ app.patch('/api/admin/verifications/:id/approve', async (req, res) => {
     const { adminId } = req.body; // En prod, vendría del req.user JWT validado
 
     // Iniciar transacción atómica
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // 1. Aprobar el documento
       const doc = await tx.verificationDocument.update({
         where: { id },

@@ -27,6 +27,7 @@ model User {
   notifications       Notification[]
   refreshTokens       RefreshToken[]
   professional        Professional?
+  appointments        Appointment[]
 }
 
 model Professional {
@@ -63,6 +64,8 @@ model Professional {
   orders             Order[]   @relation("ProfessionalOrders")
   reviews            Review[]  @relation("ReviewTarget")
   documents          VerificationDocument[]
+  availabilities     Availability[]
+  appointments       Appointment[]
 }
 
 model Order {
@@ -236,4 +239,36 @@ enum NotificationType {
   NEW_MESSAGE
   REVIEW_RECEIVED
   SYSTEM
+}
+
+model Availability {
+  id             String       @id @default(cuid())
+  professionalId String
+  dayOfWeek      Int          // 0 = Sunday, 1 = Monday, ... 6 = Saturday
+  startTime      String       // "09:00"
+  endTime        String       // "17:00"
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  professional   Professional @relation(fields: [professionalId], references: [id])
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  clientId       String
+  professionalId String
+  date           DateTime
+  status         AppointmentStatus @default(SCHEDULED)
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  client         User              @relation(fields: [clientId], references: [id])
+  professional   Professional      @relation(fields: [professionalId], references: [id])
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
 }

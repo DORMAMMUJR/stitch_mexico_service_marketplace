@@ -87,6 +87,7 @@ app.use(express.json());
 // ─── Routers ─────────────────────────────────────────────────────────────────
 import { authRouter } from './routes/auth';
 import { usersRouter } from './routes/users';
+import { appointmentsRouter } from './routes/appointments';
 import { uploadDoc } from './lib/upload';
 
 // ─── Servir archivos subidos localmente ──────────────────────────────────────
@@ -98,6 +99,7 @@ app.use('/uploads', express.static(uploadsDir));
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/appointments', appointmentsRouter);
 
 // ─── Servir el build del frontend React ──────────────────────────────────────
 const frontendDist = path.join(__dirname, '../public');
@@ -320,7 +322,7 @@ app.patch('/api/admin/verifications/:id/approve', async (req, res) => {
  */
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, professional, history = [] } = req.body;
+    const { message, professional, history = [], clientId, professionalId } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'El campo message es requerido' });
@@ -338,10 +340,9 @@ Tu misión:
 - Responder preguntas sobre los servicios del profesional de forma clara y concisa
 - Ayudar al usuario a agendar una consulta o cita
 - Ser cálido, profesional y usar español mexicano natural
-- Nunca inventar precios o información que no conozcas; di que el profesional confirmará los detalles
-
-Si el usuario quiere agendar, pide su nombre y número de teléfono o correo para que el profesional le contacte.
-Mantén respuestas cortas (máximo 3 oraciones). No uses markdown con asteriscos.`;
+- NUNCA inventes precios.
+- Si el usuario solicita agendar una cita, pídele la FECHA y HORA específica, y el MOTIVO. Cuando te dé esos datos, usa la herramienta book_appointment para agendarla en la base de datos.
+Mantén respuestas cortas.`;
 
     const chatHistory = history.slice(-6).map((m: { sender: string; text: string }) => ({
       role: m.sender === 'user' ? 'user' : 'assistant',
@@ -361,7 +362,25 @@ Mantén respuestas cortas (máximo 3 oraciones). No uses markdown con asteriscos
           ...chatHistory,
           { role: 'user', content: message },
         ],
-        max_tokens: 200,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "book_appointment",
+              description: "Agenda una cita real con el profesional. Usa esto solo cuando tengas fecha, hora y motivo.",
+              parameters: {
+                type: "object",
+                properties: {
+                  "date": { "type": "string", "description": "Fecha y hora ISO 8601" },
+                  "notes": { "type": "string", "description": "Motivo de la cita" }
+                },
+                "required": ["date"]
+              }
+            }
+          }
+        ],
+        tool_choice: "auto",
+        max_tokens: 300,
         temperature: 0.7,
       }),
     });
@@ -372,11 +391,33 @@ Mantén respuestas cortas (máximo 3 oraciones). No uses markdown con asteriscos
       return res.status(502).json({ error: 'Error al contactar OpenAI' });
     }
 
-    const data = await openaiResponse.json() as {
-      choices: Array<{ message: { content: string } }>;
-    };
-    const reply = data.choices?.[0]?.message?.content?.trim();
+    const data = await openaiResponse.json() as any;
+    const responseMessage = data.choices?.[0]?.message;
 
+    // Handle Tool Call
+    if (responseMessage?.tool_calls) {
+      const toolCall = responseMessage.tool_calls[0];
+      if (toolCall.function.name === 'book_appointment') {
+        const args = JSON.parse(toolCall.function.arguments);
+        
+        if (!clientId || !professionalId) {
+           return res.json({ output: 'Por favor, inicia sesión en tu cuenta para poder agendar una cita real en mi calendario.' });
+        }
+
+        const appointment = await prisma.appointment.create({
+           data: {
+             clientId,
+             professionalId,
+             date: new Date(args.date),
+             notes: args.notes,
+           }
+        });
+
+        return res.json({ output: `¡Perfecto! He agendado tu cita para el ${new Date(args.date).toLocaleString()}. ¡Te esperamos!` });
+      }
+    }
+
+    const reply = responseMessage?.content?.trim();
     res.json({ output: reply || 'En este momento no puedo responder. Por favor intenta de nuevo.' });
 
   } catch (error) {

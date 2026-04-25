@@ -1,14 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 export function DashboardPage() {
-  // En producción, esto vendría de un hook useAuth o useUser
-  const user = {
-    name: 'Marcos Rivera',
-    title: 'Senior Consultant',
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOp1V8Mo5Q1XsJxMKf9KjTxJQK7vMgHpGQqI-kcVH8ul_iJSzb2Vb2rdJYxgpS2cT5uxHRs2EKZQuoB0JaOrAtfQWufuaZ62ch2CTCTDjS1JF2tMWMiZQflbbqNnl1dvP6IIHCNPUPyGNcZYsjW4TNBe_TISTt94kT-_avawausQKV5ASglsnF-Ma8Se12kn51Tn7mqUcD79Wg-GwvAlFdWUr7D2o-xFqfMhYAerC1mzF8xB5RaIuJMHLtwB8Wefo93-MORNCeF_Io',
-    isVerified: true
-  };
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    
+    fetch('http://localhost:3000/api/professionals/me/dashboard', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    .then(res => res.json())
+    .then(json => {
+      if (json.user) {
+        setData(json);
+      }
+    })
+    .catch(console.error)
+    .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div style={{ padding: '2rem' }}>Cargando tablero...</div>;
+  if (!data) return <div style={{ padding: '2rem' }}>No autorizado. Inicia sesión como profesional.</div>;
+
+  const { user } = data;
 
   return (
     <div className="dashboard-layout">
@@ -74,7 +92,7 @@ export function DashboardPage() {
                 <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--secondary)' }}>+24.5%</span>
               </div>
             </div>
-            <p style={{ fontFamily: 'Manrope', fontSize: '3rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.02em', marginBottom: '1.5rem' }}>12,450</p>
+            <p style={{ fontFamily: 'Manrope', fontSize: '3rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.02em', marginBottom: '1.5rem' }}>{data.profileViews.toLocaleString()}</p>
             {/* Chart SVG */}
             <div style={{ height: '100px' }}>
               <svg width="100%" height="100%" viewBox="0 0 400 100" preserveAspectRatio="none">
@@ -98,9 +116,9 @@ export function DashboardPage() {
 +              <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Clics en portafolio y contacto</p>
             </div>
             <div>
-              <p style={{ fontFamily: 'Manrope', fontSize: '3rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.02em' }}>842</p>
-              <div className="progress-bar" style={{ marginTop: '1rem' }}><div className="progress-fill" style={{ width: '65%', background: 'var(--primary)' }}></div></div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.75rem' }}>65% de conversión a vista de perfil</p>
+              <p style={{ fontFamily: 'Manrope', fontSize: '3rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.02em' }}>{data.totalInteractions}</p>
+              <div className="progress-bar" style={{ marginTop: '1rem' }}><div className="progress-fill" style={{ width: data.conversionRate, background: 'var(--primary)' }}></div></div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.75rem' }}>{data.conversionRate} de conversión a vista de perfil</p>
             </div>
           </div>
 
@@ -123,13 +141,13 @@ export function DashboardPage() {
             </div>
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-2xl)', padding: '1.5rem', minWidth: '160px', textAlign: 'center' }}>
-                <p style={{ fontFamily: 'Manrope', fontSize: '2.5rem', fontWeight: 700, color: 'var(--on-primary)', letterSpacing: '-0.02em' }}>145</p>
+                <p style={{ fontFamily: 'Manrope', fontSize: '2.5rem', fontWeight: 700, color: 'var(--on-primary)', letterSpacing: '-0.02em' }}>{data.automatedMessages}</p>
                 <p style={{ fontSize: '0.8125rem', color: 'var(--primary-fixed-dim)' }}>Mensajes automatizados</p>
               </div>
               <div style={{ background: 'rgba(45,188,254,0.1)', backdropFilter: 'blur(16px)', border: '1px solid rgba(45,188,254,0.2)', borderRadius: 'var(--radius-2xl)', padding: '1.5rem', minWidth: '160px', textAlign: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary-container)' }}>event_available</span>
-                  <p style={{ fontFamily: 'Manrope', fontSize: '2.5rem', fontWeight: 700, color: 'var(--secondary-container)', letterSpacing: '-0.02em' }}>12</p>
+                  <p style={{ fontFamily: 'Manrope', fontSize: '2.5rem', fontWeight: 700, color: 'var(--secondary-container)', letterSpacing: '-0.02em' }}>{data.appointmentsScheduled}</p>
                 </div>
                 <p style={{ fontSize: '0.8125rem', color: 'var(--primary-fixed-dim)' }}>Citas agendadas</p>
               </div>

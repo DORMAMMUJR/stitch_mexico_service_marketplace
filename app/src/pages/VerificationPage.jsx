@@ -73,7 +73,7 @@ export function VerificationPage() {
       {/* Minimal Nav */}
       <header className="nav-top">
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '3.5rem' }}>
-          <Link to="/" style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)', cursor: 'pointer', textDecoration: 'none' }}>KonectIA</Link>
+          <Link to="/" style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)', cursor: 'pointer', textDecoration: 'none' }}>Intecnia</Link>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.8125rem', color: 'var(--on-surface-variant)', background: 'var(--surface-container-low)', padding: '0.375rem 0.75rem', borderRadius: 'var(--radius-md)' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>lock</span> Entorno Seguro
           </span>
@@ -246,7 +246,7 @@ export function VerificationPage() {
               </div>
               <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1rem', marginBottom: '0.75rem' }}>Protocolo de Privacidad Digital</h3>
               <p style={{ fontSize: '0.8125rem', color: 'var(--primary-fixed-dim)', lineHeight: 1.6, marginBottom: '1rem' }}>
-                En KonectIA, sus datos están encriptados bajo el estándar AES-256. La información compartida es estrictamente para fines de verificación institucional y cumplimiento normativo.
+                En Intecnia, sus datos están encriptados bajo el estándar AES-256. La información compartida es estrictamente para fines de verificación institucional y cumplimiento normativo.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {['Cumplimiento Ley Federal de Datos', 'Infraestructura de Grado Militar', 'Auditado por Entidades Reguladoras'].map(item => (

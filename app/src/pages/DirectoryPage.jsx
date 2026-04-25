@@ -55,10 +55,11 @@ export function DirectoryPage() {
 
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>CATEGORÍA</label>
-            <select style={{ width: '100%', padding: '0.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--on-surface)' }}>
+            <select defaultValue="Salud y Bienestar" style={{ width: '100%', padding: '0.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--on-surface)' }}>
               <option>Plomería y Tuberías</option>
-+              <option>Electricidad</option>
-+              <option>Climatización</option>
+              <option>Electricidad</option>
+              <option>Climatización</option>
+              <option>Salud y Bienestar</option>
             </select>
           </div>
 
@@ -108,7 +109,7 @@ export function DirectoryPage() {
         <div>
           {/* Map */}
           <div style={{ background: 'var(--surface-container)', borderRadius: 'var(--radius-xl)', height: '220px', marginBottom: '1.5rem', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: 'var(--surface-container-lowest)', padding: '0.375rem 1rem', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', fontWeight: 600, boxShadow: 'var(--ambient-shadow)', zIndex: 1 }}>VISTA DE MAPA: ZAPOPAN</div>
+            <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: 'var(--surface-container-lowest)', padding: '0.375rem 1rem', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', fontWeight: 600, boxShadow: 'var(--ambient-shadow)', zIndex: 1 }}>VISTA DE MAPA: CDMX</div>
             <img src="https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=800&h=300&fit=crop" alt="Map" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
             <div style={{ position: 'absolute', top: '50%', left: '40%', transform: 'translate(-50%,-50%)' }}>
               <span className="material-symbols-outlined icon-filled" style={{ fontSize: '32px', color: 'var(--secondary)', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>location_on</span>

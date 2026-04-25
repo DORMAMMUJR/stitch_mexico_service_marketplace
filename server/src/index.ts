@@ -88,6 +88,7 @@ app.use(express.json());
 import { authRouter } from './routes/auth';
 import { usersRouter } from './routes/users';
 import { appointmentsRouter } from './routes/appointments';
+import { professionalsRouter } from './routes/professionals';
 import { uploadDoc } from './lib/upload';
 
 // ─── Servir archivos subidos localmente ──────────────────────────────────────
@@ -100,6 +101,7 @@ app.use('/uploads', express.static(uploadsDir));
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/appointments', appointmentsRouter);
+app.use('/api/professionals', professionalsRouter);
 
 // ─── Servir el build del frontend React ──────────────────────────────────────
 const frontendDist = path.join(__dirname, '../public');

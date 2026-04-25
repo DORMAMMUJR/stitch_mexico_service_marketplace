@@ -168,6 +168,33 @@ app.post('/api/verification/upload', uploadDoc.single('constancia'), async (req,
 });
 
 
+/**
+ * Admin Panel: Get Pending Verifications
+ * GET /api/admin/verifications/pending
+ */
+app.get('/api/admin/verifications/pending', authenticate, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
+    }
+
+    const pendingDocs = await prisma.verificationDocument.findMany({
+      where: { status: 'PENDING' },
+      include: {
+        professional: {
+          include: { user: { select: { name: true, email: true } } }
+        }
+      },
+      orderBy: { uploadedAt: 'asc' }
+    });
+
+    res.json(pendingDocs);
+  } catch (error) {
+    console.error('Error fetching pending verifications:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
 
 /**
  * Admin Panel: Approve Verification Document

@@ -5,7 +5,12 @@ export function DashboardPage() {
   const [data, setData] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'appointments', 'availability'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'appointments', 'availability', 'profile'
+  
+  const [profileForm, setProfileForm] = useState({
+    title: '', category: '', bio: '', hourlyRate: ''
+  });
+  const [updateStatus, setUpdateStatus] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -20,18 +25,57 @@ export function DashboardPage() {
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json());
 
-    Promise.all([fetchDashboard, fetchAppointments])
-    .then(([dashboardJson, appointmentsJson]) => {
+    // Fetch Profile
+    const fetchProfile = fetch('/api/professionals/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(res => res.json());
+
+    Promise.all([fetchDashboard, fetchAppointments, fetchProfile])
+    .then(([dashboardJson, appointmentsJson, profileJson]) => {
       if (dashboardJson.user) {
         setData(dashboardJson);
       }
       if (Array.isArray(appointmentsJson)) {
         setAppointments(appointmentsJson);
       }
+      if (profileJson && profileJson.id) {
+        setProfileForm({
+          title: profileJson.title || '',
+          category: profileJson.category || '',
+          bio: profileJson.bio || '',
+          hourlyRate: profileJson.hourlyRate || ''
+        });
+      }
     })
     .catch(console.error)
     .finally(() => setLoading(false));
   }, []);
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setUpdateStatus('Guardando...');
+    
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/professionals/me', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(profileForm)
+      });
+
+      if (res.ok) {
+        setUpdateStatus('¡Perfil actualizado con éxito!');
+        setTimeout(() => setUpdateStatus(''), 3000);
+      } else {
+        setUpdateStatus('Error al guardar los cambios.');
+      }
+    } catch (error) {
+      setUpdateStatus('Error de conexión.');
+    }
+  };
 
   if (loading) return <div style={{ padding: '2rem' }}>Cargando tablero...</div>;
   if (!data) return <div style={{ padding: '2rem' }}>No autorizado. Inicia sesión como profesional.</div>;
@@ -62,6 +106,9 @@ export function DashboardPage() {
           </button>
           <button onClick={() => setActiveTab('availability')} className={`sidebar-link ${activeTab === 'availability' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>schedule</span> Disponibilidad
+          </button>
+          <button onClick={() => setActiveTab('profile')} className={`sidebar-link ${activeTab === 'profile' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>person</span> Ajustes de Perfil
           </button>
           <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>insights</span> Estadísticas</Link>
           <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>forum</span> Mensajes</Link>
@@ -202,6 +249,77 @@ export function DashboardPage() {
               <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', marginBottom: '1rem' }}>construction</span>
               <p>Módulo de configuración de horarios en desarrollo.</p>
             </div>
+          </div>
+        )}
+        {activeTab === 'profile' && (
+          <div className="card" style={{ padding: '2rem' }}>
+            <h3 style={{ marginBottom: '1.5rem', fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Ajustes de tu Perfil Público</h3>
+            
+            {updateStatus && (
+              <div style={{ padding: '1rem', background: updateStatus.includes('Error') ? '#fee2e2' : '#dcfce7', color: updateStatus.includes('Error') ? '#991b1b' : '#166534', borderRadius: '8px', marginBottom: '1.5rem' }}>
+                {updateStatus}
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div>
+                <label className="text-label-md" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--on-surface-variant)' }}>Título Profesional (ej. Psicóloga Clínica)</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  value={profileForm.title}
+                  onChange={(e) => setProfileForm({...profileForm, title: e.target.value})}
+                  placeholder="Tu especialidad principal"
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                <div>
+                  <label className="text-label-md" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--on-surface-variant)' }}>Categoría</label>
+                  <select 
+                    className="input-field"
+                    value={profileForm.category}
+                    onChange={(e) => setProfileForm({...profileForm, category: e.target.value})}
+                    style={{ width: '100%' }}
+                  >
+                    <option value="HEALTH_WELLNESS">Salud y Bienestar</option>
+                    <option value="GENERAL_MAINTENANCE">Mantenimiento General</option>
+                    <option value="LEGAL">Consultoría Legal</option>
+                    <option value="FINANCE_TAX">Contabilidad y Finanzas</option>
+                    <option value="IT_SECURITY">Tecnología y Desarrollo</option>
+                    <option value="ENGINEERING">Ingeniería</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-label-md" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--on-surface-variant)' }}>Tarifa por Hora (MXN)</label>
+                  <input 
+                    type="number" 
+                    className="input-field" 
+                    value={profileForm.hourlyRate}
+                    onChange={(e) => setProfileForm({...profileForm, hourlyRate: e.target.value})}
+                    placeholder="Ej. 800"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-label-md" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--on-surface-variant)' }}>Biografía y Experiencia</label>
+                <textarea 
+                  className="input-field" 
+                  rows="5"
+                  value={profileForm.bio}
+                  onChange={(e) => setProfileForm({...profileForm, bio: e.target.value})}
+                  placeholder="Cuéntale a tus clientes sobre tu experiencia y servicios..."
+                  style={{ width: '100%', resize: 'vertical' }}
+                ></textarea>
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '0.75rem 2rem' }}>
+                Guardar Cambios
+              </button>
+            </form>
           </div>
         )}
       </main>

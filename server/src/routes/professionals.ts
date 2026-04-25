@@ -64,6 +64,42 @@ router.get('/me', authenticate, async (req: any, res: any) => {
   }
 });
 
+// PUT /api/professionals/me (Actualizar perfil)
+router.put('/me', authenticate, async (req: any, res) => {
+  try {
+    const { title, category, bio, hourlyRate } = req.body;
+    const userId = req.user.userId;
+
+    // 1. Verificar que el profesional existe
+    const professional = await prisma.professional.findUnique({
+      where: { userId }
+    });
+
+    if (!professional) {
+      return res.status(404).json({ error: 'Perfil profesional no encontrado' });
+    }
+
+    // 2. Actualizar los datos
+    const updatedProfile = await prisma.professional.update({
+      where: { userId },
+      data: {
+        title: title || professional.title,
+        category: category || professional.category,
+        bio: bio !== undefined ? bio : professional.bio,
+        hourlyRate: hourlyRate ? parseFloat(hourlyRate) : professional.hourlyRate,
+      }
+    });
+
+    res.json({ 
+      message: 'Perfil actualizado exitosamente', 
+      profile: updatedProfile 
+    });
+  } catch (error) {
+    console.error('Error actualizando perfil:', error);
+    res.status(500).json({ error: 'Error interno al actualizar el perfil' });
+  }
+});
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 2. DIRECTORIO DINÁMICO (Buscador real con filtros)

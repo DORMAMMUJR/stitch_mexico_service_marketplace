@@ -1,12 +1,15 @@
 import { useState, useCallback } from 'react';
 import { getGreeting, getLocalResponse } from '../lib/professionalKnowledge';
+import { useAuth } from './useAuth';
 
 /**
  * Hook de chat con sistema de 2 niveles:
  * 1. OpenAI API     → Vía backend seguro (/api/chat)
  * 2. Mensaje simple → Si el backend falla, respuesta local
  */
-export function useChat(professionalName) {
+export function useChat(professionalName, professionalId) {
+  const { user } = useAuth();
+  const clientId = user?.id;
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -43,6 +46,8 @@ export function useChat(professionalName) {
           body: JSON.stringify({
             message: text,
             professional: professionalName,
+            professionalId,
+            clientId,
             history,
           }),
         });

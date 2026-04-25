@@ -18,6 +18,69 @@ router.get('/availability/:professionalId', async (req, res) => {
   }
 });
 
+// GET /api/appointments/my
+// Obtiene las citas del usuario logueado (como cliente o profesional)
+router.get('/my', authenticate, async (req: any, res: any) => {
+  try {
+    const userId = req.user?.userId;
+    const role = req.user?.role;
+
+    let appointments;
+    if (role === 'PROFESSIONAL') {
+      // Buscar el professionalId primero
+      const prof = await prisma.professional.findUnique({ where: { userId } });
+      if (!prof) return res.status(404).json({ error: 'Perfil profesional no encontrado' });
+      
+      appointments = await prisma.appointment.findMany({
+        where: { professionalId: prof.id },
+        include: { client: { select: { name: true, email: true, avatarUrl: true } } },
+        orderBy: { date: 'asc' }
+      });
+    } else {
+      appointments = await prisma.appointment.findMany({
+        where: { clientId: userId },
+        include: { professional: { include: { user: { select: { name: true, avatarUrl: true } } } } },
+        orderBy: { date: 'asc' }
+      });
+    }
+
+    res.json(appointments);
+  } catch (error) {
+    console.error('Error fetching my appointments:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// POST /api/appointments/availability
+// Para que los profesionales definan sus slots
+router.post('/availability', authenticate, async (req: any, res: any) => {
+  try {
+    const userId = req.user?.userId;
+    if (req.user?.role !== 'PROFESSIONAL') {
+      return res.status(403).json({ error: 'Solo profesionales pueden definir disponibilidad' });
+    }
+
+    const prof = await prisma.professional.findUnique({ where: { userId } });
+    if (!prof) return res.status(404).json({ error: 'Perfil profesional no encontrado' });
+
+    const { dayOfWeek, startTime, endTime } = req.body; // e.g. 1 (Lunes), "09:00", "17:00"
+
+    const availability = await prisma.availability.create({
+      data: {
+        professionalId: prof.id,
+        dayOfWeek,
+        startTime,
+        endTime
+      }
+    });
+
+    res.status(201).json(availability);
+  } catch (error) {
+    console.error('Error creating availability:', error);
+    res.status(500).json({ error: 'Error interno al guardar disponibilidad' });
+  }
+});
+
 // POST /api/appointments
 // Crea una nueva cita para un usuario autenticado
 router.post('/', authenticate, async (req: any, res: any) => {

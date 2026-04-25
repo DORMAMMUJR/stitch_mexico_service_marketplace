@@ -4,13 +4,16 @@ import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 import { NotifBanner } from '../components/NotifBanner';
 import { ChatWidget } from '../components/ChatWidget';
+import { AvailabilitySelector } from '../components/AvailabilitySelector';
 import { useProfile } from '../hooks/useProfile';
 import { useReviews } from '../hooks/useReviews';
+import { useAvailability } from '../hooks/useAvailability';
 
 export function IntecniaProfilePage() {
   const { id } = useParams();
   const { data: profile, isLoading, error } = useProfile(id);
   const { data: dbReviews } = useReviews(id);
+  const { data: availability } = useAvailability(id);
   const chatRef = useRef(null);
 
   const scrollToChat = () => {
@@ -201,9 +204,15 @@ export function IntecniaProfilePage() {
           </div>
         </div>
 
-        {/* Right Column: AI Chat */}
-        <div ref={chatRef}>
-          <ChatWidget professionalName={prof.name} />
+        {/* Right Column: Appointment & AI Chat */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="animate-in stagger-2">
+            <AvailabilitySelector professionalId={id} availability={availability} />
+          </div>
+          
+          <div ref={chatRef} className="animate-in stagger-3">
+            <ChatWidget professionalName={prof.name} professionalId={id} />
+          </div>
         </div>
       </div>
 

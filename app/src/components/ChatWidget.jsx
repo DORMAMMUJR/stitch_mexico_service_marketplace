@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat } from '../hooks/useChat';
 
-export function ChatWidget({ professionalName }) {
-  const { messages, sendMessage, isTyping } = useChat(professionalName);
+export function ChatWidget({ professionalName, professionalId }) {
+  const { messages, sendMessage, isTyping } = useChat(professionalName, professionalId);
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef(null);
 

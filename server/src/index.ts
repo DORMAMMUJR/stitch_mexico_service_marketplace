@@ -186,7 +186,7 @@ app.get('/api/admin/verifications/pending', authenticate, async (req, res) => {
           include: { user: { select: { name: true, email: true } } }
         }
       },
-      orderBy: { uploadedAt: 'asc' }
+      orderBy: { createdAt: 'desc' }
     });
 
     res.json(pendingDocs);

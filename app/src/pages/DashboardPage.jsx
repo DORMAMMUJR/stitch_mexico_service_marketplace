@@ -12,6 +12,17 @@ export function DashboardPage() {
   });
   const [updateStatus, setUpdateStatus] = useState('');
 
+  const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const defaultAvailabilities = DAYS.map((day, i) => ({
+    dayOfWeek: i,
+    dayName: day,
+    active: i > 0 && i < 6, // L-V
+    startTime: '09:00',
+    endTime: '18:00'
+  }));
+  const [availabilities, setAvailabilities] = useState(defaultAvailabilities);
+  const [availStatus, setAvailStatus] = useState('');
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     
@@ -30,8 +41,13 @@ export function DashboardPage() {
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json());
 
-    Promise.all([fetchDashboard, fetchAppointments, fetchProfile])
-    .then(([dashboardJson, appointmentsJson, profileJson]) => {
+    // Fetch Availability
+    const fetchAvailability = fetch('/api/professionals/me/availability', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(res => res.json());
+
+    Promise.all([fetchDashboard, fetchAppointments, fetchProfile, fetchAvailability])
+    .then(([dashboardJson, appointmentsJson, profileJson, availabilityJson]) => {
       if (dashboardJson.user) {
         setData(dashboardJson);
       }
@@ -45,6 +61,19 @@ export function DashboardPage() {
           bio: profileJson.bio || '',
           hourlyRate: profileJson.hourlyRate || ''
         });
+      }
+      if (Array.isArray(availabilityJson) && availabilityJson.length > 0) {
+        const merged = defaultAvailabilities.map(def => {
+          const found = availabilityJson.find(a => a.dayOfWeek === def.dayOfWeek);
+          return found 
+            ? { ...def, active: true, startTime: found.startTime, endTime: found.endTime } 
+            : { ...def, active: false };
+        });
+        setAvailabilities(merged);
+      } else if (Array.isArray(availabilityJson) && availabilityJson.length === 0 && dashboardJson.user) {
+        // If they have explicitly 0 availability, update the state
+        const allInactive = defaultAvailabilities.map(def => ({ ...def, active: false }));
+        setAvailabilities(allInactive);
       }
     })
     .catch(console.error)
@@ -74,6 +103,32 @@ export function DashboardPage() {
       }
     } catch (error) {
       setUpdateStatus('Error de conexión.');
+    }
+  };
+
+  const handleUpdateAvailability = async () => {
+    setAvailStatus('Guardando...');
+    const token = localStorage.getItem('token');
+    const toSave = availabilities.filter(a => a.active).map(a => ({
+      dayOfWeek: a.dayOfWeek,
+      startTime: a.startTime,
+      endTime: a.endTime
+    }));
+
+    try {
+      const res = await fetch('/api/professionals/me/availability', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ availabilities: toSave })
+      });
+      if (res.ok) {
+        setAvailStatus('¡Horarios actualizados!');
+        setTimeout(() => setAvailStatus(''), 3000);
+      } else {
+        setAvailStatus('Error al guardar.');
+      }
+    } catch (error) {
+      setAvailStatus('Error de conexión.');
     }
   };
 
@@ -243,12 +298,67 @@ export function DashboardPage() {
         {activeTab === 'availability' && (
           <div className="card" style={{ padding: '2rem' }}>
             <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Gestión de Disponibilidad</h2>
-            <p style={{ color: 'var(--on-surface-variant)', marginBottom: '2rem' }}>Define tus horarios para que los clientes puedan agendar citas.</p>
-            {/* Aquí iría el formulario de disponibilidad */}
-            <div style={{ background: 'var(--surface-container)', padding: '2rem', borderRadius: 'var(--radius-2xl)', textAlign: 'center' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', marginBottom: '1rem' }}>construction</span>
-              <p>Módulo de configuración de horarios en desarrollo.</p>
+            <p style={{ color: 'var(--on-surface-variant)', marginBottom: '2rem' }}>Define tus horarios para que los clientes puedan agendar citas. Tu bot de IA respetará estos horarios.</p>
+            
+            {availStatus && (
+              <div style={{ padding: '1rem', background: availStatus.includes('Error') ? '#fee2e2' : '#dcfce7', color: availStatus.includes('Error') ? '#991b1b' : '#166534', borderRadius: '8px', marginBottom: '1.5rem' }}>
+                {availStatus}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+              {availabilities.map((day, index) => (
+                <div key={day.dayOfWeek} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--outline-variant)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '120px', cursor: 'pointer' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={day.active} 
+                      onChange={(e) => {
+                        const newAvail = [...availabilities];
+                        newAvail[index].active = e.target.checked;
+                        setAvailabilities(newAvail);
+                      }}
+                      style={{ accentColor: 'var(--secondary)', width: '1.25rem', height: '1.25rem' }} 
+                    />
+                    <span style={{ fontWeight: 600, color: day.active ? 'var(--on-surface)' : 'var(--on-surface-variant)' }}>{day.dayName}</span>
+                  </label>
+
+                  {day.active ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input 
+                        type="time" 
+                        value={day.startTime}
+                        onChange={(e) => {
+                          const newAvail = [...availabilities];
+                          newAvail[index].startTime = e.target.value;
+                          setAvailabilities(newAvail);
+                        }}
+                        className="input-field" 
+                        style={{ padding: '0.5rem', width: 'auto' }}
+                      />
+                      <span style={{ color: 'var(--on-surface-variant)' }}>a</span>
+                      <input 
+                        type="time" 
+                        value={day.endTime}
+                        onChange={(e) => {
+                          const newAvail = [...availabilities];
+                          newAvail[index].endTime = e.target.value;
+                          setAvailabilities(newAvail);
+                        }}
+                        className="input-field" 
+                        style={{ padding: '0.5rem', width: 'auto' }}
+                      />
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic' }}>No disponible</span>
+                  )}
+                </div>
+              ))}
             </div>
+
+            <button onClick={handleUpdateAvailability} className="btn btn-primary" style={{ padding: '0.75rem 2rem' }}>
+              Guardar Horarios
+            </button>
           </div>
         )}
         {activeTab === 'profile' && (

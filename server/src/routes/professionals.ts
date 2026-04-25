@@ -100,6 +100,61 @@ router.put('/me', authenticate, async (req: any, res) => {
   }
 });
 
+// GET /api/professionals/me/availability (Obtener horarios)
+router.get('/me/availability', authenticate, async (req: any, res: any) => {
+  try {
+    const userId = req.user.userId;
+    const professional = await prisma.professional.findUnique({ where: { userId } });
+    
+    if (!professional) return res.status(404).json({ error: 'Perfil no encontrado' });
+
+    const availabilities = await prisma.availability.findMany({
+      where: { professionalId: professional.id },
+      orderBy: { dayOfWeek: 'asc' }
+    });
+
+    res.json(availabilities);
+  } catch (error) {
+    console.error('Error fetching availability:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// PUT /api/professionals/me/availability (Actualizar horarios)
+router.put('/me/availability', authenticate, async (req: any, res: any) => {
+  try {
+    const userId = req.user.userId;
+    const availabilities = req.body.availabilities; // Array de objetos { dayOfWeek, startTime, endTime }
+
+    const professional = await prisma.professional.findUnique({ where: { userId } });
+    if (!professional) return res.status(404).json({ error: 'Perfil no encontrado' });
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Eliminar disponibilidades anteriores
+      await tx.availability.deleteMany({
+        where: { professionalId: professional.id }
+      });
+
+      // 2. Insertar las nuevas disponibilidades
+      if (availabilities && availabilities.length > 0) {
+        await tx.availability.createMany({
+          data: availabilities.map((a: any) => ({
+            professionalId: professional.id,
+            dayOfWeek: a.dayOfWeek,
+            startTime: a.startTime,
+            endTime: a.endTime
+          }))
+        });
+      }
+    });
+
+    res.json({ message: 'Horarios actualizados exitosamente' });
+  } catch (error) {
+    console.error('Error updating availability:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 2. DIRECTORIO DINÁMICO (Buscador real con filtros)

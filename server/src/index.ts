@@ -7,20 +7,10 @@ import multer from 'multer';
 import multerS3 from 'multer-s3';
 import { S3Client } from '@aws-sdk/client-s3';
 import Stripe from 'stripe';
-import pg from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './lib/db';
 import { EscrowStateMachine } from './lib/escrow'; // Asumiendo que está exportado así
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
-
-// ─── Prisma Client con adapter pg (Prisma v7) ────────────────────────────────
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
 
 const app = express();
 const port = process.env.PORT || 3000;

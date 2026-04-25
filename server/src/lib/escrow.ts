@@ -1,6 +1,5 @@
-import { PrismaClient, Prisma, OrderStatus, Order, OrderEvent, DisputeResolution } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Prisma, OrderStatus, Order, OrderEvent, DisputeResolution } from '@prisma/client';
+import { prisma } from './db';
 
 export class EscrowStateMachine {
   

@@ -56,10 +56,12 @@ export function DirectoryPage() {
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>CATEGORÍA</label>
             <select defaultValue="Salud y Bienestar" style={{ width: '100%', padding: '0.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--on-surface)' }}>
-              <option>Plomería y Tuberías</option>
-              <option>Electricidad</option>
-              <option>Climatización</option>
               <option>Salud y Bienestar</option>
+              <option>Consultoría Legal</option>
+              <option>Contabilidad y Finanzas</option>
+              <option>Tecnología y Desarrollo</option>
+              <option>Diseño y Creatividad</option>
+              <option>Educación y Tutorías</option>
             </select>
           </div>
 

@@ -82,60 +82,22 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
 // ─── Middleware Global JSON ──────────────────────────────────────────────────
 app.use(express.json());
 
-// ─── Multer Config (S3 con Fallback Local) ───────────────────────────────────
-let storage;
+// ─── Multer Config se ha movido a src/lib/upload.ts ────────────────────────
 
-if (process.env.AWS_REGION && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.AWS_S3_BUCKET_NAME) {
-  console.log('☁️  AWS configurado. Usando S3 para almacenamiento de documentos.');
-  const s3 = new S3Client({
-    region: process.env.AWS_REGION,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    },
-  });
+// ─── Routers ─────────────────────────────────────────────────────────────────
+import { authRouter } from './routes/auth';
+import { usersRouter } from './routes/users';
+import { uploadDoc } from './lib/upload';
 
-  storage = multerS3({
-    s3: s3,
-    bucket: process.env.AWS_S3_BUCKET_NAME,
-    metadata: function (_req: any, file: any, cb: any) {
-      cb(null, { fieldName: file.fieldname });
-    },
-    key: function (_req: any, file: any, cb: any) {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, `verifications/${uniqueSuffix}${path.extname(file.originalname)}`);
-    }
-  });
-} else {
-  console.log('💾 AWS no detectado. Usando fallback de almacenamiento local (diskStorage).');
-  const uploadsDir = path.join(__dirname, '../uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-  
-  storage = multer.diskStorage({
-    destination: (req: any, file: any, cb: any) => cb(null, uploadsDir),
-    filename: (req: any, file: any, cb: any) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
-    },
-  });
-
-  // Servir archivos subidos localmente
-  app.use('/uploads', express.static(uploadsDir));
+// ─── Servir archivos subidos localmente ──────────────────────────────────────
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
 }
+app.use('/uploads', express.static(uploadsDir));
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-  fileFilter: (_req: any, file: any, cb: any) => {
-    if (file.mimetype === 'application/pdf') {
-      cb(null, true);
-    } else {
-      cb(new Error('Solo se permiten archivos PDF') as any);
-    }
-  },
-});
+app.use('/api/auth', authRouter);
+app.use('/api/users', usersRouter);
 
 // ─── Servir el build del frontend React ──────────────────────────────────────
 const frontendDist = path.join(__dirname, '../public');
@@ -267,7 +229,7 @@ app.get('/api/professionals/:id/reviews', async (req, res) => {
 /**
  * Upload Verification Document
  */
-app.post('/api/verification/upload', upload.single('constancia'), async (req, res) => {
+app.post('/api/verification/upload', uploadDoc.single('constancia'), async (req, res) => {
   try {
     const { professionalId, docType } = req.body;
     const file = (req as any).file; // Castear a any por diferencias entre multer y multerS3 types

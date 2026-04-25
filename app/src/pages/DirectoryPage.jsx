@@ -1,23 +1,67 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 
-const professionals = [
-  { 
-    id: 'prof-pamela-001', 
-    name: 'Pamela Osnaya', 
-    title: 'PSICÓLOGA CLÍNICA • PREMIUM', 
-    jobs: 85, 
-    exp: '10y', 
-    rating: 5.0, 
-    desc: 'Especialista en terapia de pareja, adolescentes y post-separación. Consulta presencial en CDMX y en línea. Sesiones personalizadas con enfoque cognitivo-conductual.', 
-    img: '/pamela.jpg', 
-    tier: 'premium'  
-  }
-];
+// Mapeo de categoría de backend → label legible
+const CATEGORY_MAP = {
+  'HEALTH_WELLNESS': 'Salud y Bienestar',
+  'LEGAL': 'Consultoría Legal',
+  'FINANCE_TAX': 'Contabilidad y Finanzas',
+  'IT_SECURITY': 'Tecnología y Desarrollo',
+  'ENGINEERING': 'Ingeniería',
+  'PLUMBING': 'Plomería',
+  'ELECTRICAL': 'Electricidad',
+  'HVAC': 'Climatización',
+  'GENERAL_MAINTENANCE': 'Mantenimiento General',
+};
+
+// Mapeo inverso para los filtros
+const FILTER_TO_CATEGORY = {
+  'Salud y Bienestar': 'HEALTH_WELLNESS',
+  'Consultoría Legal': 'LEGAL',
+  'Contabilidad y Finanzas': 'FINANCE_TAX',
+  'Tecnología y Desarrollo': 'IT_SECURITY',
+  'Ingeniería': 'ENGINEERING',
+  'Educación y Tutorías': 'GENERAL_MAINTENANCE',
+};
 
 export function DirectoryPage() {
+  const [searchParams] = useSearchParams();
+  const [professionals, setProfessionals] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState('');
+
+  // Leer query param de la URL (viene del Hero search)
+  const queryFromUrl = searchParams.get('q') || '';
+
+  useEffect(() => {
+    const fetchProfessionals = async () => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (queryFromUrl) params.set('q', queryFromUrl);
+        if (selectedCategory) params.set('category', selectedCategory);
+
+        const res = await fetch(`/api/professionals?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setProfessionals(data);
+        }
+      } catch (err) {
+        console.error('Error fetching professionals:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProfessionals();
+  }, [queryFromUrl, selectedCategory]);
+
+  const handleCategoryChange = (e) => {
+    const label = e.target.value;
+    setSelectedCategory(FILTER_TO_CATEGORY[label] || '');
+  };
+
   return (
     <>
       <NavbarIntecnia />
@@ -37,8 +81,12 @@ export function DirectoryPage() {
       <div className="container" style={{ padding: '0 1.5rem 1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>Psicólogos Clínicos Verificados</h1>
-            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>1 profesional verificado encontrado en tu área</p>
+            <h1 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>
+              {queryFromUrl ? `Resultados para "${queryFromUrl}"` : 'Profesionales Verificados'}
+            </h1>
+            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
+              {isLoading ? 'Buscando...' : `${professionals.length} profesional${professionals.length !== 1 ? 'es' : ''} verificado${professionals.length !== 1 ? 's' : ''} encontrado${professionals.length !== 1 ? 's' : ''}`}
+            </p>
           </div>
           <button className="btn btn-outline" style={{ fontSize: '0.8125rem' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>tune</span>
@@ -55,12 +103,13 @@ export function DirectoryPage() {
 
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>CATEGORÍA</label>
-            <select defaultValue="Salud y Bienestar" style={{ width: '100%', padding: '0.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--on-surface)' }}>
+            <select onChange={handleCategoryChange} defaultValue="" style={{ width: '100%', padding: '0.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--on-surface)' }}>
+              <option value="">Todas las categorías</option>
               <option>Salud y Bienestar</option>
               <option>Consultoría Legal</option>
               <option>Contabilidad y Finanzas</option>
               <option>Tecnología y Desarrollo</option>
-              <option>Diseño y Creatividad</option>
+              <option>Ingeniería</option>
               <option>Educación y Tutorías</option>
             </select>
           </div>
@@ -80,18 +129,6 @@ export function DirectoryPage() {
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', cursor: 'pointer' }}>
               <input type="radio" name="rating" style={{ accentColor: 'var(--secondary)' }} /> 4.0+ Estrellas
-            </label>
-          </div>
-
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>NIVEL DE VERIFICACIÓN</label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', marginBottom: '0.375rem', cursor: 'pointer' }}>
-              <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: 'var(--secondary)' }}>verified</span>
-              Premium <input type="checkbox" style={{ marginLeft: 'auto', accentColor: 'var(--secondary)' }} />
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', cursor: 'pointer' }}>
-              <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: 'var(--on-surface-variant)' }}>verified</span>
-              Standard <input type="checkbox" style={{ marginLeft: 'auto', accentColor: 'var(--secondary)' }} />
             </label>
           </div>
 
@@ -118,14 +155,31 @@ export function DirectoryPage() {
             </div>
           </div>
 
+          {/* Loading State */}
+          {isLoading && (
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--on-surface-variant)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '36px', animation: 'spin 1s linear infinite', display: 'block', marginBottom: '1rem' }}>progress_activity</span>
+              Cargando profesionales...
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && professionals.length === 0 && (
+            <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--on-surface-variant)', marginBottom: '1rem', display: 'block' }}>person_search</span>
+              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>No se encontraron profesionales</h3>
+              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>Intenta ajustar los filtros o buscar con otros términos.</p>
+            </div>
+          )}
+
           {/* Professional Cards Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '1.25rem' }}>
             {professionals.map(p => (
               <div key={p.id} className="pro-card" style={{ cursor: 'pointer' }}>
-                <Link to={`/intecnia-profile/${p.id}`} style={{ display: 'block', color: 'inherit' }}>
+                <Link to={`/intecnia-profile/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
                     <div style={{ position: 'relative' }}>
-                      <img src={p.img} alt={p.name} style={{ width: '3.5rem', height: '3.5rem', borderRadius: 'var(--radius-lg)', objectFit: 'cover' }} />
+                      <img src={p.avatarUrl || '/default-avatar.png'} alt={p.name} style={{ width: '3.5rem', height: '3.5rem', borderRadius: 'var(--radius-lg)', objectFit: 'cover', background: 'var(--surface-container)' }} />
                       <span className="material-symbols-outlined icon-filled" style={{ position: 'absolute', bottom: '-2px', right: '-2px', fontSize: '14px', color: 'var(--secondary)', background: 'var(--surface-container-lowest)', borderRadius: '50%', padding: '1px' }}>verified</span>
                     </div>
                     <div style={{ flex: 1 }}>
@@ -138,40 +192,33 @@ export function DirectoryPage() {
                       <p style={{ fontSize: '0.6875rem', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{p.title}</p>
                       <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check_circle</span> {p.jobs} Trabajos
+                          <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>star</span> {p.reviewCount} Reseñas
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>schedule</span> {p.exp} Exp.
+                          <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>category</span> {CATEGORY_MAP[p.category] || p.category}
                         </span>
                       </div>
                     </div>
                   </div>
-                  <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5, marginBottom: '1rem' }}>{p.desc}</p>
                   <div style={{ display: 'flex', gap: '0.75rem' }}>
                     <button className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem' }}>Mensaje</button>
-+                    <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem' }}>Contratar</button>
+                    <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem' }}>Ver Perfil</button>
                   </div>
                 </Link>
               </div>
             ))}
           </div>
-
-          {/* Pagination */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '2rem' }}>
-            {[1,2,3].map((n,i) => (
-              <button key={n} style={{ width: '2.25rem', height: '2.25rem', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: 500, background: i === 0 ? 'var(--primary)' : 'var(--surface-container-lowest)', color: i === 0 ? 'var(--on-primary)' : 'var(--on-surface)', boxShadow: i !== 0 ? 'var(--ambient-shadow)' : 'none' }}>
-                {n}
-              </button>
-            ))}
-            <span style={{ display: 'flex', alignItems: 'center', color: 'var(--on-surface-variant)' }}>...</span>
-            <button style={{ width: '2.25rem', height: '2.25rem', borderRadius: 'var(--radius-md)', background: 'var(--surface-container-lowest)', boxShadow: 'var(--ambient-shadow)' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_right</span>
-            </button>
-          </div>
         </div>
       </div>
 
       <Footer />
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </>
   );
 }

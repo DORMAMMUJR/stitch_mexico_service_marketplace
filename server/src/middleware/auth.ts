@@ -25,7 +25,11 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
   }
 
   try {
-    const payload = jwt.verify(token, env.JWT_PUBLIC_KEY as string, { algorithms: ['RS256'] }) as unknown as JwtPayload;
+    // FIX: Detectar la llave y el algoritmo dinámicamente como en el login
+    const key = (env.JWT_PUBLIC_KEY || env.JWT_PRIVATE_KEY || 'secret_fallback_key') as string;
+    const algorithms = key.includes('BEGIN') ? ['RS256'] : ['HS256'];
+    
+    const payload = jwt.verify(token, key, { algorithms: algorithms as any }) as unknown as JwtPayload;
     req.user = payload;
     next();
   } catch (err) {

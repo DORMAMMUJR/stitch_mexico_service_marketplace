@@ -4,6 +4,10 @@ import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 1. RUTAS ESTÁTICAS Y PROTEGIDAS PRIMERO (Regla de oro de Express)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 // GET /api/professionals/me/dashboard
 router.get('/me/dashboard', authenticate, async (req: any, res: any) => {
   try {
@@ -42,6 +46,195 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any) => {
     });
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/professionals/me (Perfil editable del profesional autenticado)
+router.get('/me', authenticate, async (req: any, res: any) => {
+  try {
+    const professional = await prisma.professional.findUnique({
+      where: { userId: req.user.userId },
+      include: { user: { select: { name: true, avatarUrl: true, email: true } } }
+    });
+    if (!professional) return res.status(404).json({ error: 'Perfil no encontrado' });
+    res.json(professional);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener perfil' });
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 2. DIRECTORIO DINÁMICO (Buscador real con filtros)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/professionals
+router.get('/', async (req, res) => {
+  try {
+    const { category, q } = req.query;
+
+    // Construir los filtros dinámicamente
+    const whereClause: any = {
+      isVerified: true, // Solo mostramos verificados en el directorio
+    };
+
+    if (category) {
+      whereClause.category = String(category);
+    }
+
+    if (q) {
+      const searchTerm = String(q);
+      whereClause.OR = [
+        { title: { contains: searchTerm, mode: 'insensitive' } },
+        { bio: { contains: searchTerm, mode: 'insensitive' } },
+        { user: { name: { contains: searchTerm, mode: 'insensitive' } } }
+      ];
+    }
+
+    const professionals = await prisma.professional.findMany({
+      where: whereClause,
+      include: {
+        user: { select: { name: true, avatarUrl: true } },
+        reviews: { select: { rating: true } }
+      },
+      take: 20 // Paginación básica
+    });
+
+    // Formatear la respuesta para el frontend
+    const formatted = professionals.map(p => {
+      const rating = p.reviews.length > 0
+        ? (p.reviews.reduce((acc, r) => acc + r.rating, 0) / p.reviews.length).toFixed(1)
+        : "5.0";
+
+      return {
+        id: p.id,
+        name: p.user.name,
+        avatarUrl: p.user.avatarUrl,
+        title: p.title,
+        category: p.category,
+        hourlyRate: p.hourlyRate,
+        rating: rating,
+        reviewCount: p.reviews.length
+      };
+    });
+
+    res.json(formatted);
+  } catch (error) {
+    console.error('Error fetching directory:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 3. RUTAS CON PARÁMETROS DINÁMICOS AL FINAL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/professionals/:id/reviews
+router.get('/:id/reviews', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const reviews = await prisma.review.findMany({
+      where: { professionalId: id },
+      include: {
+        author: {
+          select: { name: true, avatarUrl: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    const formatted = reviews.map(r => ({
+      id: r.id,
+      name: r.author.name,
+      avatarUrl: r.author.avatarUrl,
+      rating: r.rating,
+      comment: r.comment,
+      date: r.createdAt,
+    }));
+
+    res.json(formatted);
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/professionals/:id (Perfil Público)
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const clientId = req.query.clientId as string | undefined;
+
+    const professional = await prisma.professional.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        reviews: true,
+        orders: true,
+      },
+    });
+
+    if (!professional) {
+      return res.status(404).json({ message: 'Profesional no encontrado' });
+    }
+
+    const completedOrders = professional.orders.filter((o: any) => o.status === 'COMPLETADO');
+    const totalNonDraftOrders = professional.orders.filter(
+      (o: any) => !['DRAFT', 'CANCELADO'].includes(o.status)
+    );
+
+    const totalReviews = professional.reviews.length;
+    const avgRating = totalReviews > 0
+      ? professional.reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / totalReviews
+      : 5.0;
+
+    const yearsActive = Math.max(
+      1,
+      Math.floor((Date.now() - professional.createdAt.getTime()) / (1000 * 60 * 60 * 24 * 365))
+    );
+
+    const successRate = totalNonDraftOrders.length > 0
+      ? Math.round((completedOrders.length / totalNonDraftOrders.length) * 100)
+      : 98;
+
+    let phoneVisible: string | null = null;
+    if (clientId) {
+      const escrowOrder = await prisma.order.findFirst({
+        where: {
+          professionalId: id,
+          clientId,
+          status: {
+            in: ['FONDOS_EN_ESCROW', 'EN_PROGRESO', 'COMPLETADO', 'PAYOUT_INICIADO', 'PAYOUT_COMPLETADO'],
+          },
+        },
+      });
+      if (escrowOrder) {
+        phoneVisible = professional.user?.phone || null;
+      }
+    }
+
+    res.json({
+      id: professional.id,
+      name: professional.user?.name || 'Profesional Certificado',
+      phone: phoneVisible,
+      avatarUrl: professional.user?.avatarUrl,
+      title: professional.title,
+      bio: professional.bio,
+      isVerified: professional.isVerified,
+      biometricDone: professional.biometricDone,
+      satVerifiedAt: professional.satVerifiedAt,
+      yearsExp: `${yearsActive}+`,
+      projectsCount: `${completedOrders.length}`,
+      successRate: `${successRate}%`,
+      rating: avgRating.toFixed(1),
+      reviewCount: totalReviews,
+    });
+  } catch (error) {
+    console.error('Error fetching professional:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });

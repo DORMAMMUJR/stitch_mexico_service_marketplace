@@ -1,16 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Footer } from '../components/Footer';
 
 export function VerificationPage() {
-  const [file, setFile] = React.useState(null);
-  const [uploadState, setUploadState] = React.useState('idle'); // idle | uploading | success | error
-  const [uploadResult, setUploadResult] = React.useState(null);
-  const [uploadError, setUploadError] = React.useState('');
-  const fileInputRef = React.useRef(null);
+  const [file, setFile] = useState(null);
+  const [uploadState, setUploadState] = useState('idle'); // idle | uploading | success | error
+  const [uploadResult, setUploadResult] = useState(null);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef(null);
 
-  // TODO: En producción, obtener del JWT / contexto de auth
-  const professionalId = 'prof-pamela-001';
+  // FIX: Estado para el ID real
+  const [professionalId, setProfessionalId] = useState(null);
+
+  // FIX: Cargar el perfil del profesional al montar el componente
+  useEffect(() => {
+    const fetchMyProfile = async () => {
+      const token = localStorage.getItem('token'); // Asumiendo que el JWT está aquí
+      if (!token) return;
+      
+      try {
+        const response = await fetch('/api/professionals/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setProfessionalId(data.id);
+        }
+      } catch (err) {
+        console.error("Error cargando perfil:", err);
+      }
+    };
+    fetchMyProfile();
+  }, []);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -36,6 +57,12 @@ export function VerificationPage() {
   const handleUpload = async () => {
     if (!file) return;
 
+    // FIX: Validar que ya tengamos el ID real
+    if (!professionalId) {
+      setUploadError('No se pudo identificar tu perfil. Inicia sesión nuevamente.');
+      return;
+    }
+
     setUploadState('uploading');
     setUploadError('');
 
@@ -45,8 +72,11 @@ export function VerificationPage() {
       formData.append('professionalId', professionalId);
       formData.append('docType', 'SAT_CONSTANCIA');
 
+      const token = localStorage.getItem('token'); // Token para la subida
+
       const response = await fetch('/api/verification/upload', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }, // Enviar Auth al subir
         body: formData,
         // No Content-Type header — browser sets multipart boundary automatically
       });

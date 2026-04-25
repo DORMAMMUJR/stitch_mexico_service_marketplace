@@ -9,6 +9,7 @@ import { S3Client } from '@aws-sdk/client-s3';
 import Stripe from 'stripe';
 import { prisma } from './lib/db';
 import { EscrowStateMachine } from './lib/escrow'; // Asumiendo que está exportado así
+import { authenticate } from './middleware/auth';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
@@ -89,6 +90,7 @@ import { authRouter } from './routes/auth';
 import { usersRouter } from './routes/users';
 import { appointmentsRouter } from './routes/appointments';
 import { professionalsRouter } from './routes/professionals';
+import { ordersRouter } from './routes/orders';
 import { uploadDoc } from './lib/upload';
 
 // ─── Servir archivos subidos localmente ──────────────────────────────────────
@@ -102,6 +104,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/appointments', appointmentsRouter);
 app.use('/api/professionals', professionalsRouter);
+app.use('/api/orders', ordersRouter);
 
 // ─── Servir el build del frontend React ──────────────────────────────────────
 const frontendDist = path.join(__dirname, '../public');
@@ -117,118 +120,7 @@ app.get('/health', async (req, res) => {
   }
 });
 
-/**
- * Get Professional Profile
- * GET /api/professionals/:id
- */
-app.get('/api/professionals/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const clientId = req.query.clientId as string | undefined;
 
-    const professional = await prisma.professional.findUnique({
-      where: { id },
-      include: {
-        user: true,
-        reviews: true,
-        orders: true,
-      },
-    });
-
-    if (!professional) {
-      return res.status(404).json({ message: 'Profesional no encontrado' });
-    }
-
-    const completedOrders = professional.orders.filter((o: any) => o.status === 'COMPLETADO');
-    const totalNonDraftOrders = professional.orders.filter(
-      (o: any) => !['DRAFT', 'CANCELADO'].includes(o.status)
-    );
-
-    const totalReviews = professional.reviews.length;
-    const avgRating = totalReviews > 0
-      ? professional.reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / totalReviews
-      : 5.0;
-
-    const yearsActive = Math.max(
-      1,
-      Math.floor((Date.now() - professional.createdAt.getTime()) / (1000 * 60 * 60 * 24 * 365))
-    );
-
-    const successRate = totalNonDraftOrders.length > 0
-      ? Math.round((completedOrders.length / totalNonDraftOrders.length) * 100)
-      : 98;
-
-    let phoneVisible: string | null = null;
-    if (clientId) {
-      const escrowOrder = await prisma.order.findFirst({
-        where: {
-          professionalId: id,
-          clientId,
-          status: {
-            in: ['FONDOS_EN_ESCROW', 'EN_PROGRESO', 'COMPLETADO', 'PAYOUT_INICIADO', 'PAYOUT_COMPLETADO'],
-          },
-        },
-      });
-      if (escrowOrder) {
-        phoneVisible = professional.user?.phone || null;
-      }
-    }
-
-    res.json({
-      id: professional.id,
-      name: professional.user?.name || 'Profesional Certificado',
-      phone: phoneVisible,
-      avatarUrl: professional.user?.avatarUrl,
-      title: professional.title,
-      bio: professional.bio,
-      isVerified: professional.isVerified,
-      biometricDone: professional.biometricDone,
-      satVerifiedAt: professional.satVerifiedAt,
-      yearsExp: `${yearsActive}+`,
-      projectsCount: `${completedOrders.length}`,
-      successRate: `${successRate}%`,
-      rating: avgRating.toFixed(1),
-      reviewCount: totalReviews,
-    });
-  } catch (error) {
-    console.error('Error fetching professional:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-/**
- * Get Reviews for a Professional
- */
-app.get('/api/professionals/:id/reviews', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const reviews = await prisma.review.findMany({
-      where: { professionalId: id },
-      include: {
-        author: {
-          select: { name: true, avatarUrl: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-    });
-
-    const formatted = reviews.map(r => ({
-      id: r.id,
-      name: r.author.name,
-      avatarUrl: r.author.avatarUrl,
-      rating: r.rating,
-      comment: r.comment,
-      date: r.createdAt,
-    }));
-
-    res.json(formatted);
-  } catch (error) {
-    console.error('Error fetching reviews:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
 
 /**
  * Upload Verification Document
@@ -275,46 +167,46 @@ app.post('/api/verification/upload', uploadDoc.single('constancia'), async (req,
   }
 });
 
+
+
 /**
  * Admin Panel: Approve Verification Document
  * PATCH /api/admin/verifications/:id/approve
  */
-app.patch('/api/admin/verifications/:id/approve', async (req, res) => {
+// FIX: Middleware authenticate añadido
+app.patch('/api/admin/verifications/:id/approve', authenticate, async (req, res) => {
   try {
-    const { id } = req.params;
-    const { adminId } = req.body; // En prod, vendría del req.user JWT validado
+    const user = (req as any).user;
+    
+    // FIX: Validación estricta de Rol
+    if (user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
+    }
 
-    // Iniciar transacción atómica
+    const { id } = req.params;
+    const adminId = user.userId; 
+
     const result = await prisma.$transaction(async (tx: any) => {
-      // 1. Aprobar el documento
       const doc = await tx.verificationDocument.update({
         where: { id },
         data: {
           status: 'APPROVED',
-          reviewedBy: adminId || 'admin-system',
+          reviewedBy: adminId,
           reviewedAt: new Date(),
         },
       });
 
-      // 2. Verificar si el profesional ya cumple con todo (ej: tiene SAT_CONSTANCIA aprobada)
-      // En un flujo real, revisarías todos los docs obligatorios. Por ahora, si se aprueba el SAT, se verifica.
       if (doc.type === 'SAT_CONSTANCIA') {
         await tx.professional.update({
           where: { id: doc.professionalId },
-          data: {
-            isVerified: true,
-            verificationStatus: 'APPROVED',
-            satVerifiedAt: new Date(),
-          },
+          data: { isVerified: true, verificationStatus: 'APPROVED', satVerifiedAt: new Date() },
         });
       }
-
       return doc;
     });
 
     res.json({ message: 'Documento aprobado exitosamente', document: result });
   } catch (error) {
-    console.error('Error approving document:', error);
     res.status(500).json({ error: 'Error interno al aprobar documento' });
   }
 });
@@ -432,6 +324,14 @@ Mantén respuestas cortas.`;
 app.get('*', (req, res) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
+
+// ─── Automatización: Liberación de Fondos en Escrow (72 hrs) ────────────────
+setInterval(() => {
+  console.log('⏳ Ejecutando revisión de Escrow Automático...');
+  EscrowStateMachine.processAutoReleases()
+    .then(() => console.log('✅ Revisión de Escrow completada.'))
+    .catch(err => console.error('❌ Error en cron de Escrow:', err));
+}, 60 * 60 * 1000); // Se ejecuta cada hora (1 hora en milisegundos)
 
 app.listen(port, () => {
   console.log(`🚀 Intecnia corriendo en http://localhost:${port}`);

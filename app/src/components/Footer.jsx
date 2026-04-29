@@ -11,9 +11,9 @@ export function Footer() {
           <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8125rem', marginLeft: '0.5rem' }}>© 2026 Todos los derechos reservados</span>
         </div>
         <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8125rem' }}>
-          <Link to="#" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Privacidad</Link>
-          <Link to="#" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Términos</Link>
-          <Link to="#" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Soporte</Link>
+          <Link to="/privacy" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Privacidad</Link>
+          <Link to="/terms" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Términos</Link>
+          <Link to="/support" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Soporte</Link>
         </div>
       </div>
     </footer>

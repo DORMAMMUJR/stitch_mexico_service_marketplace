@@ -154,7 +154,7 @@ export function RegisterPage() {
               )}
             </button>
             <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', textAlign: 'center', lineHeight: 1.5 }}>
-              Al registrarte aceptas nuestros <Link to="#" style={{ color: 'var(--secondary)' }}>Términos de Servicio</Link> y <Link to="#" style={{ color: 'var(--secondary)' }}>Aviso de Privacidad</Link>.
+              Al registrarte aceptas nuestros <Link to="/terms" style={{ color: 'var(--secondary)' }}>Términos de Servicio</Link> y <Link to="/privacy" style={{ color: 'var(--secondary)' }}>Aviso de Privacidad</Link>.
             </p>
           </form>
 

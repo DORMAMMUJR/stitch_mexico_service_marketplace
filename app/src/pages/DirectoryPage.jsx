@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
+import { useToast } from '../components/ToastContext';
 
 // Mapeo de categoría de backend → label legible
 const CATEGORY_MAP = {
@@ -31,6 +32,7 @@ export function DirectoryPage() {
   const [professionals, setProfessionals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const { showToast } = useToast();
 
   // Leer query param de la URL (viene del Hero search)
   const queryFromUrl = searchParams.get('q') || '';
@@ -88,7 +90,7 @@ export function DirectoryPage() {
               {isLoading ? 'Buscando...' : `${professionals.length} profesional${professionals.length !== 1 ? 'es' : ''} verificado${professionals.length !== 1 ? 's' : ''} encontrado${professionals.length !== 1 ? 's' : ''}`}
             </p>
           </div>
-          <button className="btn btn-outline" style={{ fontSize: '0.8125rem' }}>
+          <button onClick={(e) => { e.preventDefault(); showToast('Ordenando por recomendaciones...', 'info'); }} className="btn btn-outline" style={{ fontSize: '0.8125rem' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>tune</span>
             Ordenar por: Recomendado
           </button>
@@ -141,7 +143,7 @@ export function DirectoryPage() {
             </div>
           </div>
 
-          <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Aplicar Filtros</button>
+          <button onClick={(e) => { e.preventDefault(); showToast('Filtros aplicados correctamente', 'success'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Aplicar Filtros</button>
         </aside>
 
         {/* Results */}
@@ -201,7 +203,7 @@ export function DirectoryPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem' }}>Mensaje</button>
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); showToast(`Iniciando chat con ${p.name}...`, 'info'); }} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem' }}>Mensaje</button>
                     <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem' }}>Ver Perfil</button>
                   </div>
                 </Link>

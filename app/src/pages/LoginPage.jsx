@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../components/ToastContext';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -10,6 +11,16 @@ export function LoginPage() {
   
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { showToast } = useToast();
+
+  const handleForgotPassword = (e) => {
+    e.preventDefault();
+    if (!email) {
+      showToast('Por favor, ingresa tu correo electrónico para recuperar la contraseña.', 'info');
+      return;
+    }
+    showToast(`Se ha enviado un enlace de recuperación a ${email}`, 'success');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -82,7 +93,7 @@ export function LoginPage() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                 <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contraseña</label>
-                <Link to="#" style={{ fontSize: '0.8125rem', color: 'var(--secondary)', textDecoration: 'none', fontWeight: 500 }}>¿Olvidaste tu contraseña?</Link>
+                <a href="#" onClick={handleForgotPassword} style={{ fontSize: '0.8125rem', color: 'var(--secondary)', textDecoration: 'none', fontWeight: 500, cursor: 'pointer' }}>¿Olvidaste tu contraseña?</a>
               </div>
               <input 
                 type="password" 

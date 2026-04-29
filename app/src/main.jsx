@@ -13,7 +13,11 @@ import { VerificationPage } from './pages/VerificationPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminPanel } from './pages/AdminPanel';
+import { TermsPage } from './pages/TermsPage';
+import { PrivacyPage } from './pages/PrivacyPage';
+import { SupportPage } from './pages/SupportPage';
 import { AuthProvider } from './hooks/useAuth';
+import { ToastProvider } from './components/ToastContext';
 
 import './style.css';
 
@@ -30,8 +34,9 @@ ReactDOM.createRoot(document.getElementById('app')).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
+        <ToastProvider>
+          <BrowserRouter>
+            <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/" element={<HomePage />} />
@@ -43,6 +48,9 @@ ReactDOM.createRoot(document.getElementById('app')).render(
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/verification" element={<VerificationPage />} />
             <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/support" element={<SupportPage />} />
 
             {/* Ruta 404 */}
             <Route path="*" element={
@@ -52,8 +60,9 @@ ReactDOM.createRoot(document.getElementById('app')).render(
                 <a href="/" style={{ color: 'var(--secondary)', fontWeight: 600 }}>← Volver al inicio</a>
               </div>
             } />
-          </Routes>
-        </BrowserRouter>
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
       </AuthProvider>
     </QueryClientProvider>
   </React.StrictMode>

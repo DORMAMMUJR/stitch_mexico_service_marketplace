@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useToast } from '../components/ToastContext';
 
 export function DashboardPage() {
   const [data, setData] = useState(null);
@@ -11,6 +12,8 @@ export function DashboardPage() {
     title: '', category: '', bio: '', hourlyRate: ''
   });
   const [updateStatus, setUpdateStatus] = useState('');
+  const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   const defaultAvailabilities = DAYS.map((day, i) => ({
@@ -165,19 +168,25 @@ export function DashboardPage() {
           <button onClick={() => setActiveTab('profile')} className={`sidebar-link ${activeTab === 'profile' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>person</span> Ajustes de Perfil
           </button>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>insights</span> Estadísticas</Link>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>forum</span> Mensajes</Link>
-          <Link to="#" className="sidebar-link"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>account_balance_wallet</span> Finanzas</Link>
+          <button onClick={() => setActiveTab('stats')} className={`sidebar-link ${activeTab === 'stats' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>insights</span> Estadísticas
+          </button>
+          <button onClick={() => setActiveTab('messages')} className={`sidebar-link ${activeTab === 'messages' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>forum</span> Mensajes
+          </button>
+          <button onClick={() => setActiveTab('finance')} className={`sidebar-link ${activeTab === 'finance' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>account_balance_wallet</span> Finanzas
+          </button>
         </nav>
 
         <div style={{ marginTop: 'auto' }}>
           <div style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-xl)', padding: '1.25rem', textAlign: 'center', marginBottom: '1rem' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '24px', color: 'var(--tertiary-container)', marginBottom: '0.5rem', display: 'block' }}>workspace_premium</span>
             <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>Desbloquea estadísticas avanzadas.</p>
-+            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem' }}>Hacerse Premium</button>
++            <button onClick={(e) => { e.preventDefault(); showToast('Funcionalidad Premium en desarrollo', 'info'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem' }}>Hacerse Premium</button>
           </div>
           <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <Link to="#" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>help</span> Centro de Ayuda</Link>
+            <Link to="/support" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>help</span> Centro de Ayuda</Link>
 +            <Link to="/" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span> Cerrar Sesión</Link>
           </div>
         </div>
@@ -192,8 +201,8 @@ export function DashboardPage() {
             <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Rendimiento</h1>
           </div>
           <div className="dashboard-header-actions hide-mobile">
-            <button className="btn btn-outline"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>calendar_today</span> Últimos 30 Días</button>
-            <button className="btn btn-secondary"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span> Exportar</button>
+            <button onClick={(e) => { e.preventDefault(); showToast('Mostrando últimos 30 días', 'info'); }} className="btn btn-outline"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>calendar_today</span> Últimos 30 Días</button>
+            <button onClick={(e) => { e.preventDefault(); showToast('Exportando datos en formato CSV...', 'success'); }} className="btn btn-secondary"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span> Exportar</button>
           </div>
         </header>
 
@@ -250,9 +259,9 @@ export function DashboardPage() {
                 <p style={{ color: 'var(--primary-fixed-dim)', lineHeight: 1.6, maxWidth: '450px', marginBottom: '1rem' }}>
                   Tu asistente inteligente está gestionando activamente consultas iniciales, calificando prospectos y agendando consultas mientras tú te enfocas en el trabajo.
                 </p>
-                <Link to="#" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--secondary-container)', textDecoration: 'none' }}>
+                <a href="#" onClick={(e) => { e.preventDefault(); showToast('Configuración del bot en desarrollo', 'info'); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--secondary-container)', textDecoration: 'none' }}>
                   Configurar Parámetros del Bot <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_forward</span>
-                </Link>
+                </a>
               </div>
               <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-2xl)', padding: '1.5rem', minWidth: '160px', textAlign: 'center' }}>
@@ -430,6 +439,14 @@ export function DashboardPage() {
                 Guardar Cambios
               </button>
             </form>
+          </div>
+        )}
+
+        {(activeTab === 'stats' || activeTab === 'messages' || activeTab === 'finance') && (
+          <div className="card" style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', marginBottom: '1rem' }}>build_circle</span>
+            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>Módulo en Construcción</h2>
+            <p style={{ color: 'var(--on-surface-variant)', maxWidth: '400px' }}>Estamos trabajando arduamente para traerte esta funcionalidad muy pronto. ¡Mantente al tanto!</p>
           </div>
         )}
       </main>

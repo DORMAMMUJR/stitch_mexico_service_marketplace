@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 import { TrustBar } from '../components/TrustBar';
+import { useToast } from '../components/ToastContext';
 
 export function CategoriesPage() {
   const categories = [
@@ -11,6 +12,14 @@ export function CategoriesPage() {
     { id: 3, icon: 'school', name: 'Educación', desc: 'Tutorías académicas, capacitación corporativa y enseñanza de idiomas certificados.', count: '642 Expertos', color: 'var(--secondary)' },
     { id: 4, icon: 'gavel', name: 'Legal y Fiscal', desc: 'Asesoría jurídica, contabilidad y cumplimiento fiscal para personas físicas y morales.', count: '420 Expertos', color: 'var(--secondary)' },
   ];
+
+  const [viewMode, setViewMode] = useState('grid');
+  const { showToast } = useToast();
+
+  const handleViewChange = (mode) => {
+    setViewMode(mode);
+    showToast(`Vista cambiada a ${mode === 'grid' ? 'Cuadrícula' : 'Lista'}`, 'info');
+  };
 
   return (
     <>
@@ -46,8 +55,20 @@ export function CategoriesPage() {
             <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>Soluciones profesionales segmentadas por especialidad técnica y académica.</p>
           </div>
           <div style={{ display: 'flex', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--outline-variant)' }}>
-            <button className="active-toggle" style={{ padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 500, background: 'var(--surface-container-lowest)', color: 'var(--on-surface)' }}>Cuadrícula</button>
-            <button style={{ padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 500, background: 'transparent', color: 'var(--on-surface-variant)' }}>Lista</button>
+            <button 
+              onClick={() => handleViewChange('grid')} 
+              className={viewMode === 'grid' ? "active-toggle" : ""} 
+              style={{ padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 500, background: viewMode === 'grid' ? 'var(--surface-container-lowest)' : 'transparent', color: viewMode === 'grid' ? 'var(--on-surface)' : 'var(--on-surface-variant)', border: 'none', cursor: 'pointer' }}
+            >
+              Cuadrícula
+            </button>
+            <button 
+              onClick={() => handleViewChange('list')} 
+              className={viewMode === 'list' ? "active-toggle" : ""} 
+              style={{ padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 500, background: viewMode === 'list' ? 'var(--surface-container-lowest)' : 'transparent', color: viewMode === 'list' ? 'var(--on-surface)' : 'var(--on-surface-variant)', border: 'none', cursor: 'pointer' }}
+            >
+              Lista
+            </button>
           </div>
         </div>
 

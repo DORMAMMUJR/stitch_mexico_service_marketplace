@@ -38,4 +38,26 @@ router.post('/avatar', authenticate, uploadImage.single('avatar'), async (req: a
   }
 });
 
+// Endpoint: GET /api/users/me/notifications
+// Obtener notificaciones del usuario autenticado
+router.get('/me/notifications', authenticate, async (req: any, res: any) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'No autenticado' });
+    }
+
+    const notifications = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 20 // Limitar a las 20 más recientes por ahora
+    });
+
+    res.json(notifications);
+  } catch (error: any) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ error: 'Error al obtener notificaciones' });
+  }
+});
+
 export { router as usersRouter };

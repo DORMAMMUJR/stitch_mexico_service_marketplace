@@ -9,12 +9,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   
-  // Notificaciones con datos de demo precargados
-  const DEMO_NOTIFICATIONS = [
-    { id: 'n1', title: 'Bienvenido a Intecnia', message: 'Tu perfil está listo. Completa tu información para aparecer en el directorio.', type: 'info', date: 'Hace 5 minutos' },
-    { id: 'n2', title: 'Verificación Pendiente', message: 'Sube tu Constancia SAT para obtener el distintivo de Profesional Verificado.', type: 'warning', date: 'Hace 1 hora' },
-  ];
-  const [notifications, setNotifications] = useState(DEMO_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState([]);
 
   const [profileForm, setProfileForm] = useState({
     title: '', category: 'HEALTH_WELLNESS', bio: '', hourlyRate: ''
@@ -85,8 +80,13 @@ export function DashboardPage() {
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => []);
 
-    Promise.all([fetchDashboard, fetchAppointments, fetchProfile, fetchAvailability])
-    .then(([dashboardJson, appointmentsJson, profileJson, availabilityJson]) => {
+    // Fetch Notifications
+    const fetchNotifications = fetch('/api/users/me/notifications', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(res => res.json()).catch(() => []);
+
+    Promise.all([fetchDashboard, fetchAppointments, fetchProfile, fetchAvailability, fetchNotifications])
+    .then(([dashboardJson, appointmentsJson, profileJson, availabilityJson, notificationsJson]) => {
       if (dashboardJson.user) {
         setData(dashboardJson);
       } else {
@@ -123,6 +123,9 @@ export function DashboardPage() {
       } else if (Array.isArray(availabilityJson) && availabilityJson.length === 0 && dashboardJson.user) {
         const allInactive = defaultAvailabilities.map(def => ({ ...def, active: false }));
         setAvailabilities(allInactive);
+      }
+      if (Array.isArray(notificationsJson)) {
+        setNotifications(notificationsJson);
       }
     })
     .catch(console.error)
@@ -247,6 +250,10 @@ export function DashboardPage() {
           <button onClick={() => setActiveTab('stats')} className={`sidebar-link ${activeTab === 'stats' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>insights</span> Estadísticas
           </button>
+          <button onClick={() => setActiveTab('notifications')} className={`sidebar-link ${activeTab === 'notifications' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>notifications</span> Notificaciones</span>
+            {notifications.length > 0 && <span style={{ background: 'var(--error)', color: 'white', fontSize: '0.625rem', fontWeight: 700, padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-full)' }}>{notifications.length}</span>}
+          </button>
           <button onClick={() => setActiveTab('messages')} className={`sidebar-link ${activeTab === 'messages' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>forum</span> Mensajes
           </button>
@@ -360,7 +367,11 @@ export function DashboardPage() {
           <div className="card" style={{ padding: '2rem' }}>
             <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Próximas Citas</h2>
             {appointments.length === 0 ? (
-              <p style={{ color: 'var(--on-surface-variant)' }}>No tienes citas agendadas todavía.</p>
+              <div style={{ padding: '3rem', textAlign: 'center', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--outline-variant)' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>event_busy</span>
+                <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>No tienes citas agendadas</h3>
+                <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Tus próximas sesiones aparecerán aquí.</p>
+              </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {appointments.map(app => (
@@ -373,6 +384,38 @@ export function DashboardPage() {
                       </div>
                     </div>
                     <span className={`badge ${app.status === 'SCHEDULED' ? 'badge-blue' : ''}`}>{app.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'notifications' && (
+          <div className="card" style={{ padding: '2rem' }}>
+            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Notificaciones</h2>
+            {notifications.length === 0 ? (
+              <div style={{ padding: '3rem', textAlign: 'center', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--outline-variant)' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>notifications_off</span>
+                <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>Estás al día</h3>
+                <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>No tienes nuevas notificaciones por el momento.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {notifications.map(notif => (
+                  <div key={notif.id} style={{ padding: '1.25rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', display: 'flex', gap: '1rem' }}>
+                    <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '50%', background: notif.type === 'WARNING' || notif.type === 'warning' ? '#fef3c7' : 'var(--secondary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: notif.type === 'WARNING' || notif.type === 'warning' ? '#d97706' : 'var(--secondary)' }}>
+                        {notif.type === 'WARNING' || notif.type === 'warning' ? 'warning' : 'info'}
+                      </span>
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                        <h4 style={{ fontWeight: 600, fontSize: '0.9375rem', color: 'var(--primary)' }}>{notif.title}</h4>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{new Date(notif.createdAt || new Date()).toLocaleDateString('es-MX')}</span>
+                      </div>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{notif.body || notif.message}</p>
+                    </div>
                   </div>
                 ))}
               </div>

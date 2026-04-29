@@ -32,10 +32,10 @@ export function NavbarIntecnia({ activePage }) {
               <Link to="/dashboard" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
                 Dashboard
               </Link>
-              <button style={{ padding: '0.5rem', color: 'var(--on-surface-variant)', border: 'none', background: 'transparent', position: 'relative' }}>
+              <Link to="/dashboard?tab=notifications" style={{ padding: '0.5rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center', position: 'relative', textDecoration: 'none' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>notifications</span>
-                <span style={{ position: 'absolute', top: '6px', right: '6px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--secondary)', border: '2px solid var(--surface-container-lowest)' }}></span>
-              </button>
+                <span style={{ position: 'absolute', top: '6px', right: '6px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--error)', border: '2px solid var(--surface-container-lowest)' }}></span>
+              </Link>
               <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem', borderLeft: '1px solid var(--outline-variant)', paddingLeft: '1rem' }}>
                 <div style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: 'var(--secondary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-secondary-container)', fontWeight: 600, fontSize: '0.8125rem' }}>
                   {user?.name?.charAt(0) || 'U'}

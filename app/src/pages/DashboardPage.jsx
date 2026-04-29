@@ -7,8 +7,22 @@ export function DashboardPage() {
   const [data, setData] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
   
+  const location = window.location;
+  
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('tab') || 'overview';
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab && tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [window.location.search]);
+
   const [notifications, setNotifications] = useState([]);
 
   const [profileForm, setProfileForm] = useState({

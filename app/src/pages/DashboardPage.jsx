@@ -12,7 +12,6 @@ export function DashboardPage() {
   const [profileForm, setProfileForm] = useState({
     title: '', category: '', bio: '', hourlyRate: ''
   });
-  const [updateStatus, setUpdateStatus] = useState('');
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -92,7 +91,7 @@ export function DashboardPage() {
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    setUpdateStatus('Guardando...');
+    showToast('Guardando perfil...', 'info');
     
     try {
       const token = localStorage.getItem('token');
@@ -106,18 +105,17 @@ export function DashboardPage() {
       });
 
       if (res.ok) {
-        setUpdateStatus('¡Perfil actualizado con éxito!');
-        setTimeout(() => setUpdateStatus(''), 3000);
+        showToast('¡Perfil público actualizado con éxito!', 'success');
       } else {
-        setUpdateStatus('Error al guardar los cambios.');
+        showToast('Error al guardar los cambios. Intenta de nuevo.', 'error');
       }
     } catch (error) {
-      setUpdateStatus('Error de conexión.');
+      showToast('Error de conexión con el servidor.', 'error');
     }
   };
 
   const handleUpdateAvailability = async () => {
-    setAvailStatus('Guardando...');
+    showToast('Guardando horarios...', 'info');
     const token = localStorage.getItem('token');
     const toSave = availabilities.filter(a => a.active).map(a => ({
       dayOfWeek: a.dayOfWeek,
@@ -132,18 +130,33 @@ export function DashboardPage() {
         body: JSON.stringify({ availabilities: toSave })
       });
       if (res.ok) {
-        setAvailStatus('¡Horarios actualizados!');
-        setTimeout(() => setAvailStatus(''), 3000);
+        showToast('¡Horarios actualizados correctamente!', 'success');
       } else {
-        setAvailStatus('Error al guardar.');
+        showToast('Error al guardar los horarios.', 'error');
       }
     } catch (error) {
-      setAvailStatus('Error de conexión.');
+      showToast('Error de conexión con el servidor.', 'error');
     }
   };
 
-  if (loading) return <div style={{ padding: '2rem' }}>Cargando tablero...</div>;
-  if (!data) return <div style={{ padding: '2rem' }}>No autorizado. Inicia sesión como profesional.</div>;
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
+      <div style={{ textAlign: 'center' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', animation: 'spin 1s linear infinite', display: 'block', marginBottom: '1rem' }}>progress_activity</span>
+        <p style={{ color: 'var(--on-surface-variant)', fontFamily: 'Manrope', fontWeight: 500 }}>Cargando tu tablero...</p>
+      </div>
+    </div>
+  );
+  if (!data) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
+      <div className="card" style={{ padding: '3rem', textAlign: 'center', maxWidth: '400px' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '48px', color: '#dc2626', marginBottom: '1rem', display: 'block' }}>lock</span>
+        <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Acceso Restringido</h2>
+        <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem', fontSize: '0.9375rem' }}>Esta sección es exclusiva para profesionales verificados. Inicia sesión para continuar.</p>
+        <a href="/login" className="btn btn-primary" style={{ display: 'inline-flex', justifyContent: 'center' }}>Iniciar Sesión</a>
+      </div>
+    </div>
+  );
 
   const { user } = data;
 

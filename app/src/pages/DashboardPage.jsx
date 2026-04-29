@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContext';
+import { useAuth } from '../hooks/useAuth';
 
 export function DashboardPage() {
   const [data, setData] = useState(null);
@@ -14,6 +15,12 @@ export function DashboardPage() {
   const [updateStatus, setUpdateStatus] = useState('');
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   const defaultAvailabilities = DAYS.map((day, i) => ({
@@ -183,11 +190,11 @@ export function DashboardPage() {
           <div style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-xl)', padding: '1.25rem', textAlign: 'center', marginBottom: '1rem' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '24px', color: 'var(--tertiary-container)', marginBottom: '0.5rem', display: 'block' }}>workspace_premium</span>
             <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>Desbloquea estadísticas avanzadas.</p>
-+            <button onClick={(e) => { e.preventDefault(); showToast('Funcionalidad Premium en desarrollo', 'info'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem' }}>Hacerse Premium</button>
+            <button onClick={(e) => { e.preventDefault(); showToast('Funcionalidad Premium en desarrollo', 'info'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem' }}>Hacerse Premium</button>
           </div>
           <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <Link to="/support" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>help</span> Centro de Ayuda</Link>
-+            <Link to="/" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span> Cerrar Sesión</Link>
+            <button onClick={handleLogout} className="sidebar-link" style={{ fontSize: '0.8125rem', border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span> Cerrar Sesión</button>
           </div>
         </div>
       </aside>

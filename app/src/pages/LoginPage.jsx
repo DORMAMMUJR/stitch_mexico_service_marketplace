@@ -13,13 +13,29 @@ export function LoginPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const handleForgotPassword = (e) => {
+  const handleForgotPassword = async (e) => {
     e.preventDefault();
     if (!email) {
       showToast('Por favor, ingresa tu correo electrónico para recuperar la contraseña.', 'info');
       return;
     }
-    showToast(`Se ha enviado un enlace de recuperación a ${email}`, 'success');
+    
+    try {
+      showToast(`Enviando solicitud para ${email}...`, 'info');
+      const res = await fetch('/api/auth/reset-password-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      
+      if (res.ok) {
+        showToast(`Se ha enviado un enlace de recuperación a ${email}`, 'success');
+      } else {
+        throw new Error('No se pudo enviar la solicitud');
+      }
+    } catch (err) {
+      showToast('Hubo un error al procesar tu solicitud', 'error');
+    }
   };
 
   const handleSubmit = async (e) => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Footer } from '../components/Footer';
 import { useToast } from '../components/ToastContext';
 
@@ -13,6 +13,7 @@ export function VerificationPage() {
   // FIX: Estado para el ID real
   const [professionalId, setProfessionalId] = useState(null);
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   // FIX: Cargar el perfil del profesional al montar el componente
   useEffect(() => {
@@ -315,14 +316,14 @@ export function VerificationPage() {
 
         {/* Bottom Actions */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
-          <a href="#" onClick={(e) => { e.preventDefault(); showToast('Progreso guardado localmente', 'success'); }} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--on-surface-variant)', fontSize: '0.875rem', textDecoration: 'none' }}>
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate('/dashboard'); showToast('Progreso guardado localmente', 'success'); }} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--on-surface-variant)', fontSize: '0.875rem', textDecoration: 'none' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span> Guardar y continuar más tarde
           </a>
           <button 
             className="btn btn-primary" 
             style={{ padding: '0.75rem 2rem', borderRadius: 'var(--radius-lg)', fontSize: '0.9375rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-            onClick={handleUpload}
-            disabled={!file || uploadState === 'uploading' || uploadState === 'success'}
+            onClick={uploadState === 'success' ? () => navigate('/dashboard') : handleUpload}
+            disabled={!file || uploadState === 'uploading'}
           >
             {uploadState === 'uploading' ? (
               <>
@@ -331,8 +332,7 @@ export function VerificationPage() {
               </>
             ) : uploadState === 'success' ? (
               <>
-                <span className="material-symbols-outlined icon-filled" style={{ fontSize: '18px' }}>check_circle</span>
-                Enviado
+                Entrar al Dashboard <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
               </>
             ) : (
               <>

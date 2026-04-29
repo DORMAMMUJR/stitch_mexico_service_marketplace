@@ -113,4 +113,38 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
+// Endpoint: POST /api/auth/reset-password-request
+router.post('/reset-password-request', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email es requerido' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // Por seguridad, no revelamos si el correo existe o no
+      return res.json({ message: 'Si el correo existe, se enviará un enlace de recuperación.' });
+    }
+
+    // Generar un token de reseteo temporal
+    const resetToken = jwt.sign(
+      { userId: user.id, intent: 'reset_password' },
+      env.JWT_PRIVATE_KEY || 'secret_fallback_key',
+      { expiresIn: '15m' }
+    );
+
+    // MODO DEMO: Simulación de envío de correo imprimiendo en consola
+    console.log(`\n=== SIMULACIÓN DE RECUPERACIÓN DE CONTRASEÑA ===`);
+    console.log(`Correo destino: ${email}`);
+    console.log(`Enlace temporal: http://localhost:5173/reset-password?token=${resetToken}`);
+    console.log(`=================================================\n`);
+
+    res.json({ message: 'Si el correo existe, se enviará un enlace de recuperación.' });
+  } catch (error: any) {
+    console.error('Error in /reset-password-request:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 export { router as authRouter };

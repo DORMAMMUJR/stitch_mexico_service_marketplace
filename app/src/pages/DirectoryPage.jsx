@@ -32,7 +32,20 @@ export function DirectoryPage() {
   const [professionals, setProfessionals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [maxPrice, setMaxPrice] = useState(5000);
+  const [minRating, setMinRating] = useState(0);
+  const [filterVersion, setFilterVersion] = useState(0);
   const { showToast } = useToast();
+
+  const handleWhatsApp = (e, professional) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Default fallback to Intecnia VISO Router if no phone provided
+    const phone = professional.phone || '525512345678'; 
+    const message = `Hola ${professional.name}, te contacto desde Intecnia. Estoy interesado en tus servicios de ${professional.title}. ¿Podríamos agendar una consulta?`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    showToast(`Conectando con ${professional.name} vía WhatsApp...`, 'info');
+  };
 
   // Leer query param de la URL (viene del Hero search)
   const queryFromUrl = searchParams.get('q') || '';
@@ -44,6 +57,8 @@ export function DirectoryPage() {
         const params = new URLSearchParams();
         if (queryFromUrl) params.set('q', queryFromUrl);
         if (selectedCategory) params.set('category', selectedCategory);
+        if (maxPrice < 5000) params.set('maxPrice', String(maxPrice));
+        if (minRating > 0) params.set('minRating', String(minRating));
 
         const res = await fetch(`/api/professionals?${params.toString()}`);
         if (res.ok) {
@@ -57,7 +72,7 @@ export function DirectoryPage() {
       }
     };
     fetchProfessionals();
-  }, [queryFromUrl, selectedCategory]);
+  }, [queryFromUrl, selectedCategory, filterVersion]);
 
   const handleCategoryChange = (e) => {
     const label = e.target.value;
@@ -118,19 +133,22 @@ export function DirectoryPage() {
 
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>RANGO DE PRECIOS (MXN)</label>
-            <input type="range" min="200" max="5000" defaultValue="1500" style={{ width: '100%', accentColor: 'var(--secondary)' }} />
+            <input type="range" min="200" max="5000" value={maxPrice} onChange={(e) => setMaxPrice(Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--secondary)' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>
-              <span>$200</span><span>$5,000+</span>
+              <span>$200</span><span style={{ fontWeight: maxPrice < 5000 ? 600 : 400, color: maxPrice < 5000 ? 'var(--secondary)' : 'var(--on-surface-variant)' }}>${maxPrice.toLocaleString()}{maxPrice >= 5000 ? '+' : ''}</span>
             </div>
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>CALIFICACIÓN MÍNIMA</label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', marginBottom: '0.375rem', cursor: 'pointer' }}>
-              <input type="radio" name="rating" style={{ accentColor: 'var(--secondary)' }} /> 4.5+ Estrellas
+              <input type="radio" name="rating" checked={minRating === 4.5} onChange={() => setMinRating(4.5)} style={{ accentColor: 'var(--secondary)' }} /> 4.5+ Estrellas
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', marginBottom: '0.375rem', cursor: 'pointer' }}>
+              <input type="radio" name="rating" checked={minRating === 4} onChange={() => setMinRating(4)} style={{ accentColor: 'var(--secondary)' }} /> 4.0+ Estrellas
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', cursor: 'pointer' }}>
-              <input type="radio" name="rating" style={{ accentColor: 'var(--secondary)' }} /> 4.0+ Estrellas
+              <input type="radio" name="rating" checked={minRating === 0} onChange={() => setMinRating(0)} style={{ accentColor: 'var(--secondary)' }} /> Todas
             </label>
           </div>
 
@@ -143,7 +161,7 @@ export function DirectoryPage() {
             </div>
           </div>
 
-          <button onClick={(e) => { e.preventDefault(); showToast('Filtros aplicados correctamente', 'success'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Aplicar Filtros</button>
+          <button onClick={(e) => { e.preventDefault(); setFilterVersion(v => v + 1); showToast('Filtros aplicados correctamente', 'success'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Aplicar Filtros</button>
         </aside>
 
         {/* Results */}
@@ -203,7 +221,7 @@ export function DirectoryPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); showToast(`Iniciando chat con ${p.name}...`, 'info'); }} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem' }}>Mensaje</button>
+                    <button onClick={(e) => handleWhatsApp(e, p)} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem' }}>Mensaje</button>
                     <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem' }}>Ver Perfil</button>
                   </div>
                 </Link>

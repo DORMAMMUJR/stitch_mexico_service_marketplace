@@ -163,7 +163,7 @@ router.put('/me/availability', authenticate, async (req: any, res: any) => {
 // GET /api/professionals
 router.get('/', async (req, res) => {
   try {
-    const { category, q } = req.query;
+    const { category, q, maxPrice, minRating } = req.query;
 
     // Construir los filtros dinámicamente
     const whereClause: any = {
@@ -183,10 +183,14 @@ router.get('/', async (req, res) => {
       ];
     }
 
+    if (maxPrice) {
+      whereClause.hourlyRate = { ...(whereClause.hourlyRate || {}), lte: parseFloat(String(maxPrice)) };
+    }
+
     const professionals = await prisma.professional.findMany({
       where: whereClause,
       include: {
-        user: { select: { name: true, avatarUrl: true } },
+        user: { select: { name: true, avatarUrl: true, phone: true } },
         reviews: { select: { rating: true } }
       },
       take: 20 // Paginación básica
@@ -201,6 +205,7 @@ router.get('/', async (req, res) => {
       return {
         id: p.id,
         name: p.user.name,
+        phone: p.user.phone,
         avatarUrl: p.user.avatarUrl,
         title: p.title,
         category: p.category,
@@ -210,7 +215,14 @@ router.get('/', async (req, res) => {
       };
     });
 
-    res.json(formatted);
+    // Filtrar por calificación mínima (post-query ya que es un cálculo derivado)
+    let results = formatted;
+    if (minRating) {
+      const minR = parseFloat(String(minRating));
+      results = results.filter((p: any) => parseFloat(p.rating) >= minR);
+    }
+
+    res.json(results);
   } catch (error) {
     console.error('Error fetching directory:', error);
     res.status(500).json({ error: 'Error interno del servidor' });

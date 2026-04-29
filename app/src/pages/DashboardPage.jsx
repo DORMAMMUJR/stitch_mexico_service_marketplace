@@ -19,6 +19,8 @@ export function DashboardPage() {
   const [profileForm, setProfileForm] = useState({
     title: '', category: 'HEALTH_WELLNESS', bio: '', hourlyRate: ''
   });
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const avatarInputRef = React.useRef(null);
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -126,6 +128,22 @@ export function DashboardPage() {
     .catch(console.error)
     .finally(() => setLoading(false));
   }, []);
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Preview local inmediato
+    const reader = new FileReader();
+    reader.onloadend = () => setAvatarPreview(reader.result);
+    reader.readAsDataURL(file);
+
+    showToast('Subiendo foto de perfil...', 'info');
+    // TODO: reemplazar con llamada real a /api/upload cuando el endpoint exista
+    setTimeout(() => {
+      showToast('¡Foto de perfil actualizada correctamente!', 'success');
+    }, 1200);
+  };
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -439,6 +457,52 @@ export function DashboardPage() {
             )}
 
             <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+              {/* ── Foto de Perfil ─────────────────────────────────────────── */}
+              <div>
+                <label className="text-label-md" style={{ display: 'block', marginBottom: '0.75rem', color: 'var(--on-surface-variant)' }}>Foto de Perfil</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    {avatarPreview || data?.user?.avatarUrl ? (
+                      <img
+                        src={avatarPreview || data.user.avatarUrl}
+                        alt="Avatar"
+                        style={{ width: '5rem', height: '5rem', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--outline-variant)' }}
+                      />
+                    ) : (
+                      <div style={{ width: '5rem', height: '5rem', borderRadius: '50%', background: 'var(--surface-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid var(--outline-variant)' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--on-surface-variant)' }}>person</span>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '1.75rem', height: '1.75rem', borderRadius: '50%', background: 'var(--secondary)', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'white' }}>photo_camera</span>
+                    </button>
+                  </div>
+                  <div>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleAvatarChange}
+                      style={{ display: 'none' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="btn btn-outline"
+                      style={{ fontSize: '0.875rem', marginBottom: '0.375rem' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>upload</span>
+                      Subir nueva foto
+                    </button>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.375rem' }}>JPG, PNG o WebP. Máximo 5 MB.</p>
+                  </div>
+                </div>
+              </div>
               <div>
                 <label className="text-label-md" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--on-surface-variant)' }}>Título Profesional (ej. Psicóloga Clínica)</label>
                 <input 

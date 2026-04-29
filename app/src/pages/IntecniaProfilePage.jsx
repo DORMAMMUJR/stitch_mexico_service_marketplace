@@ -21,35 +21,44 @@ export function IntecniaProfilePage() {
   };
 
   const handleWhatsApp = () => {
-    // Default fallback to Intecnia VISO Router if no phone provided
-    const phone = prof?.phone || '525512345678'; 
-    const message = `Hola ${prof?.name || ''}, te contacto desde Intecnia. Estoy interesado en tus servicios de ${prof?.title || ''}. ¿Podríamos agendar una consulta?`;
+    const phone = profile?.phone || '525512345678'; 
+    const message = `Hola ${profile?.name || 'profesional'}, te contacto desde Intecnia. Estoy interesado en tus servicios de ${profile?.title || ''}. ¿Podríamos agendar una consulta?`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  // Datos por defecto si no hay ID o si la data no carga
-  const prof = profile || {
-    name: 'Pamela Osnaya',
-    phone: null, // Anti-leakage: null por defecto (solo visible tras escrow)
-    title: 'Psicóloga Clínica',
-    bio: 'Especialista en terapia de pareja, adolescentes y procesos post-separación. Con más de 10 años de experiencia acompañando a personas y familias en momentos de cambio y crecimiento personal.',
-    avatarUrl: '/pamela-real.jpg',
-    isVerified: true,
-    biometricDone: true,
-    satVerifiedAt: true,
-    yearsExp: '10+',
-    projectsCount: '25+',
-    successRate: '98%',
-    rating: '4.9',
-    reviewCount: 3,
-  };
+  // ── Estados de carga y error ────────────────────────────────────────────────
+  if (isLoading) return (
+    <>
+      <NavbarIntecnia />
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', display: 'block', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>progress_activity</span>
+          <p style={{ color: 'var(--on-surface-variant)', fontFamily: 'Manrope', fontWeight: 500 }}>Cargando perfil...</p>
+        </div>
+      </div>
+      <Footer />
+    </>
+  );
 
-  // Reseñas dinámicas (fallback a datos estáticos si la BD no tiene registros)
-  const fallbackReviews = [
-    { name: 'Laura M.', date: 'Hace 2 semanas', rating: 5, comment: 'Excelente profesional. Me ayudó muchísimo con mi proceso de duelo post-separación. La recomiendo ampliamente.' },
-    { name: 'Carlos R.', date: 'Hace 1 mes', rating: 5, comment: 'Mi hijo adolescente ha mejorado notablemente desde que comenzó las sesiones. Muy agradecido.' },
-    { name: 'Patricia G.', date: 'Hace 2 meses', rating: 4, comment: 'Muy profesional y empática. Las sesiones en línea funcionan perfectamente.' },
-  ];
+  if (error || !profile) return (
+    <>
+      <NavbarIntecnia />
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div className="card" style={{ padding: '3rem', textAlign: 'center', maxWidth: '420px' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--on-surface-variant)', marginBottom: '1rem', display: 'block' }}>person_off</span>
+          <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Perfil no encontrado</h2>
+          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem', marginBottom: '1.5rem' }}>Este profesional no existe o su perfil no está disponible en este momento.</p>
+          <a href="/directory" className="btn btn-primary" style={{ display: 'inline-flex', justifyContent: 'center' }}>Ver otros profesionales</a>
+        </div>
+      </div>
+      <Footer />
+    </>
+  );
+
+  // Usar los datos reales del backend directamente
+  const prof = profile;
+
+  // Reseñas dinámicas — sin datos estáticos de respaldo
 
   const reviews = (dbReviews && dbReviews.length > 0)
     ? dbReviews.map(r => ({
@@ -58,7 +67,7 @@ export function IntecniaProfilePage() {
         rating: r.rating,
         comment: r.comment,
       }))
-    : fallbackReviews;
+    : []; // Sin reseñas de respaldo hardcodeadas
 
   // Función helper para formatear fecha relativa
   const formatRelativeDate = (dateStr) => {
@@ -143,25 +152,33 @@ export function IntecniaProfilePage() {
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {reviews.map((r, i) => (
-                <div key={i} className="review-card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: 'var(--secondary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--secondary)' }}>person</span>
+              {reviews.length > 0 ? (
+                reviews.map((r, i) => (
+                  <div key={i} className="review-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: 'var(--secondary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--secondary)' }}>person</span>
+                        </div>
+                        <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--primary)' }}>{r.name}</span>
                       </div>
-                      <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--primary)' }}>{r.name}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{formatRelativeDate(r.date)}</span>
                     </div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{formatRelativeDate(r.date)}</span>
+                    <div style={{ display: 'flex', gap: '2px', marginBottom: '0.5rem' }}>
+                      {Array.from({ length: r.rating }).map((_, j) => (
+                        <span key={j} className="material-symbols-outlined icon-filled" style={{ fontSize: '14px', color: '#f59e0b' }}>star</span>
+                      ))}
+                    </div>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', lineHeight: 1.6 }}>{r.comment}</p>
                   </div>
-                  <div style={{ display: 'flex', gap: '2px', marginBottom: '0.5rem' }}>
-                    {Array.from({ length: r.rating }).map((_, j) => (
-                      <span key={j} className="material-symbols-outlined icon-filled" style={{ fontSize: '14px', color: '#f59e0b' }}>star</span>
-                    ))}
-                  </div>
-                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', lineHeight: 1.6 }}>{r.comment}</p>
+                ))
+              ) : (
+                <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--outline-variant)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>chat_bubble</span>
+                  <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>Sin reseñas aún</h3>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Este profesional aún no tiene reseñas públicas.</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
           {/* Portfolio */}

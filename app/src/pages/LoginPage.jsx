@@ -8,6 +8,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
   
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -63,6 +64,24 @@ export function LoginPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDemoLogin = (e) => {
+    e.preventDefault();
+    setIsDemo(true);
+    showToast('Iniciando Modo Demostración...', 'info');
+    setTimeout(() => {
+      login('token-demo', {
+        id: 'demo-001',
+        name: 'Usuario Demo',
+        email: 'demo@intecnia.mx',
+        role: 'PROFESSIONAL',
+        avatarUrl: null
+      });
+      showToast('¡Bienvenido al Modo Demostración de Intecnia!', 'success');
+      navigate('/dashboard');
+      setIsDemo(false);
+    }, 800);
   };
 
   return (
@@ -129,6 +148,33 @@ export function LoginPage() {
                 </>
               ) : (
                 'Iniciar Sesión'
+              )}
+            </button>
+
+            {/* Demo Mode divider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.25rem 0' }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--outline-variant)' }} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', whiteSpace: 'nowrap' }}>o accede sin cuenta</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--outline-variant)' }} />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              disabled={isDemo}
+              className="btn"
+              style={{ width: '100%', justifyContent: 'center', padding: '0.875rem', fontSize: '0.9375rem', border: '1.5px solid var(--secondary)', color: 'var(--secondary)', background: 'rgba(45,188,254,0.04)', borderRadius: 'var(--radius-lg)', transition: 'all 0.2s' }}
+            >
+              {isDemo ? (
+                <>
+                  <span className="material-symbols-outlined" style={{ animation: 'spin 1s linear infinite', fontSize: '18px' }}>progress_activity</span>
+                  Preparando demo...
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>science</span>
+                  Entrar en Modo Demostración
+                </>
               )}
             </button>
           </form>

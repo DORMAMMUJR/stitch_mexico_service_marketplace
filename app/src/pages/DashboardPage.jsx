@@ -7,10 +7,17 @@ export function DashboardPage() {
   const [data, setData] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'appointments', 'availability', 'profile'
+  const [activeTab, setActiveTab] = useState('overview');
   
+  // Notificaciones con datos de demo precargados
+  const DEMO_NOTIFICATIONS = [
+    { id: 'n1', title: 'Bienvenido a Intecnia', message: 'Tu perfil está listo. Completa tu información para aparecer en el directorio.', type: 'info', date: 'Hace 5 minutos' },
+    { id: 'n2', title: 'Verificación Pendiente', message: 'Sube tu Constancia SAT para obtener el distintivo de Profesional Verificado.', type: 'warning', date: 'Hace 1 hora' },
+  ];
+  const [notifications, setNotifications] = useState(DEMO_NOTIFICATIONS);
+
   const [profileForm, setProfileForm] = useState({
-    title: '', category: '', bio: '', hourlyRate: ''
+    title: '', category: 'HEALTH_WELLNESS', bio: '', hourlyRate: ''
   });
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -30,45 +37,77 @@ export function DashboardPage() {
     endTime: '18:00'
   }));
   const [availabilities, setAvailabilities] = useState(defaultAvailabilities);
-  const [availStatus, setAvailStatus] = useState('');
+
+  const DEMO_DASHBOARD = {
+    profileViews: 12450,
+    profileViewsGrowth: '+24.5%',
+    totalInteractions: 842,
+    conversionRate: '65%',
+    automatedMessages: 145,
+    appointmentsScheduled: 12,
+    user: {
+      name: 'Usuario Demo',
+      title: 'Profesional de Intecnia',
+      avatarUrl: null,
+      isVerified: false,
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
+
+    // MODO DEMO: si el token es falso, usar datos de ejemplo directamente
+    if (token === 'token-demo') {
+      setData(DEMO_DASHBOARD);
+      setLoading(false);
+      return;
+    }
     
     // Fetch Dashboard Data
     const fetchDashboard = fetch('/api/professionals/me/dashboard', {
       headers: { 'Authorization': `Bearer ${token}` }
-    }).then(res => res.json());
+    }).then(res => res.json()).catch(() => ({}));
 
     // Fetch Appointments
     const fetchAppointments = fetch('/api/appointments/my', {
       headers: { 'Authorization': `Bearer ${token}` }
-    }).then(res => res.json());
+    }).then(res => res.json()).catch(() => []);
 
     // Fetch Profile
     const fetchProfile = fetch('/api/professionals/me', {
       headers: { 'Authorization': `Bearer ${token}` }
-    }).then(res => res.json());
+    }).then(res => res.json()).catch(() => ({}));
 
     // Fetch Availability
     const fetchAvailability = fetch('/api/professionals/me/availability', {
       headers: { 'Authorization': `Bearer ${token}` }
-    }).then(res => res.json());
+    }).then(res => res.json()).catch(() => []);
 
     Promise.all([fetchDashboard, fetchAppointments, fetchProfile, fetchAvailability])
     .then(([dashboardJson, appointmentsJson, profileJson, availabilityJson]) => {
       if (dashboardJson.user) {
         setData(dashboardJson);
+      } else {
+        // Fallback visible si el backend no responde
+        setData(DEMO_DASHBOARD);
       }
       if (Array.isArray(appointmentsJson)) {
         setAppointments(appointmentsJson);
       }
       if (profileJson && profileJson.id) {
         setProfileForm({
-          title: profileJson.title || '',
-          category: profileJson.category || '',
-          bio: profileJson.bio || '',
+          title: profileJson.title || 'Profesional de Intecnia',
+          category: profileJson.category || 'HEALTH_WELLNESS',
+          bio: profileJson.bio || 'Agrega una descripción para atraer más clientes a tu perfil...',
           hourlyRate: profileJson.hourlyRate || ''
+        });
+      } else {
+        // Fallback: datos de respaldo cuando el backend no responde o el perfil está vacío
+        setProfileForm({
+          title: 'Profesional de Intecnia',
+          category: 'HEALTH_WELLNESS',
+          bio: 'Agrega una descripción para atraer más clientes a tu perfil...',
+          hourlyRate: ''
         });
       }
       if (Array.isArray(availabilityJson) && availabilityJson.length > 0) {
@@ -80,7 +119,6 @@ export function DashboardPage() {
         });
         setAvailabilities(merged);
       } else if (Array.isArray(availabilityJson) && availabilityJson.length === 0 && dashboardJson.user) {
-        // If they have explicitly 0 availability, update the state
         const allInactive = defaultAvailabilities.map(def => ({ ...def, active: false }));
         setAvailabilities(allInactive);
       }

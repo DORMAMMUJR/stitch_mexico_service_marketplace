@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { getGreeting, getLocalResponse } from '../lib/professionalKnowledge';
 import { useAuth } from './useAuth';
 
@@ -9,7 +9,7 @@ import { useAuth } from './useAuth';
  */
 export function useChat(professionalName, professionalId) {
   const { user } = useAuth();
-  const clientId = user?.id;
+  const clientId = useMemo(() => user?.id || `guest_${Date.now()}`, [user?.id]);
   const [messages, setMessages] = useState([
     {
       id: 1,

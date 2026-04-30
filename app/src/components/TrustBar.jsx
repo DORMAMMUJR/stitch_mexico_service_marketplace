@@ -6,7 +6,7 @@ export function TrustBar() {
   return (
     <div style={{ background: 'var(--surface-container)', padding: '1.5rem 2rem', textAlign: 'center' }}>
       <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--secondary)', marginBottom: '1rem' }}>
-        AVALADO POR INSTITUCIONES PROFESIONALES
+        AVALADO POR PROFESIONALES EXPERTOS
       </p>
       <div style={{ display: 'flex', justifyContent: 'center', gap: '2.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
         {logos.map(t => (

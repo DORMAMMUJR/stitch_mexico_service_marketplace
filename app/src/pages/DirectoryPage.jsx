@@ -108,6 +108,15 @@ export function DirectoryPage() {
             Ordenar por: Recomendado
           </button>
         </div>
+        {/* Category Quick Filters */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setSelectedCategory('')} className={`btn ${selectedCategory === '' ? 'btn-primary' : 'btn-outline'}`} style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}>Todos</button>
+          {Object.entries(FILTER_TO_CATEGORY).map(([label, key]) => (
+            <button key={key} onClick={() => setSelectedCategory(key)} className={`btn ${selectedCategory === key ? 'btn-primary' : 'btn-outline'}`} style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Main Content */}

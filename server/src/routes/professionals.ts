@@ -155,13 +155,8 @@ router.post('/me/submit-review', authenticate, async (req: any, res: any) => {
 
     if (!professional) return res.status(404).json({ error: 'Perfil no encontrado' });
 
-    // Validar que tengan lo mínimo: INE y SAT (si es obligatorio)
-    const hasIne = professional.documents.some(d => d.type === 'INE' || d.type === 'PASSPORT');
-    const hasSat = professional.documents.some(d => d.type === 'SAT_CONSTANCIA');
-
-    if (!hasIne || !hasSat) {
-      return res.status(400).json({ error: 'Debes subir tu INE y Constancia de Situación Fiscal para solicitar revisión.' });
-    }
+    // Ahora INE y SAT son opcionales para reducir fricción en el registro.
+    // Solo se actualiza el estado a IN_REVIEW.
 
     const updatedProfile = await prisma.professional.update({
       where: { userId },

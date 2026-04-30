@@ -69,11 +69,9 @@ export function VerificationPage() {
               data.hourlyRate !== '';
 
             if (hasProfile) {
-              if (!hasIne) setCurrentStep(1);
-              else if (!hasSat) setCurrentStep(2);
-              else setCurrentStep(3);
+              setCurrentStep(1); // Mover al paso opcional si ya tiene perfil
             }
-            // else: quedarse en paso 0 (ya es el default del useState)
+            // else: quedarse en paso 0
           }
         }
       } catch (err) {
@@ -155,11 +153,8 @@ export function VerificationPage() {
       showToast('Documento subido exitosamente', 'success');
       setFile(null); // Limpiar para el siguiente paso
       
-      if (currentStep < 3) {
-        setCurrentStep(currentStep + 1);
-      } else {
-        await finishVerification();
-      }
+      // Ya no hay más pasos obligatorios. Terminamos la verificación.
+      await finishVerification();
     } catch (err) {
       setUploadError(err.message || 'Error al subir el documento. Intente de nuevo.');
     } finally {
@@ -199,8 +194,8 @@ export function VerificationPage() {
     );
   }
 
-  const steps = ['Perfil', 'Biometría', 'SAT & Fiscal', 'CONOCER'];
-  const progressPercent = Math.round(((currentStep) / 4) * 100);
+  const steps = ['Datos Básicos', 'Identidad (Opcional)'];
+  const progressPercent = Math.round(((currentStep + 1) / 2) * 100);
 
   return (
     <>
@@ -275,25 +270,25 @@ export function VerificationPage() {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Guardando...' : 'Guardar y Continuar'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
+                  {submitting ? 'Guardando...' : 'Siguiente Paso'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
                 </button>
               </div>
             </form>
           )}
 
-          {/* STEP 1: INE / BIOMETRÍA */}
+          {/* STEP 1: INE / BIOMETRÍA (OPCIONAL) */}
           {currentStep === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--secondary)' }}>badge</span>
-                <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Identidad Oficial (INE/Pasaporte)</h2>
+                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--secondary)' }}>verified_user</span>
+                <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Verificación Opcional para Mayor Confianza</h2>
               </div>
-              <p style={{ color: 'var(--on-surface-variant)' }}>Por favor suba una copia legible de su identificación oficial por ambos lados (formato PDF).</p>
+              <p style={{ color: 'var(--on-surface-variant)' }}>Subir tu identificación oficial (INE o Pasaporte) aumentará la confianza de los clientes en tu perfil. Puedes omitir este paso y hacerlo después.</p>
 
               <div style={{ background: file ? 'rgba(45,188,254,0.03)' : 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '3rem 2rem', textAlign: 'center', border: file ? '2px dashed var(--secondary)' : '2px dashed transparent' }}>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".pdf" />
                 <span className="material-symbols-outlined" style={{ fontSize: '48px', color: file ? 'var(--secondary)' : 'var(--on-surface-variant)', marginBottom: '1rem', display: 'block' }}>{file ? 'task' : 'upload_file'}</span>
-                <p style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{file ? file.name : 'Seleccionar Documento PDF'}</p>
+                <p style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{file ? file.name : 'Seleccionar Documento PDF (Opcional)'}</p>
                 <button className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} style={{ marginTop: '1rem' }} onClick={triggerFileSelect}>{file ? 'Cambiar Archivo' : 'Elegir Archivo'}</button>
               </div>
 
@@ -301,67 +296,13 @@ export function VerificationPage() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
                 <button className="btn btn-outline" onClick={() => setCurrentStep(0)}>Atrás</button>
-                <button className="btn btn-primary" onClick={() => uploadDocument('INE')} disabled={!file || submitting}>
-                  {submitting ? 'Subiendo...' : 'Subir y Continuar'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 2: SAT & FISCAL */}
-          {currentStep === 2 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: '#e7531d' }}>account_balance</span>
-                <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Situación Fiscal (SAT)</h2>
-              </div>
-              <p style={{ color: 'var(--on-surface-variant)' }}>Suba su Constancia de Situación Fiscal actualizada (no mayor a 3 meses) en formato PDF para poder emitir comprobantes a sus clientes.</p>
-
-              <div style={{ background: file ? 'rgba(45,188,254,0.03)' : 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '3rem 2rem', textAlign: 'center', border: file ? '2px dashed var(--secondary)' : '2px dashed transparent' }}>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".pdf" />
-                <span className="material-symbols-outlined" style={{ fontSize: '48px', color: file ? 'var(--secondary)' : 'var(--on-surface-variant)', marginBottom: '1rem', display: 'block' }}>{file ? 'task' : 'upload_file'}</span>
-                <p style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{file ? file.name : 'Constancia del SAT (PDF)'}</p>
-                <button className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} style={{ marginTop: '1rem' }} onClick={triggerFileSelect}>{file ? 'Cambiar Archivo' : 'Elegir Archivo'}</button>
-              </div>
-
-              {uploadError && <p style={{ color: 'var(--error)', fontSize: '0.875rem' }}>{uploadError}</p>}
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
-                <button className="btn btn-outline" onClick={() => setCurrentStep(1)}>Atrás</button>
-                <button className="btn btn-primary" onClick={() => uploadDocument('SAT_CONSTANCIA')} disabled={!file || submitting}>
-                  {submitting ? 'Subiendo...' : 'Subir y Continuar'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: CONOCER (Opcional) */}
-          {currentStep === 3 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--secondary)' }}>workspace_premium</span>
-                <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Certificaciones CONOCER</h2>
-              </div>
-              <p style={{ color: 'var(--on-surface-variant)' }}>Suba certificados CONOCER u otras certificaciones oficiales (Opcional). Esto mejorará su posicionamiento en el directorio.</p>
-
-              <div style={{ background: file ? 'rgba(45,188,254,0.03)' : 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '3rem 2rem', textAlign: 'center', border: file ? '2px dashed var(--secondary)' : '2px dashed transparent' }}>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".pdf" />
-                <span className="material-symbols-outlined" style={{ fontSize: '48px', color: file ? 'var(--secondary)' : 'var(--on-surface-variant)', marginBottom: '1rem', display: 'block' }}>{file ? 'task' : 'upload_file'}</span>
-                <p style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{file ? file.name : 'Certificado Adicional (PDF)'}</p>
-                <button className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} style={{ marginTop: '1rem' }} onClick={triggerFileSelect}>{file ? 'Cambiar Archivo' : 'Elegir Archivo'}</button>
-              </div>
-
-              {uploadError && <p style={{ color: 'var(--error)', fontSize: '0.875rem' }}>{uploadError}</p>}
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
-                <button className="btn btn-outline" onClick={() => setCurrentStep(2)}>Atrás</button>
                 {file ? (
-                  <button className="btn btn-primary" onClick={() => uploadDocument('CONOCER_CERT')} disabled={submitting}>
+                  <button className="btn btn-primary" onClick={() => uploadDocument('INE')} disabled={submitting}>
                     {submitting ? 'Subiendo...' : 'Subir y Finalizar'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span>
                   </button>
                 ) : (
-                  <button className="btn btn-primary" onClick={finishVerification} style={{ background: '#16a34a', borderColor: '#16a34a' }}>
-                    Omitir y Finalizar Verificación <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span>
+                  <button className="btn btn-primary" onClick={finishVerification} style={{ background: '#16a34a', borderColor: '#16a34a' }} disabled={submitting}>
+                    {submitting ? 'Finalizando...' : 'Omitir y Finalizar'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span>
                   </button>
                 )}
               </div>

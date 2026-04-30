@@ -28,11 +28,8 @@ export function NavbarIntecnia({ activePage }) {
     navigate('/login');
   };
 
-  // Ruta del dashboard según rol
-  const dashboardPath =
-    user?.role === 'ADMIN' ? '/admin' :
-      user?.role === 'CLIENT' ? '/mis-solicitudes' :
-        '/dashboard';
+  // Ruta del dashboard unificada
+  const dashboardPath = user?.role === 'ADMIN' ? '/admin' : '/dashboard';
 
   return (
     <nav className="nav-top">
@@ -52,16 +49,20 @@ export function NavbarIntecnia({ activePage }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {isAuthenticated ? (
             <>
-              {/* Botón de acceso rápido según rol (desktop) */}
               {user?.role === 'PROFESSIONAL' && (
                 <Link to="/dashboard" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
                   Dashboard
                 </Link>
               )}
               {user?.role === 'CLIENT' && (
-                <Link to="/mis-solicitudes" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
-                  Mis Citas
-                </Link>
+                <>
+                  <Link to="/verification" className="btn btn-outline hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
+                    Ofrecer Servicios
+                  </Link>
+                  <Link to="/dashboard" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
+                    Mis Citas
+                  </Link>
+                </>
               )}
               {user?.role === 'ADMIN' && (
                 <Link to="/admin" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
@@ -261,7 +262,7 @@ export function NavbarIntecnia({ activePage }) {
                 <Link to="/dashboard?tab=profile" className="nav-link" onClick={() => setMobileOpen(false)}>Mi Perfil</Link>
               </>
             )}
-            {user?.role === 'CLIENT' && <Link to="/mis-solicitudes" className="nav-link" onClick={() => setMobileOpen(false)}>Mis Citas</Link>}
+            {user?.role === 'CLIENT' && <Link to="/dashboard" className="nav-link" onClick={() => setMobileOpen(false)}>Mis Citas</Link>}
             {user?.role === 'ADMIN' && <Link to="/admin" className="nav-link" onClick={() => setMobileOpen(false)}>Panel Admin</Link>}
             <button
               onClick={handleLogout}

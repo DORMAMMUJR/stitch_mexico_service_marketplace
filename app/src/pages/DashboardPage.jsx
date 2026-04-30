@@ -593,7 +593,10 @@ export function DashboardPage() {
                       <img src={app.client?.avatarUrl || '/placeholder-user.jpg'} style={{ width: '3rem', height: '3rem', borderRadius: '50%' }} alt="Client" />
                       <div>
                         <h4 style={{ fontWeight: 700, color: 'var(--primary)' }}>{app.client?.name || 'Cliente'}</h4>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{new Date(app.date).toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short' })}</p>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
+                          {app.service && <span style={{display: 'block', marginBottom: '0.25rem', fontWeight: 600}}>{app.service}</span>}
+                          {app.date} a las {app.time || 'hora por confirmar'}
+                        </p>
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

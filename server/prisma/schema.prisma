@@ -277,15 +277,18 @@ model Availability {
 
 model Appointment {
   id             String            @id @default(cuid())
-  clientId       String
+  clientId       String?
+  guestId        String?
   professionalId String
-  date           DateTime
+  service        String?
+  date           String?
+  time           String?
   status         AppointmentStatus @default(SCHEDULED)
   notes          String?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  client         User              @relation(fields: [clientId], references: [id])
+  client         User?             @relation(fields: [clientId], references: [id])
   professional   Professional      @relation(fields: [professionalId], references: [id])
 }
 

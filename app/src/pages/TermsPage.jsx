@@ -11,7 +11,8 @@ export function TermsPage() {
         <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.8, marginBottom: '1rem' }}>
           Última actualización: 1 de Mayo de 2026.
         </p>
-        <div style={{ background: 'var(--surface-container-low)', padding: '2rem', borderRadius: 'var(--radius-xl)' }}>
+        
+        <div className="card" style={{ padding: '2rem' }}>
           <h2 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '1rem' }}>1. Aceptación de los Términos</h2>
           <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.8, marginBottom: '1.5rem' }}>
             Al acceder y utilizar la plataforma Intecnia, usted acepta estar sujeto a estos términos y condiciones. Si no está de acuerdo con alguna parte de los términos, no podrá utilizar nuestros servicios.
@@ -24,7 +25,7 @@ export function TermsPage() {
 
           <h2 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '1rem' }}>3. Verificación Profesional</h2>
           <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.8, marginBottom: '0' }}>
-            Todos los profesionales están sujetos a un proceso de verificación institucional (Biometría, SAT, CONOCER). Sin embargo, la responsabilidad final sobre la calidad del servicio recae en el profesional contratado.
+            Todos los profesionales están sujetos a un proceso de verificación (Biometría, SAT, CONOCER). Sin embargo, la responsabilidad final sobre la calidad del servicio recae en el profesional contratado.
           </p>
         </div>
       </main>

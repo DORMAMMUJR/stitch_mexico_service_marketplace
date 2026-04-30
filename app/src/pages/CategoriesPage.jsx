@@ -33,10 +33,10 @@ export function CategoriesPage() {
             EXPLORAR
           </span>
           <h1 style={{ fontFamily: 'Manrope', fontSize: 'clamp(1.75rem,4vw,2.75rem)', fontWeight: 700, color: 'var(--on-primary)', lineHeight: 1.1, marginBottom: '1rem' }}>
-            Encuentra la<br />Institución<br /><em style={{ fontStyle: 'italic', color: 'var(--primary-fixed-dim)' }}>Adecuada para Ti.</em>
+            Encuentra al<br />Especialista<br /><em style={{ fontStyle: 'italic', color: 'var(--primary-fixed-dim)' }}>Adecuado para Ti.</em>
           </h1>
           <p style={{ color: 'var(--primary-fixed-dim)', fontSize: '0.9375rem', maxWidth: '400px', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-            Accede a nuestro directorio de expertos verificados bajo los más altos estándares de calidad y cumplimiento institucional.
+            Accede a nuestro directorio de expertos verificados bajo los más altos estándares de calidad y cumplimiento profesional.
           </p>
           <Link to="/directory" className="btn" style={{ background: 'var(--secondary)', color: 'var(--on-secondary)', borderRadius: 'var(--radius-lg)', padding: '0.75rem 1.5rem', display: 'inline-flex' }}>
             Explorar Servicios <span className="material-symbols-outlined" style={{ fontSize: '18px', marginLeft: '0.5rem' }}>arrow_forward</span>
@@ -117,7 +117,7 @@ export function CategoriesPage() {
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,rgba(0,3,10,0.8) 50%,transparent)' }}></div>
           <div style={{ position: 'absolute', bottom: '1.25rem', left: '1.5rem', color: 'var(--on-primary)', zIndex: 1 }}>
             <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', marginBottom: '0.25rem' }}>Eventos y Producción</h3>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--primary-fixed-dim)', marginBottom: '0.75rem' }}>Planificación logística y técnica para eventos de alto impacto institucional.</p>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--primary-fixed-dim)', marginBottom: '0.75rem' }}>Planificación logística y técnica para eventos de alto impacto.</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>312 Expertos</span>
               <span style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontWeight: 500 }}>Ver Directorio</span>

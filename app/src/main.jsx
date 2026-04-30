@@ -22,6 +22,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ToastProvider } from './components/ToastContext';
 import { PrivateRoute } from './components/PrivateRoute';
+import { VisoBot } from './components/VisoBot';
 
 import './style.css';
 
@@ -88,6 +89,7 @@ ReactDOM.createRoot(document.getElementById('app')).render(
             {/* Ruta 404 */}
             <Route path="*" element={<NotFoundPage />} />
             </Routes>
+            <VisoBot />
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>

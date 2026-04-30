@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/db';
-import { authenticate } from '../middleware/auth';
+import { authenticate, optionalAuthenticate } from '../middleware/auth';
 
 const router = Router();
 
@@ -82,31 +82,31 @@ router.post('/availability', authenticate, async (req: any, res: any) => {
 });
 
 // POST /api/appointments
-// Crea una nueva cita para un usuario autenticado
-router.post('/', authenticate, async (req: any, res: any) => {
+// Crea una nueva cita para un usuario autenticado o un guest
+router.post('/', optionalAuthenticate, async (req: any, res: any) => {
   try {
-    const clientId = req.user?.userId;
-    const { professionalId, date, notes } = req.body;
-
-    if (!clientId) {
-      return res.status(401).json({ error: 'No autenticado' });
-    }
+    const clientId = req.user?.userId || null;
+    const { professionalId, date, time, service } = req.body;
 
     if (!professionalId || !date) {
       return res.status(400).json({ error: 'Faltan datos requeridos (professionalId, date)' });
     }
 
-    // Verificar si el cliente existe
-    const client = await prisma.user.findUnique({ where: { id: clientId } });
-    if (!client) return res.status(404).json({ error: 'Cliente no encontrado' });
+    let guestId = null;
+    if (!clientId) {
+      // Si es guest, le asignamos un guest_id basado en session o lo generamos
+      guestId = req.body.client_id || `guest_${Date.now()}`;
+    }
 
     // Crear la cita
     const appointment = await prisma.appointment.create({
       data: {
         clientId,
+        guestId,
         professionalId,
-        date: new Date(date),
-        notes,
+        service,
+        date,
+        time,
         status: 'SCHEDULED',
       },
     });

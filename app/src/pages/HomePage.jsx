@@ -306,9 +306,9 @@ export function HomePage() {
           </div>
           <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)' }}>
             ¿Tienes dudas?{' '}
-            <a href="https://wa.me/521XXXXXXXXXX" target="_blank" rel="noreferrer" style={{ color: '#4ade80', textDecoration: 'none', fontWeight: 600 }}>
-              Escríbenos por WhatsApp
-            </a>
+            <button onClick={() => navigate('/directory')} style={{ background: 'none', border: 'none', color: '#4ade80', textDecoration: 'none', fontWeight: 600, cursor: 'pointer', padding: 0, font: 'inherit' }}>
+              Encuentra un especialista
+            </button>
           </p>
         </div>
       </section>

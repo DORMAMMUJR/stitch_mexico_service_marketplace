@@ -36,3 +36,22 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
+
+export const optionalAuthenticate = (req: Request, res: Response, next: NextFunction): void => {
+  const token = req.cookies?.access_token || req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const key = (env.JWT_PUBLIC_KEY || env.JWT_PRIVATE_KEY || 'secret_fallback_key') as string;
+    const algorithms = key.includes('BEGIN') ? ['RS256'] : ['HS256'];
+    
+    const payload = jwt.verify(token, key, { algorithms: algorithms as any }) as unknown as JwtPayload;
+    req.user = payload;
+  } catch (err) {
+    // ignore invalid token for optional auth
+  }
+  next();
+};

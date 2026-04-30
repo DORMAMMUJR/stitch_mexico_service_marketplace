@@ -191,7 +191,10 @@ export function ClientDashboard() {
                     </div>
                     <div>
                       <h4 style={{ fontWeight: 700, color: 'var(--primary)' }}>{app.professional?.user?.name || 'Profesional'}</h4>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{new Date(app.date).toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short' })}</p>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
+                        {app.service && <span style={{display: 'block', marginBottom: '0.25rem', fontWeight: 600}}>{app.service}</span>}
+                        {app.date} a las {app.time || 'hora por confirmar'}
+                      </p>
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

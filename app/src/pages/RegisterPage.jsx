@@ -20,11 +20,12 @@ export function RegisterPage() {
 
     try {
       // 1. Registro (Forzando a que todos entren como CLIENT)
+      const guestId = localStorage.getItem('guest_id');
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role: 'CLIENT' })
+        body: JSON.stringify({ name, email, password, role: 'CLIENT', guest_id: guestId })
       });
 
       const data = await res.json();
@@ -55,10 +56,14 @@ export function RegisterPage() {
         return;
       }
 
+      if (guestId) {
+        localStorage.removeItem('guest_id');
+      }
+
       if (window.history.state && window.history.state.idx > 0) {
         navigate(-1);
       } else {
-        navigate('/');
+        navigate('/dashboard');
       }
     } catch (err) {
       setError(err.message);

@@ -28,7 +28,7 @@ const registerLimiter = rateLimit({
 // Endpoint: POST /api/auth/register
 router.post('/register', registerLimiter, async (req, res) => {
   try {
-    const { email, password, name, role } = req.body;
+    const { email, password, name, role, guest_id } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Faltan campos requeridos' });
@@ -59,6 +59,13 @@ router.post('/register', registerLimiter, async (req, res) => {
           category: 'GENERAL_MAINTENANCE', // Requerido por schema
           currency: 'MXN',
         },
+      });
+    }
+
+    if (guest_id) {
+      await prisma.appointment.updateMany({
+        where: { guestId: guest_id },
+        data: { clientId: user.id }
       });
     }
 

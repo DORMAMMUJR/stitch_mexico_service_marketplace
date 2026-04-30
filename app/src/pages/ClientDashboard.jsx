@@ -127,11 +127,17 @@ export function ClientDashboard() {
       <NavbarIntecnia activePage="" />
       
       <main className="container" style={{ flex: 1, padding: '3rem 1.5rem' }}>
-        <header style={{ marginBottom: '2rem' }}>
-          <h1 style={{ fontFamily: 'Manrope', fontSize: '2rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>
-            Hola, {user?.name?.split(' ')[0] || 'Cliente'}
-          </h1>
-          <p style={{ color: 'var(--on-surface-variant)', fontSize: '1rem' }}>Gestiona tus solicitudes y comunícate con tus profesionales.</p>
+        <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 style={{ fontFamily: 'Manrope', fontSize: '2rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>
+              Hola, {user?.name?.split(' ')[0] || 'Cliente'}
+            </h1>
+            <p style={{ color: 'var(--on-surface-variant)', fontSize: '1rem' }}>Gestiona tus solicitudes y comunícate con tus profesionales.</p>
+          </div>
+          <Link to="/verification" className="btn btn-primary" style={{ flexShrink: 0, fontSize: '0.875rem' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_business</span>
+            Publicar mi servicio
+          </Link>
         </header>
 
         {/* Tab Navigation */}

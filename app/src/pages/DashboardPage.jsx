@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../components/ToastContext';
 import { useAuth } from '../hooks/useAuth';
 import { ChatWindow } from '../components/ChatWindow';
+import { NavbarIntecnia } from '../components/NavbarIntecnia';
 
 export function DashboardPage() {
   const [data, setData] = useState(null);

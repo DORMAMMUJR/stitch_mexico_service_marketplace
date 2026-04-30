@@ -19,11 +19,19 @@ import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { SupportPage } from './pages/SupportPage';
 import { NotFoundPage } from './pages/NotFoundPage';
-import { AuthProvider } from './hooks/useAuth';
+import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ToastProvider } from './components/ToastContext';
 import { PrivateRoute } from './components/PrivateRoute';
 
 import './style.css';
+
+// Dashboard unificado: renderiza ClientDashboard o DashboardPage según el rol
+function SmartDashboard() {
+  const { user } = useAuth();
+  if (!user) return null;
+  if (user.role === 'PROFESSIONAL') return <DashboardPage />;
+  return <ClientDashboard />;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,22 +61,20 @@ ReactDOM.createRoot(document.getElementById('app')).render(
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/support" element={<SupportPage />} />
 
-            {/* Rutas Protegidas: PROFESSIONAL */}
+            {/* Rutas Protegidas: Cualquier usuario autenticado */}
             <Route path="/dashboard" element={
-              <PrivateRoute allowedRoles={['PROFESSIONAL']} requireCompleteProfile={true}>
-                <DashboardPage />
+              <PrivateRoute allowedRoles={['CLIENT', 'PROFESSIONAL', 'ADMIN']}>
+                <SmartDashboard />
+              </PrivateRoute>
+            } />
+            <Route path="/mis-solicitudes" element={
+              <PrivateRoute allowedRoles={['CLIENT', 'PROFESSIONAL', 'ADMIN']}>
+                <SmartDashboard />
               </PrivateRoute>
             } />
             <Route path="/verification" element={
               <PrivateRoute allowedRoles={['PROFESSIONAL']}>
                 <VerificationPage />
-              </PrivateRoute>
-            } />
-
-            {/* Rutas Protegidas: CLIENT */}
-            <Route path="/mis-solicitudes" element={
-              <PrivateRoute allowedRoles={['CLIENT']}>
-                <ClientDashboard />
               </PrivateRoute>
             } />
 

@@ -31,8 +31,8 @@ export function NavbarIntecnia({ activePage }) {
   // Ruta del dashboard según rol
   const dashboardPath =
     user?.role === 'ADMIN' ? '/admin' :
-    user?.role === 'CLIENT' ? '/mis-solicitudes' :
-    '/dashboard';
+      user?.role === 'CLIENT' ? '/mis-solicitudes' :
+        '/dashboard';
 
   return (
     <nav className="nav-top">

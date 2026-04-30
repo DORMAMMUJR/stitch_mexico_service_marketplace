@@ -47,8 +47,6 @@ ReactDOM.createRoot(document.getElementById('app')).render(
             <Route path="/directory" element={<DirectoryPage />} />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/profile/:id" element={<IntecniaProfilePage />} />
-            <Route path="/intecnia-profile" element={<IntecniaProfilePage />} />
-            <Route path="/intecnia-profile/:id" element={<IntecniaProfilePage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/support" element={<SupportPage />} />

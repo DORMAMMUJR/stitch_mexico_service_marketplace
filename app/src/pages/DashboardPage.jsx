@@ -28,6 +28,8 @@ export function DashboardPage() {
   const [profileForm, setProfileForm] = useState({
     title: '', category: 'HEALTH_WELLNESS', bio: '', hourlyRate: ''
   });
+  const [stripeStatus, setStripeStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const avatarInputRef = React.useRef(null);
   const { showToast } = useToast();
@@ -85,8 +87,14 @@ export function DashboardPage() {
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => []);
 
-    Promise.all([fetchDashboard, fetchAppointments, fetchProfile, fetchAvailability, fetchNotifications])
-    .then(([dashboardJson, appointmentsJson, profileJson, availabilityJson, notificationsJson]) => {
+    // Fetch Stripe Connect Status
+    const fetchStripeStatus = fetch('/api/orders/stripe-connect/status', {
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(res => res.json()).catch(() => null);
+
+    Promise.all([fetchDashboard, fetchAppointments, fetchProfile, fetchAvailability, fetchNotifications, fetchStripeStatus])
+    .then(([dashboardJson, appointmentsJson, profileJson, availabilityJson, notificationsJson, stripeJson]) => {
       if (dashboardJson.user) {
         setData(dashboardJson);
       } else {
@@ -139,6 +147,9 @@ export function DashboardPage() {
       }
       if (Array.isArray(notificationsJson)) {
         setNotifications(notificationsJson);
+      }
+      if (stripeJson) {
+        setStripeStatus(stripeJson);
       }
     })
     .catch(console.error)
@@ -210,6 +221,26 @@ export function DashboardPage() {
       }
     } catch (error) {
       showToast('Error de conexión con el servidor.', 'error');
+    }
+  };
+
+  const handleStripeConnect = async () => {
+    try {
+      showToast('Redirigiendo a Stripe...', 'info');
+      const res = await fetch('/api/orders/stripe-connect/onboarding', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        showToast(data.error || 'Error conectando con Stripe', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error de conexión al abrir Stripe', 'error');
     }
   };
 
@@ -303,6 +334,82 @@ export function DashboardPage() {
             <button onClick={(e) => { e.preventDefault(); showToast('Exportando datos en formato CSV...', 'success'); }} className="btn btn-secondary"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span> Exportar</button>
           </div>
         </header>
+
+        {/* Banner de verificación IN_REVIEW */}
+        {data.verificationStatus === 'IN_REVIEW' && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            padding: '1.25rem 1.5rem',
+            background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+            borderRadius: 'var(--radius-xl)',
+            border: '1px solid #f59e0b',
+            marginBottom: '2rem',
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#d97706' }}>verified_user</span>
+            <div>
+              <h4 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.9375rem', color: '#92400e', marginBottom: '0.25rem' }}>
+                Tu perfil está en revisión
+              </h4>
+              <p style={{ fontSize: '0.8125rem', color: '#78350f', lineHeight: 1.5 }}>
+                Has realizado cambios en campos críticos (Título o Categoría). Tu badge de verificación estará oculto hasta que un administrador apruebe los cambios.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {data.verificationStatus === 'PENDING' && !data.user?.isVerified && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            padding: '1.25rem 1.5rem',
+            background: 'var(--surface-container-low)',
+            borderRadius: 'var(--radius-xl)',
+            border: '1px solid var(--outline-variant)',
+            marginBottom: '2rem',
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--secondary)' }}>upload_file</span>
+            <div style={{ flex: 1 }}>
+              <h4 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>
+                Completa tu verificación
+              </h4>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
+                Sube tu Constancia SAT para aparecer en el directorio público y recibir clientes.
+              </p>
+            </div>
+            <a href="/verification" className="btn btn-primary" style={{ fontSize: '0.8125rem', flexShrink: 0 }}>Verificarme</a>
+          </div>
+        )}
+
+        {/* Banner Stripe Connect */}
+        {stripeStatus && (!stripeStatus.connected || !stripeStatus.payoutsEnabled) && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            padding: '1.25rem 1.5rem',
+            background: 'var(--surface-container)',
+            borderRadius: 'var(--radius-xl)',
+            border: '1px solid var(--outline-variant)',
+            marginBottom: '2rem',
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#6366f1' }}>payments</span>
+            <div style={{ flex: 1 }}>
+              <h4 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>
+                Configura tus pagos
+              </h4>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
+                Conecta tu cuenta bancaria con Stripe para poder recibir pagos por tus servicios.
+              </p>
+            </div>
+            <button onClick={handleStripeConnect} className="btn btn-primary" style={{ background: '#6366f1', borderColor: '#6366f1', color: '#fff', fontSize: '0.8125rem', flexShrink: 0 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>account_balance</span>
+              Conectar Stripe
+            </button>
+          </div>
+        )}
 
         {activeTab === 'overview' && (
           <div className="layout-bento">

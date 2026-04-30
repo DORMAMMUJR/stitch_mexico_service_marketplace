@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
+import { CRITICAL_FIELDS } from '../constants/verificationFields';
 
 const router = Router();
 
@@ -28,15 +29,17 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any) => {
     }
 
     const completedOrders = professional.orders.filter(o => o.status === 'COMPLETADO');
+    const totalNonDraftOrders = professional.orders.filter(o => !['DRAFT', 'CANCELADO'].includes(o.status)).length;
     const totalEarnings = completedOrders.reduce((acc, o) => acc + Number(o.agreedPrice), 0);
 
     res.json({
-      profileViews: 12450 + Math.floor(Math.random() * 100), // Hardcoded pending analytics
-      profileViewsGrowth: '+24.5%',
-      totalInteractions: (completedOrders.length * 15) || 842,
-      conversionRate: '65%',
-      automatedMessages: 145,
-      appointmentsScheduled: professional.appointments.length || 12,
+      profileViews: 0,
+      profileViewsGrowth: '0%',
+      totalInteractions: completedOrders.length * 15,
+      conversionRate: totalNonDraftOrders > 0 ? `${Math.round((completedOrders.length / totalNonDraftOrders) * 100)}%` : '0%',
+      automatedMessages: professional.appointments.length * 3,
+      appointmentsScheduled: professional.appointments.length,
+      verificationStatus: professional.verificationStatus,
       user: {
         name: professional.user.name,
         title: professional.title,
@@ -79,20 +82,43 @@ router.put('/me', authenticate, async (req: any, res) => {
       return res.status(404).json({ error: 'Perfil profesional no encontrado' });
     }
 
-    // 2. Actualizar los datos
+    // 2. Detectar si hay cambios en campos críticos
+    const incomingData: any = { title, category, bio, hourlyRate };
+    let criticalChanged = false;
+
+    for (const field of CRITICAL_FIELDS) {
+      const newVal = incomingData[field];
+      if (newVal !== undefined && newVal !== (professional as any)[field]) {
+        criticalChanged = true;
+        break;
+      }
+    }
+
+    // 3. Preparar datos de actualización
+    const updateData: any = {
+      title: title || professional.title,
+      category: category || professional.category,
+      bio: bio !== undefined ? bio : professional.bio,
+      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : professional.hourlyRate,
+    };
+
+    // 4. Si cambió un campo crítico y estaba verificado, resetear verificación
+    if (criticalChanged && professional.isVerified) {
+      updateData.verificationStatus = 'IN_REVIEW';
+      updateData.isVerified = false;
+    }
+
     const updatedProfile = await prisma.professional.update({
       where: { userId },
-      data: {
-        title: title || professional.title,
-        category: category || professional.category,
-        bio: bio !== undefined ? bio : professional.bio,
-        hourlyRate: hourlyRate ? parseFloat(hourlyRate) : professional.hourlyRate,
-      }
+      data: updateData
     });
 
     res.json({ 
-      message: 'Perfil actualizado exitosamente', 
-      profile: updatedProfile 
+      message: criticalChanged && professional.isVerified
+        ? 'Perfil actualizado. Se requiere re-verificación por cambios en campos críticos.'
+        : 'Perfil actualizado exitosamente', 
+      profile: updatedProfile,
+      requiresReview: criticalChanged && professional.isVerified,
     });
   } catch (error) {
     console.error('Error actualizando perfil:', error);
@@ -282,6 +308,13 @@ router.get('/:id', async (req, res) => {
     });
 
     if (!professional) {
+      return res.status(404).json({ message: 'Profesional no encontrado' });
+    }
+
+    // Filtro isVerified: solo mostrar perfiles verificados al público
+    // EXCEPCIÓN: el dueño puede ver su propio perfil no verificado
+    const isOwner = clientId && professional.userId === clientId;
+    if (!professional.isVerified && !isOwner) {
       return res.status(404).json({ message: 'Profesional no encontrado' });
     }
 

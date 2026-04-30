@@ -1,0 +1,14 @@
+/**
+ * CRITICAL_FIELDS — Campos que al modificarse requieren re-verificación del profesional.
+ * Si un profesional verificado cambia alguno de estos campos, su estado
+ * pasa automáticamente a IN_REVIEW y su badge de verificación se oculta
+ * hasta que un administrador apruebe los cambios.
+ *
+ * Campos menores (bio, hourlyRate, city, state) pueden cambiarse libremente.
+ */
+export const CRITICAL_FIELDS = ['title', 'category'];
+
+/**
+ * Campos que pueden editarse sin afectar el estado de verificación.
+ */
+export const MINOR_FIELDS = ['bio', 'hourlyRate', 'city', 'state', 'latitude', 'longitude'];

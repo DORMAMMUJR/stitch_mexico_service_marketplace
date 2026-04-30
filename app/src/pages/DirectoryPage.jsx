@@ -31,24 +31,31 @@ export function DirectoryPage() {
   const [searchParams] = useSearchParams();
   const [professionals, setProfessionals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('');
   const [maxPrice, setMaxPrice] = useState(5000);
   const [minRating, setMinRating] = useState(0);
   const [filterVersion, setFilterVersion] = useState(0);
   const { showToast } = useToast();
 
+  // Leer category y query de la URL (vienen del Hero o de las categorías)
+  const queryFromUrl = searchParams.get('q') || '';
+  const categoryFromUrl = searchParams.get('category') || '';
+
+  // Estado de categoría inicializado desde la URL
+  const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl);
+
+  // Si cambia la URL (navegación entre categorías), sincronizar el filtro
+  useEffect(() => {
+    setSelectedCategory(categoryFromUrl);
+  }, [categoryFromUrl]);
+
   const handleWhatsApp = (e, professional) => {
     e.preventDefault();
     e.stopPropagation();
-    // Default fallback to Intecnia VISO Router if no phone provided
-    const phone = professional.phone || '525512345678'; 
+    const phone = professional.phone || '525512345678';
     const message = `Hola ${professional.name}, te contacto desde Intecnia. Estoy interesado en tus servicios de ${professional.title}. ¿Podríamos agendar una consulta?`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
     showToast(`Conectando con ${professional.name} vía WhatsApp...`, 'info');
   };
-
-  // Leer query param de la URL (viene del Hero search)
-  const queryFromUrl = searchParams.get('q') || '';
 
   useEffect(() => {
     const fetchProfessionals = async () => {

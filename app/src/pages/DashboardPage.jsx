@@ -363,47 +363,49 @@ export function DashboardPage() {
   const { user } = data;
 
   return (
-    <div className="dashboard-layout">
-      {/* Sidebar */}
-      <aside className="sidebar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', padding: '0.5rem' }}>
-          <div style={{ position: 'relative' }}>
-            <img src={user.avatarUrl} alt={user.name} style={{ width: '3rem', height: '3rem', borderRadius: '50%', objectFit: 'cover' }} />
-            <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', background: 'var(--secondary)', borderRadius: '50%', border: '2px solid white' }}></div>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)' }}>
+      <NavbarIntecnia activePage="dashboard" />
+      <div className="dashboard-layout" style={{ paddingTop: '1rem' }}>
+        {/* Sidebar */}
+        <aside className="sidebar" style={{ top: '5rem', height: 'calc(100vh - 5rem)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', padding: '0.5rem' }}>
+            <div style={{ position: 'relative' }}>
+              <img src={user.avatarUrl} alt={user.name} style={{ width: '3rem', height: '3rem', borderRadius: '50%', objectFit: 'cover' }} />
+              <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', background: 'var(--secondary)', borderRadius: '50%', border: '2px solid white' }}></div>
+            </div>
+            <div>
+              <h2 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '0.9375rem', color: 'var(--primary)' }}>{user.name}</h2>
+              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{user.title} • {user.isVerified ? 'Verificado' : 'Pendiente'}</p>
+            </div>
           </div>
-          <div>
-            <h2 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '0.9375rem', color: 'var(--primary)' }}>{user.name}</h2>
-            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{user.title} • {user.isVerified ? 'Verificado' : 'Pendiente'}</p>
-          </div>
-        </div>
 
-        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          <button onClick={() => setActiveTab('overview')} className={`sidebar-link ${activeTab === 'overview' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-            <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px' }}>dashboard</span> Tablero
-          </button>
-          <button onClick={() => setActiveTab('appointments')} className={`sidebar-link ${activeTab === 'appointments' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>event</span> Mis Citas
-          </button>
-          <button onClick={() => setActiveTab('availability')} className={`sidebar-link ${activeTab === 'availability' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>schedule</span> Disponibilidad
-          </button>
-          <button onClick={() => setActiveTab('profile')} className={`sidebar-link ${activeTab === 'profile' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>person</span> Ajustes de Perfil
-          </button>
-          <button onClick={() => setActiveTab('stats')} className={`sidebar-link ${activeTab === 'stats' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>insights</span> Estadísticas
-          </button>
-          <button onClick={() => setActiveTab('notifications')} className={`sidebar-link ${activeTab === 'notifications' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>notifications</span> Notificaciones</span>
-            {notifications.length > 0 && <span style={{ background: 'var(--error)', color: 'white', fontSize: '0.625rem', fontWeight: 700, padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-full)' }}>{notifications.length}</span>}
-          </button>
-          <button onClick={() => setActiveTab('messages')} className={`sidebar-link ${activeTab === 'messages' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>forum</span> Mensajes
-          </button>
-          <button onClick={() => setActiveTab('finance')} className={`sidebar-link ${activeTab === 'finance' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>account_balance_wallet</span> Finanzas
-          </button>
-        </nav>
+          <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <Link to="/" className="sidebar-link" style={{ marginBottom: '1rem', textDecoration: 'none', background: 'var(--primary-container)', color: 'var(--on-primary-container)', borderRadius: 'var(--radius-lg)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>storefront</span> Ver Marketplace
+            </Link>
+            
+            <button onClick={() => setActiveTab('overview')} className={`sidebar-link ${activeTab === 'overview' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+              <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px' }}>dashboard</span> Tablero
+            </button>
+            <button onClick={() => setActiveTab('profile')} className={`sidebar-link ${activeTab === 'profile' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>person</span> Ajustes de Perfil
+            </button>
+            <button onClick={() => setActiveTab('appointments')} className={`sidebar-link ${activeTab === 'appointments' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>event</span> Mis Citas
+            </button>
+            <button onClick={() => setActiveTab('availability')} className={`sidebar-link ${activeTab === 'availability' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>schedule</span> Disponibilidad
+            </button>
+            <button onClick={() => setActiveTab('messages')} className={`sidebar-link ${activeTab === 'messages' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>forum</span> Mensajes
+            </button>
+            <button onClick={() => setActiveTab('stats')} className={`sidebar-link ${activeTab === 'stats' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>insights</span> Estadísticas
+            </button>
+            <button onClick={() => setActiveTab('finance')} className={`sidebar-link ${activeTab === 'finance' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>account_balance_wallet</span> Finanzas
+            </button>
+          </nav>
 
         <div style={{ marginTop: 'auto' }}>
           <div style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-xl)', padding: '1.25rem', textAlign: 'center', marginBottom: '1rem' }}>

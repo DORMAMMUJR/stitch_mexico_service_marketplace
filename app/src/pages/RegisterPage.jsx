@@ -6,7 +6,7 @@ export function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('CLIENT'); // CLIENT or PROFESSIONAL
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -19,12 +19,12 @@ export function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // 1. Registro
+      // 1. Registro (Forzando a que todos entren como CLIENT)
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role })
+        body: JSON.stringify({ name, email, password, role: 'CLIENT' })
       });
 
       const data = await res.json();
@@ -47,12 +47,15 @@ export function RegisterPage() {
         login(loginData.token, loginData.user);
       }
 
-      // 3. Redirección basada en el rol
-      if (role === 'PROFESSIONAL') {
-        navigate('/verification');
-      } else {
-        navigate('/directory');
+      // 3. Redirección inteligente
+      const returnUrl = localStorage.getItem('returnUrl');
+      if (returnUrl) {
+        localStorage.removeItem('returnUrl');
+        navigate(returnUrl);
+        return;
       }
+
+      navigate('/mis-solicitudes');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -89,24 +92,6 @@ export function RegisterPage() {
           )}
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {/* Role Toggle */}
-            <div style={{ display: 'flex', background: 'var(--surface-container)', padding: '0.25rem', borderRadius: 'var(--radius-lg)', marginBottom: '0.5rem' }}>
-              <button 
-                type="button" 
-                onClick={() => setRole('CLIENT')}
-                style={{ flex: 1, padding: '0.75rem', borderRadius: 'var(--radius-md)', border: 'none', background: role === 'CLIENT' ? 'var(--primary)' : 'transparent', color: role === 'CLIENT' ? 'var(--on-primary)' : 'var(--on-surface-variant)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: role === 'CLIENT' ? 'var(--ambient-shadow)' : 'none' }}
-              >
-                Quiero contratar
-              </button>
-              <button 
-                type="button" 
-                onClick={() => setRole('PROFESSIONAL')}
-                style={{ flex: 1, padding: '0.75rem', borderRadius: 'var(--radius-md)', border: 'none', background: role === 'PROFESSIONAL' ? 'var(--primary)' : 'transparent', color: role === 'PROFESSIONAL' ? 'var(--on-primary)' : 'var(--on-surface-variant)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: role === 'PROFESSIONAL' ? 'var(--ambient-shadow)' : 'none' }}
-              >
-                Ofrecer mis servicios
-              </button>
-            </div>
-
             <div>
               <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nombre Completo</label>
               <input 
@@ -133,15 +118,25 @@ export function RegisterPage() {
             
             <div>
               <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contraseña</label>
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{ width: '100%', padding: '0.875rem 1rem', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', color: 'var(--on-surface)', fontSize: '0.9375rem', transition: 'all 0.2s' }}
-                placeholder="••••••••"
-                required 
-                minLength="6"
-              />
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ width: '100%', padding: '0.875rem 2.5rem 0.875rem 1rem', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', color: 'var(--on-surface)', fontSize: '0.9375rem', transition: 'all 0.2s' }}
+                  placeholder="••••••••"
+                  required 
+                  minLength="6"
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)} 
+                  style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--on-surface-variant)', display: 'flex', padding: 0 }}
+                  tabIndex="-1"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{showPassword ? 'visibility_off' : 'visibility'}</span>
+                </button>
+              </div>
               <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.375rem' }}>Mínimo 6 caracteres.</p>
             </div>
 

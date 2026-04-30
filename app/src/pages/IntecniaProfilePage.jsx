@@ -8,22 +8,37 @@ import { AvailabilitySelector } from '../components/AvailabilitySelector';
 import { useProfile } from '../hooks/useProfile';
 import { useReviews } from '../hooks/useReviews';
 import { useAvailability } from '../hooks/useAvailability';
+import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 export function IntecniaProfilePage() {
   const { id } = useParams();
   const { data: profile, isLoading, error } = useProfile(id);
   const { data: dbReviews } = useReviews(id);
   const { data: availability } = useAvailability(id);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const chatRef = useRef(null);
 
   const scrollToChat = () => {
     chatRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handleAction = (actionCallback) => {
+    if (!isAuthenticated) {
+      localStorage.setItem('returnUrl', window.location.pathname);
+      navigate('/login');
+      return;
+    }
+    actionCallback();
+  };
+
   const handleWhatsApp = () => {
-    const phone = profile?.phone || '525512345678'; 
-    const message = `Hola ${profile?.name || 'profesional'}, te contacto desde Intecnia. Estoy interesado en tus servicios de ${profile?.title || ''}. ¿Podríamos agendar una consulta?`;
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    handleAction(() => {
+      const phone = profile?.phone || '525512345678'; 
+      const message = `Hola ${profile?.name || 'profesional'}, te contacto desde Intecnia. Estoy interesado en tus servicios de ${profile?.title || ''}. ¿Podríamos agendar una consulta?`;
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    });
   };
 
   // ── Estados de carga y error ────────────────────────────────────────────────
@@ -254,11 +269,25 @@ export function IntecniaProfilePage() {
 
         {/* Right Column: Appointment & AI Chat */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div className="animate-in stagger-2">
+          <div className="animate-in stagger-2" onClickCapture={(e) => {
+            if (!isAuthenticated) {
+              e.stopPropagation();
+              e.preventDefault();
+              localStorage.setItem('returnUrl', window.location.pathname);
+              navigate('/login');
+            }
+          }}>
             <AvailabilitySelector professionalId={id} availability={availability} />
           </div>
           
-          <div ref={chatRef} className="animate-in stagger-3">
+          <div ref={chatRef} className="animate-in stagger-3" onClickCapture={(e) => {
+            if (!isAuthenticated) {
+              e.stopPropagation();
+              e.preventDefault();
+              localStorage.setItem('returnUrl', window.location.pathname);
+              navigate('/login');
+            }
+          }}>
             <ChatWidget professionalName={prof.name} professionalId={id} />
           </div>
         </div>

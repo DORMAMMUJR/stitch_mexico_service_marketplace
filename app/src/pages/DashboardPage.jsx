@@ -57,26 +57,31 @@ export function DashboardPage() {
     
     // Fetch Dashboard Data
     const fetchDashboard = fetch('/api/professionals/me/dashboard', {
+      credentials: 'include',
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => ({}));
 
     // Fetch Appointments
     const fetchAppointments = fetch('/api/appointments/my', {
+      credentials: 'include',
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => []);
 
     // Fetch Profile
     const fetchProfile = fetch('/api/professionals/me', {
+      credentials: 'include',
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => ({}));
 
     // Fetch Availability
     const fetchAvailability = fetch('/api/professionals/me/availability', {
+      credentials: 'include',
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => []);
 
     // Fetch Notifications
     const fetchNotifications = fetch('/api/users/me/notifications', {
+      credentials: 'include',
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => []);
 
@@ -164,6 +169,7 @@ export function DashboardPage() {
       const token = localStorage.getItem('token');
       const res = await fetch('/api/professionals/me', {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -193,6 +199,7 @@ export function DashboardPage() {
     try {
       const res = await fetch('/api/professionals/me/availability', {
         method: 'PUT',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ availabilities: toSave })
       });

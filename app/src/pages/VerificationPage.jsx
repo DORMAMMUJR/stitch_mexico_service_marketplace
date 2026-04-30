@@ -23,6 +23,7 @@ export function VerificationPage() {
       
       try {
         const response = await fetch('/api/professionals/me', {
+          credentials: 'include',
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
@@ -79,7 +80,8 @@ export function VerificationPage() {
 
       const response = await fetch('/api/verification/upload', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }, // Enviar Auth al subir
+        credentials: 'include',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
         // No Content-Type header — browser sets multipart boundary automatically
       });

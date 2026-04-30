@@ -22,6 +22,7 @@ export function RegisterPage() {
       // 1. Registro
       const res = await fetch('/api/auth/register', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, role })
       });
@@ -35,6 +36,7 @@ export function RegisterPage() {
       // 2. Auto-Login
       const loginRes = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });

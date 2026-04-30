@@ -11,6 +11,7 @@ export function AdminPanel() {
   useEffect(() => {
     // Cargar documentos pendientes
     fetch('/api/admin/verifications/pending', {
+      credentials: 'include',
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     })
     .then(res => {
@@ -30,6 +31,7 @@ export function AdminPanel() {
   const handleApprove = async (docId) => {
     const res = await fetch(`/api/admin/verifications/${docId}/approve`, {
       method: 'PATCH',
+      credentials: 'include',
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}` 

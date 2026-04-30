@@ -17,8 +17,10 @@ import { ClientDashboard } from './pages/ClientDashboard';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { SupportPage } from './pages/SupportPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 import { AuthProvider } from './hooks/useAuth';
 import { ToastProvider } from './components/ToastContext';
+import { PrivateRoute } from './components/PrivateRoute';
 
 import './style.css';
 
@@ -34,10 +36,11 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('app')).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ToastProvider>
-          <BrowserRouter>
+      <BrowserRouter>
+        <AuthProvider>
+          <ToastProvider>
             <Routes>
+            {/* Rutas Públicas */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/" element={<HomePage />} />
@@ -46,26 +49,42 @@ ReactDOM.createRoot(document.getElementById('app')).render(
             <Route path="/profile/:id" element={<IntecniaProfilePage />} />
             <Route path="/intecnia-profile" element={<IntecniaProfilePage />} />
             <Route path="/intecnia-profile/:id" element={<IntecniaProfilePage />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/mis-solicitudes" element={<ClientDashboard />} />
-            <Route path="/verification" element={<VerificationPage />} />
-            <Route path="/admin" element={<AdminPanel />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/support" element={<SupportPage />} />
 
-            {/* Ruta 404 */}
-            <Route path="*" element={
-              <div style={{ padding: '4rem', textAlign: 'center', fontFamily: 'Manrope', color: 'var(--primary)' }}>
-                <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>404</h1>
-                <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem' }}>La página que buscas no existe.</p>
-                <a href="/" style={{ color: 'var(--secondary)', fontWeight: 600 }}>← Volver al inicio</a>
-              </div>
+            {/* Rutas Protegidas: PROFESSIONAL */}
+            <Route path="/dashboard" element={
+              <PrivateRoute allowedRoles={['PROFESSIONAL']}>
+                <DashboardPage />
+              </PrivateRoute>
             } />
+            <Route path="/verification" element={
+              <PrivateRoute allowedRoles={['PROFESSIONAL']}>
+                <VerificationPage />
+              </PrivateRoute>
+            } />
+
+            {/* Rutas Protegidas: CLIENT */}
+            <Route path="/mis-solicitudes" element={
+              <PrivateRoute allowedRoles={['CLIENT']}>
+                <ClientDashboard />
+              </PrivateRoute>
+            } />
+
+            {/* Rutas Protegidas: ADMIN */}
+            <Route path="/admin" element={
+              <PrivateRoute allowedRoles={['ADMIN']}>
+                <AdminPanel />
+              </PrivateRoute>
+            } />
+
+            {/* Ruta 404 */}
+            <Route path="*" element={<NotFoundPage />} />
             </Routes>
-          </BrowserRouter>
-        </ToastProvider>
-      </AuthProvider>
+          </ToastProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>
 );

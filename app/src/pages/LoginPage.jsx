@@ -25,6 +25,7 @@ export function LoginPage() {
       showToast(`Enviando solicitud para ${email}...`, 'info');
       const res = await fetch('/api/auth/reset-password-request', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
@@ -47,6 +48,7 @@ export function LoginPage() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });

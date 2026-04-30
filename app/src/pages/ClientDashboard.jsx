@@ -19,6 +19,7 @@ export function ClientDashboard() {
     const token = localStorage.getItem('token');
     
     fetch('/api/appointments/my', {
+      credentials: 'include',
       headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => res.json())

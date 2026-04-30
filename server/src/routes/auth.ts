@@ -96,9 +96,19 @@ router.post('/login', loginLimiter, async (req, res) => {
       { algorithm: algorithm as any, expiresIn: env.JWT_ACCESS_EXPIRY || '1d' } as any
     );
 
+    // Configurar cookie HttpOnly segura
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.cookie('access_token', token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      maxAge: 24 * 60 * 60 * 1000, // 1 día en milisegundos
+      path: '/',
+    });
+
     res.json({
       message: 'Login exitoso',
-      token,
+      token, // Se mantiene para compatibilidad con el frontend durante la migración
       user: {
         id: user.id,
         email: user.email,
@@ -110,6 +120,44 @@ router.post('/login', loginLimiter, async (req, res) => {
   } catch (error: any) {
     console.error('Error in /login:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint: POST /api/auth/logout
+router.post('/logout', (req, res) => {
+  res.clearCookie('access_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    path: '/',
+  });
+  res.json({ message: 'Sesión cerrada exitosamente' });
+});
+
+// Endpoint: GET /api/auth/me — Devuelve el usuario autenticado a partir de la cookie
+router.get('/me', (req, res) => {
+  const token = req.cookies?.access_token || req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'No autenticado' });
+  }
+
+  try {
+    const key = (env.JWT_PUBLIC_KEY || env.JWT_PRIVATE_KEY || 'secret_fallback_key') as string;
+    const algorithms = key.includes('BEGIN') ? ['RS256'] : ['HS256'];
+    const payload = jwt.verify(token, key, { algorithms: algorithms as any }) as any;
+
+    // Buscar usuario en la base de datos para tener datos frescos
+    prisma.user.findUnique({ where: { id: payload.userId }, select: { id: true, email: true, name: true, role: true, avatarUrl: true } })
+      .then(user => {
+        if (!user) {
+          return res.status(401).json({ error: 'Usuario no encontrado' });
+        }
+        res.json({ user });
+      })
+      .catch(() => res.status(500).json({ error: 'Error interno' }));
+  } catch (err) {
+    res.status(401).json({ error: 'Token inválido o expirado' });
   }
 });
 
@@ -148,3 +196,4 @@ router.post('/reset-password-request', async (req, res) => {
 });
 
 export { router as authRouter };
+

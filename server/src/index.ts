@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -82,6 +83,7 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
 
 // ─── Middleware Global JSON ──────────────────────────────────────────────────
 app.use(express.json());
+app.use(cookieParser());
 
 // ─── Multer Config se ha movido a src/lib/upload.ts ────────────────────────
 

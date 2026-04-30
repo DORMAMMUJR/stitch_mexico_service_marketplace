@@ -16,6 +16,7 @@ import { sendEmail, emailTemplates } from './lib/email';
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
+app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
 
 // ─── Stripe Config ───────────────────────────────────────────────────────────

@@ -898,5 +898,6 @@ export function DashboardPage() {
         )}
       </main>
     </div>
+  </div>
   );
 }

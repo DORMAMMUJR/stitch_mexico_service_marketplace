@@ -422,7 +422,7 @@ setInterval(() => {
     .catch(err => console.error('❌ Error en cron de Escrow:', err));
 }, 60 * 60 * 1000); // Se ejecuta cada hora (1 hora en milisegundos)
 
-app.listen(port, () => {
+app.listen(Number(port), '0.0.0.0', () => {
   console.log(`🚀 Intecnia corriendo en http://localhost:${port}`);
   console.log(`   ENV: ${process.env.NODE_ENV}`);
   console.log(`   Frontend: ${frontendDist}`);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import NavbarIntecnia from '../components/NavbarIntecnia';
+import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 
 // Mapeo de categoría de backend → label legible

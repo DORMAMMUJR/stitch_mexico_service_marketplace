@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import NavbarIntecnia from '../components/NavbarIntecnia';
+import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 import { TrustBar } from '../components/TrustBar';
 import { useToast } from '../components/ToastContext';

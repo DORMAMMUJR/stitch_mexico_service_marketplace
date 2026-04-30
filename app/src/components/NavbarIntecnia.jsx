@@ -282,4 +282,3 @@ export function NavbarIntecnia({ activePage }) {
     </nav>
   );
 }
-export default NavbarIntecnia;

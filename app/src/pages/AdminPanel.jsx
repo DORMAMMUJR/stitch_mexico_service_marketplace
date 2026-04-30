@@ -2,17 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
+import { useToast } from '../components/ToastContext';
 
 export function AdminPanel() {
   const [pendingDocs, setPendingDocs] = useState([]);
   const [disputes, setDisputes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDocs = fetch('/api/admin/verifications/pending', {
       credentials: 'include',
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     }).then(res => {
       if (res.status === 401 || res.status === 403) {
         navigate('/');
@@ -23,7 +24,6 @@ export function AdminPanel() {
 
     const fetchDisputes = fetch('/api/orders/admin/disputes', {
       credentials: 'include',
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     }).then(res => res.ok ? res.json() : []);
 
     Promise.all([fetchDocs, fetchDisputes])
@@ -36,21 +36,39 @@ export function AdminPanel() {
   }, [navigate]);
 
   const handleApprove = async (docId) => {
+    if (!window.confirm('¿Confirmas que deseas APROBAR este documento y verificar al profesional?')) return;
     const res = await fetch(`/api/admin/verifications/${docId}/approve`, {
       method: 'PATCH',
       credentials: 'include',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}` 
-      },
-      body: JSON.stringify({ adminId: 'current-admin' })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
     });
 
     if (res.ok) {
       setPendingDocs(prev => prev.filter(d => d.id !== docId));
-      alert('¡Documento aprobado y profesional verificado!');
+      showToast('Documento aprobado', 'success');
     } else {
-      alert('Error al aprobar el documento.');
+      showToast('Error al aprobar el documento.', 'error');
+    }
+  };
+
+  const handleReject = async (docId) => {
+    const reason = window.prompt('Motivo del rechazo (obligatorio):');
+    if (!reason?.trim()) return; // cancelado o vacío
+
+    const res = await fetch(`/api/admin/verifications/${docId}/reject`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason })
+    });
+
+    if (res.ok) {
+      setPendingDocs(prev => prev.filter(d => d.id !== docId));
+      showToast('Documento rechazado', 'info');
+    } else {
+      const data = await res.json().catch(() => ({}));
+      showToast(data.error || 'Error al rechazar el documento.', 'error');
     }
   };
 
@@ -61,23 +79,20 @@ export function AdminPanel() {
       const res = await fetch(`/api/orders/${orderId}/resolve`, {
         method: 'PATCH',
         credentials: 'include',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}` 
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resolution })
       });
 
       if (res.ok) {
         setDisputes(prev => prev.filter(d => d.id !== orderId));
-        alert('Disputa resuelta exitosamente.');
+        showToast('Disputa resuelta', 'success');
       } else {
         const data = await res.json();
-        alert(data.error || 'Error al resolver la disputa.');
+        showToast(data.error || 'Error al resolver la disputa.', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('Error de conexión.');
+      showToast('Error de conexión.', 'error');
     }
   };
 
@@ -122,9 +137,14 @@ export function AdminPanel() {
                         </a>
                       </td>
                       <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
-                        <button onClick={() => handleApprove(doc.id)} className="btn btn-primary" style={{ padding: '0.375rem 1rem', fontSize: '0.8125rem', display: 'inline-flex', gap: '0.25rem', margin: '0 auto' }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span> Aprobar
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                          <button onClick={() => handleApprove(doc.id)} className="btn btn-primary" style={{ padding: '0.375rem 0.875rem', fontSize: '0.8125rem', display: 'inline-flex', gap: '0.25rem' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span> Aprobar
+                          </button>
+                          <button onClick={() => handleReject(doc.id)} className="btn btn-outline" style={{ padding: '0.375rem 0.875rem', fontSize: '0.8125rem', display: 'inline-flex', gap: '0.25rem', borderColor: 'var(--error)', color: 'var(--error)' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>cancel</span> Rechazar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -22,13 +22,11 @@ router.post('/', authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: 'Faltan campos requeridos: professionalId, description, agreedPrice' });
     }
 
-    // Verificar que el profesional existe
     const professional = await prisma.professional.findUnique({ where: { id: professionalId } });
     if (!professional) {
       return res.status(404).json({ error: 'Profesional no encontrado' });
     }
 
-    // No permitir auto-contratación
     if (professional.userId === clientId) {
       return res.status(400).json({ error: 'No puedes crear una orden para ti mismo' });
     }
@@ -44,7 +42,6 @@ router.post('/', authenticate, async (req: any, res: any) => {
       },
     });
 
-    // Registrar evento de creación
     await prisma.orderEvent.create({
       data: {
         orderId: order.id,
@@ -53,10 +50,7 @@ router.post('/', authenticate, async (req: any, res: any) => {
       },
     });
 
-    res.status(201).json({
-      message: 'Orden creada exitosamente',
-      order,
-    });
+    res.status(201).json({ message: 'Orden creada exitosamente', order });
   } catch (error) {
     console.error('Error creating order:', error);
     res.status(500).json({ error: 'Error interno al crear la orden' });
@@ -71,7 +65,6 @@ router.post('/:id/checkout', authenticate, async (req: any, res: any) => {
     const { id } = req.params;
     const clientId = req.user.userId;
 
-    // Buscar la orden y verificar que pertenece al cliente
     const order = await prisma.order.findUnique({ where: { id } });
 
     if (!order) {
@@ -86,7 +79,6 @@ router.post('/:id/checkout', authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: `No se puede iniciar checkout en estado: ${order.status}` });
     }
 
-    // Crear PaymentIntent en Stripe
     const amountInCents = Math.round(Number(order.agreedPrice) * 100);
 
     const paymentIntent = await stripe.paymentIntents.create({
@@ -100,12 +92,10 @@ router.post('/:id/checkout', authenticate, async (req: any, res: any) => {
       description: `Intecnia Order ${order.id}: ${order.description}`,
     });
 
-    // Transicionar la orden a PAGO_PENDIENTE
     await EscrowStateMachine.transition(order.id, 'PAGO_PENDIENTE', {
       stripePaymentIntentId: paymentIntent.id,
     });
 
-    // Guardar el PaymentIntent ID en la orden
     await prisma.order.update({
       where: { id: order.id },
       data: { paymentIntentId: paymentIntent.id },
@@ -119,7 +109,6 @@ router.post('/:id/checkout', authenticate, async (req: any, res: any) => {
     });
   } catch (error: any) {
     console.error('Error in checkout:', error);
-    // Si es un error de Stripe, devolver mensaje legible
     if (error.type === 'StripeCardError') {
       return res.status(400).json({ error: error.message });
     }
@@ -128,7 +117,7 @@ router.post('/:id/checkout', authenticate, async (req: any, res: any) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// GET /api/orders/my — Mis Órdenes (como cliente o profesional)
+// GET /api/orders/my — Mis Ordenes (como cliente o profesional)
 // ═══════════════════════════════════════════════════════════════════════════════
 router.get('/my', authenticate, async (req: any, res: any) => {
   try {
@@ -138,7 +127,6 @@ router.get('/my', authenticate, async (req: any, res: any) => {
     let orders;
 
     if (role === 'PROFESSIONAL') {
-      // Buscar el perfil profesional del usuario
       const professional = await prisma.professional.findUnique({ where: { userId } });
       if (!professional) {
         return res.json([]);
@@ -189,7 +177,6 @@ router.patch('/:id/complete', authenticate, async (req: any, res: any) => {
       return res.status(404).json({ error: 'Orden no encontrada' });
     }
 
-    // Solo el profesional asignado puede completar
     if (order.professional.userId !== userId) {
       return res.status(403).json({ error: 'Solo el profesional asignado puede completar esta orden' });
     }
@@ -199,11 +186,88 @@ router.patch('/:id/complete', authenticate, async (req: any, res: any) => {
     });
 
     res.json({
-      message: 'Orden marcada como completada. Los fondos se liberarán en 72 horas.',
+      message: 'Orden marcada como completada. Los fondos se liberaran en 72 horas.',
       order: updated,
     });
   } catch (error: any) {
     console.error('Error completing order:', error);
+    res.status(500).json({ error: error.message || 'Error interno del servidor' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PATCH /api/orders/:id/start — Profesional confirma inicio de trabajo
+// Transicion: FONDOS_EN_ESCROW -> EN_PROGRESO
+// ═══════════════════════════════════════════════════════════════════════════════
+router.patch('/:id/start', authenticate, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { professional: true },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
+
+    if (order.professional.userId !== userId) {
+      return res.status(403).json({ error: 'Solo el profesional asignado puede iniciar esta orden' });
+    }
+
+    if (order.status !== 'FONDOS_EN_ESCROW') {
+      return res.status(400).json({ error: `No se puede iniciar en estado: ${order.status}` });
+    }
+
+    const updated = await EscrowStateMachine.transition(id, 'EN_PROGRESO', {
+      startedBy: userId,
+    });
+
+    res.json({
+      message: 'Trabajo iniciado. Los fondos estan en escrow y se liberaran al completar.',
+      order: updated,
+    });
+  } catch (error: any) {
+    console.error('Error starting order:', error);
+    res.status(500).json({ error: error.message || 'Error interno del servidor' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PATCH /api/orders/:id/cancel — Cliente o Profesional cancela una orden
+// ═══════════════════════════════════════════════════════════════════════════════
+router.patch('/:id/cancel', authenticate, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { professional: true },
+    });
+
+    if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
+
+    if (order.clientId !== userId && order.professional.userId !== userId) {
+      return res.status(403).json({ error: 'No tienes permiso para cancelar esta orden' });
+    }
+
+    if (order.status !== 'DRAFT' && order.status !== 'PAGO_PENDIENTE') {
+      return res.status(400).json({ error: `Solo se pueden cancelar órdenes en DRAFT o PAGO_PENDIENTE. Estado actual: ${order.status}` });
+    }
+
+    const updated = await EscrowStateMachine.transition(id, 'CANCELADO', {
+      cancelledBy: userId,
+    });
+
+    res.json({
+      message: 'Orden cancelada exitosamente.',
+      order: updated,
+    });
+  } catch (error: any) {
+    console.error('Error cancelling order:', error);
     res.status(500).json({ error: error.message || 'Error interno del servidor' });
   }
 });
@@ -223,12 +287,10 @@ router.patch('/:id/dispute', authenticate, async (req: any, res: any) => {
       return res.status(404).json({ error: 'Orden no encontrada' });
     }
 
-    // Solo el cliente puede abrir una disputa
     if (order.clientId !== userId) {
       return res.status(403).json({ error: 'Solo el cliente puede abrir una disputa' });
     }
 
-    // Solo se puede disputar dentro de las 72h desde que se completó
     if (order.status !== 'COMPLETADO') {
       return res.status(400).json({ error: `No se puede disputar una orden en estado: ${order.status}` });
     }
@@ -246,7 +308,7 @@ router.patch('/:id/dispute', authenticate, async (req: any, res: any) => {
     });
 
     res.json({
-      message: 'Disputa abierta exitosamente. Un administrador revisará tu caso.',
+      message: 'Disputa abierta exitosamente. Un administrador revisara tu caso.',
       order: updated,
     });
   } catch (error: any) {
@@ -266,12 +328,12 @@ router.patch('/:id/resolve', authenticate, async (req: any, res: any) => {
     }
 
     const { id } = req.params;
-    const { resolution } = req.body; // 'FAVOR_CLIENT' | 'FAVOR_PROFESSIONAL' | 'PARTIAL_REFUND'
+    const { resolution } = req.body;
 
     const order = await prisma.order.findUnique({ where: { id } });
     if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
     if (order.status !== 'EN_DISPUTA') {
-      return res.status(400).json({ error: 'Esta orden no está en disputa' });
+      return res.status(400).json({ error: 'Esta orden no esta en disputa' });
     }
 
     let newStatus: any;
@@ -290,7 +352,6 @@ router.patch('/:id/resolve', authenticate, async (req: any, res: any) => {
       }
     });
 
-    // Registrar evento
     await prisma.orderEvent.create({
       data: {
         orderId: id,
@@ -299,10 +360,7 @@ router.patch('/:id/resolve', authenticate, async (req: any, res: any) => {
       }
     });
 
-    res.json({
-      message: `Disputa resuelta: ${resolution}`,
-      order: updated,
-    });
+    res.json({ message: `Disputa resuelta: ${resolution}`, order: updated });
   } catch (error: any) {
     console.error('Error resolving dispute:', error);
     res.status(500).json({ error: error.message || 'Error interno' });
@@ -323,7 +381,6 @@ router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: an
 
     let stripeAccountId = professional.stripeAccountId;
 
-    // Si no tiene cuenta de Stripe, crear una
     if (!stripeAccountId) {
       const account = await stripe.accounts.create({
         type: 'express',
@@ -339,7 +396,6 @@ router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: an
       });
     }
 
-    // Generar link de onboarding
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
       refresh_url: `${req.headers.origin || 'http://localhost:5173'}/dashboard?tab=finance&status=refresh`,
@@ -372,7 +428,6 @@ router.get('/stripe-connect/status', authenticate, async (req: any, res: any) =>
 
     const account = await stripe.accounts.retrieve(professional.stripeAccountId);
 
-    // Actualizar payoutEnabled si cambió
     if (account.payouts_enabled !== professional.payoutEnabled) {
       await prisma.professional.update({
         where: { id: professional.id },
@@ -393,7 +448,7 @@ router.get('/stripe-connect/status', authenticate, async (req: any, res: any) =>
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// GET /api/orders/admin/disputes — Admin: listar órdenes en disputa
+// GET /api/orders/admin/disputes — Admin: listar ordenes en disputa
 // ═══════════════════════════════════════════════════════════════════════════════
 router.get('/admin/disputes', authenticate, async (req: any, res: any) => {
   try {

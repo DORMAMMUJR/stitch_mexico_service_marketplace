@@ -118,4 +118,40 @@ router.post('/', authenticate, async (req: any, res: any) => {
   }
 });
 
+// PATCH /api/appointments/:id/cancel
+// Cancela una cita si el usuario es el cliente o el profesional involucrado
+router.patch('/:id/cancel', authenticate, async (req: any, res: any) => {
+  try {
+    const userId = req.user?.userId;
+    const { id } = req.params;
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: { professional: true }
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ error: 'Cita no encontrada' });
+    }
+
+    if (appointment.clientId !== userId && appointment.professional.userId !== userId) {
+      return res.status(403).json({ error: 'No tienes permiso para cancelar esta cita' });
+    }
+
+    if (appointment.status !== 'SCHEDULED') {
+      return res.status(400).json({ error: `No se puede cancelar una cita en estado: ${appointment.status}` });
+    }
+
+    const updated = await prisma.appointment.update({
+      where: { id },
+      data: { status: 'CANCELLED' }
+    });
+
+    res.json({ message: 'Cita cancelada con éxito', appointment: updated });
+  } catch (error) {
+    console.error('Error cancelling appointment:', error);
+    res.status(500).json({ error: 'Error interno al cancelar cita' });
+  }
+});
+
 export { router as appointmentsRouter };

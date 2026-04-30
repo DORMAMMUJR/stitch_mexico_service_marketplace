@@ -196,7 +196,7 @@ export function DirectoryPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '1.25rem' }}>
             {professionals.map(p => (
               <div key={p.id} className="pro-card" style={{ cursor: 'pointer' }}>
-                <Link to={`/intecnia-profile/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+                <Link to={`/profile/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
                     <div style={{ position: 'relative' }}>
                       <img src={p.avatarUrl || '/default-avatar.png'} alt={p.name} style={{ width: '3.5rem', height: '3.5rem', borderRadius: 'var(--radius-lg)', objectFit: 'cover', background: 'var(--surface-container)' }} />
@@ -232,13 +232,6 @@ export function DirectoryPage() {
       </div>
 
       <Footer />
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </>
   );
 }

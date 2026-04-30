@@ -10,6 +10,7 @@ const envSchema = z.object({
   PORT: z.string().default('3000'),
   DATABASE_URL: z.string().url(),
   OPENAI_API_KEY: z.string(),
+  APP_URL: z.string().default('http://localhost:5173'),
 
   // ─── Auth (opcional hasta implementar módulo de auth) ───────────
   JWT_PRIVATE_KEY: z.string().optional(),

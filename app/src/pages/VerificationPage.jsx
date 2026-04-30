@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Footer } from '../components/Footer';
 import { useToast } from '../components/ToastContext';
@@ -10,17 +10,23 @@ export function VerificationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [professionalId, setProfessionalId] = useState(null);
   const [profile, setProfile] = useState(null);
-  
+
   // Step 0: Profile Form State
   const [profileForm, setProfileForm] = useState({ title: '', category: 'GENERAL_MAINTENANCE', bio: '', hourlyRate: '' });
-  
+
   // File Upload State
   const [file, setFile] = useState(null);
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef(null);
 
+  // Guard: evita que el useEffect sobreescriba el paso cuando el usuario navega manualmente
+  const initialLoadDone = useRef(false);
+
   const { showToast } = useToast();
   const navigate = useNavigate();
+
+  // Helper generico: avanzar al siguiente paso sin hardcodear el numero
+  const nextStep = useCallback(() => setCurrentStep(prev => prev + 1), []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -47,17 +53,27 @@ export function VerificationPage() {
             hourlyRate: data.hourlyRate || ''
           });
 
-          // Determinar paso actual
-          const docs = data.documents || [];
-          const hasIne = docs.some(d => d.type === 'INE' || d.type === 'PASSPORT');
-          const hasSat = docs.some(d => d.type === 'SAT_CONSTANCIA');
+          // Determinar paso solo en la PRIMERA carga, no en navegaciones del usuario entre pasos
+          if (!initialLoadDone.current) {
+            initialLoadDone.current = true;
 
-          if (data.title && data.bio && data.hourlyRate) {
-            if (!hasIne) setCurrentStep(1);
-            else if (!hasSat) setCurrentStep(2);
-            else setCurrentStep(3);
-          } else {
-            setCurrentStep(0);
+            const docs = data.documents || [];
+            const hasIne = docs.some(d => d.type === 'INE' || d.type === 'PASSPORT');
+            const hasSat = docs.some(d => d.type === 'SAT_CONSTANCIA');
+
+            // hourlyRate puede ser 0 (tarifa gratuita, valido), por eso != null && !== '' en lugar de truthy
+            const hasProfile =
+              data.title &&
+              data.bio &&
+              data.hourlyRate != null &&
+              data.hourlyRate !== '';
+
+            if (hasProfile) {
+              if (!hasIne) setCurrentStep(1);
+              else if (!hasSat) setCurrentStep(2);
+              else setCurrentStep(3);
+            }
+            // else: quedarse en paso 0 (ya es el default del useState)
           }
         }
       } catch (err) {
@@ -87,7 +103,7 @@ export function VerificationPage() {
       if (!response.ok) throw new Error('Error guardando el perfil');
       
       showToast('Perfil guardado exitosamente', 'success');
-      setCurrentStep(1); // Avanzar a INE
+      nextStep(); // Avanzar al siguiente paso (generico, sin hardcodear numero)
     } catch (err) {
       showToast(err.message, 'error');
     } finally {

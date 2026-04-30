@@ -17,11 +17,15 @@ export function AuthProvider({ children }) {
         // No hay sesión activa o cookie expirada
         setUser(null);
       } finally {
+        // isLoading solo pasa a false aquí, por lo que PrivateRoute siempre
+        // espera la respuesta del servidor antes de tomar decisiones de rol.
         setIsLoading(false);
       }
     };
 
-    // Primero intentar cargar del localStorage como caché local
+    // Leer localStorage SOLO para pre-poblar la UI rápidamente (reduce flash).
+    // NUNCA se usa para autorización — isLoading permanece en `true` hasta
+    // que checkSession resuelve y sobreescribe este valor con la fuente de verdad.
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
@@ -38,10 +42,7 @@ export function AuthProvider({ children }) {
   const login = useCallback((token, userData) => {
     // Guardar datos del usuario en localStorage como caché
     localStorage.setItem('user', JSON.stringify(userData));
-    // El token ahora viene como cookie HttpOnly, pero mantenemos compatibilidad
-    if (token) {
-      localStorage.setItem('token', token);
-    }
+    // El sistema usa exclusivamente la cookie HttpOnly configurada por el backend.
     setUser(userData);
   }, []);
 
@@ -56,7 +57,7 @@ export function AuthProvider({ children }) {
       console.error('Error al cerrar sesión:', err);
     } finally {
       localStorage.removeItem('user');
-      localStorage.removeItem('token');
+      // La cookie access_token se borra via el endpoint del backend
       setUser(null);
     }
   }, []);

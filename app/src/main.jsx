@@ -55,7 +55,7 @@ ReactDOM.createRoot(document.getElementById('app')).render(
 
             {/* Rutas Protegidas: PROFESSIONAL */}
             <Route path="/dashboard" element={
-              <PrivateRoute allowedRoles={['PROFESSIONAL']}>
+              <PrivateRoute allowedRoles={['PROFESSIONAL']} requireCompleteProfile={true}>
                 <DashboardPage />
               </PrivateRoute>
             } />

@@ -3,17 +3,19 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 /**
- * PrivateRoute — Protege rutas según autenticación y rol.
- * 
+ * PrivateRoute — Protege rutas según autenticación, rol y completitud de perfil.
+ *
  * Props:
- * - children: el componente a renderizar si la autenticación pasa
- * - allowedRoles: array de roles permitidos (ej. ['PROFESSIONAL', 'ADMIN'])
- *   Si no se especifica, solo se verifica que el usuario esté autenticado.
+ * - children:              el componente a renderizar si la autenticación pasa
+ * - allowedRoles:          array de roles permitidos (ej. ['PROFESSIONAL', 'ADMIN'])
+ *                          Si no se especifica, solo se verifica autenticación.
+ * - requireCompleteProfile: si es true y el usuario es PROFESSIONAL con perfil
+ *                          incompleto, se redirige a /verification (onboarding).
  */
-export function PrivateRoute({ children, allowedRoles }) {
+export function PrivateRoute({ children, allowedRoles, requireCompleteProfile = false }) {
   const { isAuthenticated, user, isLoading } = useAuth();
 
-  // Skeleton de carga mientras se verifica la sesión
+  // Skeleton de carga mientras se verifica la sesión con el servidor
   if (isLoading) {
     return (
       <div style={{
@@ -58,6 +60,18 @@ export function PrivateRoute({ children, allowedRoles }) {
     if (!user?.role || !allowedRoles.includes(user.role)) {
       return <Navigate to="/" replace />;
     }
+  }
+
+  // Bloqueo de onboarding: PROFESSIONAL con perfil incompleto → /verification
+  // profileComplete viene del backend (/api/auth/me) y es undefined para no-profesionales.
+  // Solo bloqueamos si: la ruta lo requiere, el usuario es profesional,
+  // y el backend confirmó que profileComplete === false (no undefined).
+  if (
+    requireCompleteProfile &&
+    user?.role === 'PROFESSIONAL' &&
+    user?.profileComplete === false
+  ) {
+    return <Navigate to="/verification" replace />;
   }
 
   return children;

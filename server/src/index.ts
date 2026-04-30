@@ -11,6 +11,7 @@ import Stripe from 'stripe';
 import { prisma } from './lib/db';
 import { EscrowStateMachine } from './lib/escrow'; // Asumiendo que está exportado así
 import { authenticate } from './middleware/auth';
+import { sendEmail, emailTemplates } from './lib/email';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
@@ -93,6 +94,7 @@ import { usersRouter } from './routes/users';
 import { appointmentsRouter } from './routes/appointments';
 import { professionalsRouter } from './routes/professionals';
 import { ordersRouter } from './routes/orders';
+import { messagesRouter } from './routes/messages';
 import { uploadDoc } from './lib/upload';
 
 // ─── Servir archivos subidos localmente ──────────────────────────────────────
@@ -107,6 +109,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/appointments', appointmentsRouter);
 app.use('/api/professionals', professionalsRouter);
 app.use('/api/orders', ordersRouter);
+app.use('/api/messages', messagesRouter);
 
 // ─── Servir el build del frontend React ──────────────────────────────────────
 const frontendDist = path.join(__dirname, '../public');
@@ -226,10 +229,18 @@ app.patch('/api/admin/verifications/:id/approve', authenticate, async (req, res)
       });
 
       if (doc.type === 'SAT_CONSTANCIA') {
-        await tx.professional.update({
+        const updatedProf = await tx.professional.update({
           where: { id: doc.professionalId },
           data: { isVerified: true, verificationStatus: 'APPROVED', satVerifiedAt: new Date() },
+          include: { user: true }
         });
+
+        // Notificar al profesional asincrónicamente
+        sendEmail({
+          to: updatedProf.user.email,
+          subject: '¡Verificación Aprobada! - Intecnia',
+          html: emailTemplates.verificationApproved(updatedProf.user.name)
+        }).catch(console.error);
       }
       return doc;
     });
@@ -239,6 +250,54 @@ app.patch('/api/admin/verifications/:id/approve', authenticate, async (req, res)
     res.status(500).json({ error: 'Error interno al aprobar documento' });
   }
 });
+
+/**
+ * Admin Panel: Reject Verification Document
+ * PATCH /api/admin/verifications/:id/reject
+ */
+app.patch('/api/admin/verifications/:id/reject', authenticate, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
+    }
+
+    const { id } = req.params;
+    const { reason } = req.body;
+    const adminId = user.userId;
+
+    if (!reason?.trim()) {
+      return res.status(400).json({ error: 'El motivo de rechazo es obligatorio.' });
+    }
+
+    const doc = await prisma.verificationDocument.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+      },
+      include: {
+        professional: {
+          include: { user: true }
+        }
+      }
+    });
+
+    // Notificar al profesional con el motivo
+    sendEmail({
+      to: doc.professional.user.email,
+      subject: 'Actualizacion requerida en tu Verificacion - Intecnia',
+      html: emailTemplates.verificationRejected(doc.professional.user.name, reason.trim())
+    }).catch(console.error);
+
+    res.json({ message: 'Documento rechazado. Se notificara al profesional.', document: doc });
+  } catch (error) {
+    console.error('Error rejecting document:', error);
+    res.status(500).json({ error: 'Error interno al rechazar documento' });
+  }
+});
+
 
 /**
  * AI Chat Endpoint (OpenAI fallback)

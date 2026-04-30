@@ -451,6 +451,16 @@ img { display: block; max-width: 100%; }
   border: var(--glass-border);
 }
 
+/* ── Navbar Profile Dropdown ── */
+.dropdown-item:hover {
+  background: var(--surface-container-low);
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ── Animations ── */
 @keyframes slideUpFade {
   0% { opacity: 0; transform: translateY(24px); }
@@ -459,6 +469,11 @@ img { display: block; max-width: 100%; }
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+/* Spinner — usado en todos los estados de carga del proyecto */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 .animate-in {

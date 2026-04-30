@@ -1,36 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../components/ToastContext';
 import { useAuth } from '../hooks/useAuth';
+import { ChatWindow } from '../components/ChatWindow';
 
 export function DashboardPage() {
   const [data, setData] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  const location = window.location;
-  
-  const [activeTab, setActiveTab] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('tab') || 'overview';
-  });
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get('tab');
-    if (tab && tab !== activeTab) {
-      setActiveTab(tab);
-    }
-  }, [window.location.search]);
-
   const [notifications, setNotifications] = useState([]);
-
   const [profileForm, setProfileForm] = useState({
     title: '', category: 'HEALTH_WELLNESS', bio: '', hourlyRate: ''
   });
   const [stripeStatus, setStripeStatus] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [portfolioItems, setPortfolioItems] = useState([]);
+
+  // useLocation para leer query params de forma reactiva (React Router)
+  const routerLocation = useLocation();
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(routerLocation.search);
+    return params.get('tab') || 'overview';
+  });
+
+  // Sincronizar pestaña activa cuando cambia la URL (?tab=...)
+  useEffect(() => {
+    const params = new URLSearchParams(routerLocation.search);
+    const tab = params.get('tab');
+    if (tab && tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [routerLocation.search]);
   const avatarInputRef = React.useRef(null);
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -39,6 +39,28 @@ export function DashboardPage() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleCancelAppointment = async (appointmentId) => {
+    if (!window.confirm('¿Estás seguro de que deseas cancelar esta cita?')) return;
+
+    try {
+      const res = await fetch(`/api/appointments/${appointmentId}/cancel`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        showToast('Cita cancelada con éxito', 'success');
+        setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: 'CANCELLED' } : a));
+      } else {
+        showToast(data.error || 'Error al cancelar la cita', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error de conexión', 'error');
+    }
   };
 
   const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -124,6 +146,9 @@ export function DashboardPage() {
           bio: profileJson.bio || '',
           hourlyRate: profileJson.hourlyRate || ''
         });
+        if (profileJson.portfolioItems) {
+          setPortfolioItems(profileJson.portfolioItems);
+        }
       } else {
         // Formulario en blanco listo para ser llenado
         setProfileForm({
@@ -166,10 +191,82 @@ export function DashboardPage() {
     reader.readAsDataURL(file);
 
     showToast('Subiendo foto de perfil...', 'info');
-    // TODO: reemplazar con llamada real a /api/upload cuando el endpoint exista
-    setTimeout(() => {
-      showToast('¡Foto de perfil actualizada correctamente!', 'success');
-    }, 1200);
+    
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const res = await fetch('/api/users/avatar', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: formData,
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        setAvatarPreview(result.avatarUrl); // update local
+        showToast('¡Foto de perfil actualizada correctamente!', 'success');
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        showToast(errorData.error || 'Error al subir imagen', 'error');
+        setAvatarPreview(null); // revert on failure
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error de conexión al subir la imagen', 'error');
+      setAvatarPreview(null);
+    }
+  };
+
+  const handlePortfolioUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    showToast('Subiendo imagen al portafolio...', 'info');
+    
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await fetch('/api/professionals/me/portfolio', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        setPortfolioItems([result.portfolioItem, ...portfolioItems]);
+        showToast('¡Imagen subida correctamente!', 'success');
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        showToast(errorData.error || 'Error al subir imagen', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error de conexión', 'error');
+    }
+  };
+
+  const handleDeletePortfolioItem = async (itemId) => {
+    if (!confirm('¿Seguro que quieres eliminar esta imagen?')) return;
+
+    try {
+      const res = await fetch(`/api/professionals/me/portfolio/${itemId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        setPortfolioItems(portfolioItems.filter(item => item.id !== itemId));
+        showToast('Imagen eliminada', 'success');
+      } else {
+        showToast('Error al eliminar', 'error');
+      }
+    } catch (err) {
+      showToast('Error de conexión', 'error');
+    }
   };
 
   const handleUpdateProfile = async (e) => {
@@ -505,7 +602,19 @@ export function DashboardPage() {
                         <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{new Date(app.date).toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short' })}</p>
                       </div>
                     </div>
-                    <span className={`badge ${app.status === 'SCHEDULED' ? 'badge-blue' : ''}`}>{app.status}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <span className={`badge ${app.status === 'SCHEDULED' ? 'badge-blue' : ''}`}>{app.status}</span>
+                      {app.status === 'SCHEDULED' && (
+                        <button 
+                          onClick={() => handleCancelAppointment(app.id)}
+                          className="btn btn-outline"
+                          style={{ borderColor: 'var(--error)', color: 'var(--error)', fontSize: '0.75rem', padding: '0.5rem 0.75rem' }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>cancel</span>
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -722,6 +831,46 @@ export function DashboardPage() {
                 ></textarea>
               </div>
 
+              {/* ── Portafolio ─────────────────────────────────────────── */}
+              <div>
+                <label className="text-label-md" style={{ display: 'block', marginBottom: '0.75rem', color: 'var(--on-surface-variant)' }}>Portafolio de Trabajo</label>
+                <div style={{ marginBottom: '1rem' }}>
+                  <input
+                    type="file"
+                    id="portfolio-upload"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handlePortfolioUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <label htmlFor="portfolio-upload" className="btn btn-outline" style={{ display: 'inline-flex', cursor: 'pointer', fontSize: '0.875rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_photo_alternate</span>
+                    Subir nueva imagen
+                  </label>
+                </div>
+                
+                {portfolioItems.length === 0 ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--outline-variant)' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>image</span>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Aún no has subido fotos a tu portafolio.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem' }}>
+                    {portfolioItems.map(item => (
+                      <div key={item.id} style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', aspectRatio: '1', border: '1px solid var(--outline-variant)' }}>
+                        <img src={item.imageUrl} alt="Portfolio" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePortfolioItem(item.id)}
+                          style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '0.75rem 2rem' }}>
                 Guardar Cambios
               </button>
@@ -729,12 +878,16 @@ export function DashboardPage() {
           </div>
         )}
 
-        {(activeTab === 'stats' || activeTab === 'messages' || activeTab === 'finance') && (
+        {(activeTab === 'stats' || activeTab === 'finance') && (
           <div className="card" style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', marginBottom: '1rem' }}>build_circle</span>
             <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>Módulo en Construcción</h2>
             <p style={{ color: 'var(--on-surface-variant)', maxWidth: '400px' }}>Estamos trabajando arduamente para traerte esta funcionalidad muy pronto. ¡Mantente al tanto!</p>
           </div>
+        )}
+
+        {activeTab === 'messages' && (
+          <ChatWindow />
         )}
       </main>
     </div>

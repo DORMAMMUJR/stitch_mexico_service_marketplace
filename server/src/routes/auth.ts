@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { prisma } from '../lib/db';
 import { env } from '../config/env';
+import { sendEmail, emailTemplates } from '../lib/email';
 
 const router = Router();
 
@@ -61,6 +62,13 @@ router.post('/register', registerLimiter, async (req, res) => {
       });
     }
 
+    // Enviar email de bienvenida asíncronamente (sin bloquear la respuesta)
+    sendEmail({
+      to: email,
+      subject: `¡Bienvenido a Intecnia, ${name}!`,
+      html: emailTemplates.welcome(name, userRole)
+    }).catch(console.error);
+
     res.status(201).json({ message: 'Usuario creado exitosamente', userId: user.id });
   } catch (error: any) {
     console.error('Error in /register:', error);
@@ -108,7 +116,6 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     res.json({
       message: 'Login exitoso',
-      token, // Se mantiene para compatibilidad con el frontend durante la migración
       user: {
         id: user.id,
         email: user.email,
@@ -147,13 +154,58 @@ router.get('/me', (req, res) => {
     const algorithms = key.includes('BEGIN') ? ['RS256'] : ['HS256'];
     const payload = jwt.verify(token, key, { algorithms: algorithms as any }) as any;
 
-    // Buscar usuario en la base de datos para tener datos frescos
-    prisma.user.findUnique({ where: { id: payload.userId }, select: { id: true, email: true, name: true, role: true, avatarUrl: true } })
+    // Buscar usuario con datos frescos; incluir perfil profesional si aplica
+    prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        avatarUrl: true,
+        notifications: {
+          where: { read: false },
+          select: { id: true },
+          take: 1, // Solo necesitamos saber si hay al menos una
+        },
+        professional: {
+          select: {
+            title: true,
+            bio: true,
+            hourlyRate: true,
+          },
+        },
+      },
+    })
       .then(user => {
         if (!user) {
           return res.status(401).json({ error: 'Usuario no encontrado' });
         }
-        res.json({ user });
+
+        // Determinar si el perfil profesional está completo
+        let profileComplete: boolean | undefined = undefined;
+        if (user.role === 'PROFESSIONAL' && user.professional) {
+          const { title, bio, hourlyRate } = user.professional;
+          profileComplete =
+            !!title &&
+            title.trim() !== '' &&
+            !!bio &&
+            bio.trim() !== '' &&
+            hourlyRate != null;
+        }
+
+        res.json({
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            avatarUrl: user.avatarUrl,
+            hasUnreadNotifications: user.notifications.length > 0,
+            // Solo presente para PROFESSIONAL; undefined para otros roles
+            profileComplete,
+          },
+        });
       })
       .catch(() => res.status(500).json({ error: 'Error interno' }));
   } catch (err) {
@@ -182,11 +234,12 @@ router.post('/reset-password-request', async (req, res) => {
       { expiresIn: '15m' }
     );
 
-    // MODO DEMO: Simulación de envío de correo imprimiendo en consola
-    console.log(`\n=== SIMULACIÓN DE RECUPERACIÓN DE CONTRASEÑA ===`);
-    console.log(`Correo destino: ${email}`);
-    console.log(`Enlace temporal: http://localhost:5173/reset-password?token=${resetToken}`);
-    console.log(`=================================================\n`);
+    // Enviar correo real usando Resend
+    await sendEmail({
+      to: email,
+      subject: 'Recuperación de Contraseña - Intecnia',
+      html: emailTemplates.resetPassword(resetToken)
+    });
 
     res.json({ message: 'Si el correo existe, se enviará un enlace de recuperación.' });
   } catch (error: any) {

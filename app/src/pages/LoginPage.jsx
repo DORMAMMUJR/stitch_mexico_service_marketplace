@@ -58,7 +58,16 @@ export function LoginPage() {
       }
 
       login(data.token, data.user);
-      navigate('/dashboard');
+      
+      if (data.user.role === 'PROFESSIONAL') {
+        navigate('/dashboard');
+      } else if (data.user.role === 'CLIENT') {
+        navigate('/mis-solicitudes');
+      } else if (data.user.role === 'ADMIN') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.message);
     } finally {

@@ -49,30 +49,11 @@ export function DashboardPage() {
   }));
   const [availabilities, setAvailabilities] = useState(defaultAvailabilities);
 
-  const DEMO_DASHBOARD = {
-    profileViews: 12450,
-    profileViewsGrowth: '+24.5%',
-    totalInteractions: 842,
-    conversionRate: '65%',
-    automatedMessages: 145,
-    appointmentsScheduled: 12,
-    user: {
-      name: 'Usuario Demo',
-      title: 'Profesional de Intecnia',
-      avatarUrl: null,
-      isVerified: false,
-    }
-  };
-
+  // DEMO_DASHBOARD eliminado para forzar datos reales o ceros
   useEffect(() => {
     const token = localStorage.getItem('token');
 
-    // MODO DEMO: si el token es falso, usar datos de ejemplo directamente
-    if (token === 'token-demo') {
-      setData(DEMO_DASHBOARD);
-      setLoading(false);
-      return;
-    }
+    // Modo demo eliminado
     
     // Fetch Dashboard Data
     const fetchDashboard = fetch('/api/professionals/me/dashboard', {
@@ -104,25 +85,38 @@ export function DashboardPage() {
       if (dashboardJson.user) {
         setData(dashboardJson);
       } else {
-        // Fallback visible si el backend no responde
-        setData(DEMO_DASHBOARD);
+        // Fallback: mostrar en ceros si no hay datos de analíticas
+        setData({
+          profileViews: 0,
+          profileViewsGrowth: '0%',
+          totalInteractions: 0,
+          conversionRate: '0%',
+          automatedMessages: 0,
+          appointmentsScheduled: 0,
+          user: {
+            name: profileJson?.user?.name || 'Profesional',
+            title: profileJson?.title || '',
+            avatarUrl: profileJson?.user?.avatarUrl || null,
+            isVerified: profileJson?.user?.isVerified || false,
+          }
+        });
       }
       if (Array.isArray(appointmentsJson)) {
         setAppointments(appointmentsJson);
       }
       if (profileJson && profileJson.id) {
         setProfileForm({
-          title: profileJson.title || 'Profesional de Intecnia',
+          title: profileJson.title || '',
           category: profileJson.category || 'HEALTH_WELLNESS',
-          bio: profileJson.bio || 'Agrega una descripción para atraer más clientes a tu perfil...',
+          bio: profileJson.bio || '',
           hourlyRate: profileJson.hourlyRate || ''
         });
       } else {
-        // Fallback: datos de respaldo cuando el backend no responde o el perfil está vacío
+        // Formulario en blanco listo para ser llenado
         setProfileForm({
-          title: 'Profesional de Intecnia',
+          title: '',
           category: 'HEALTH_WELLNESS',
-          bio: 'Agrega una descripción para atraer más clientes a tu perfil...',
+          bio: '',
           hourlyRate: ''
         });
       }

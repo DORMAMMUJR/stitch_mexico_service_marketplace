@@ -29,9 +29,21 @@ export function NavbarIntecnia({ activePage }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {isAuthenticated ? (
             <>
-              <Link to="/dashboard" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
-                Dashboard
-              </Link>
+              {user?.role === 'PROFESSIONAL' && (
+                <Link to="/dashboard" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
+                  Dashboard
+                </Link>
+              )}
+              {user?.role === 'CLIENT' && (
+                <Link to="/mis-solicitudes" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
+                  Mis Citas
+                </Link>
+              )}
+              {user?.role === 'ADMIN' && (
+                <Link to="/admin" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
+                  Panel Admin
+                </Link>
+              )}
               <Link to="/dashboard?tab=notifications" style={{ padding: '0.5rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center', position: 'relative', textDecoration: 'none' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>notifications</span>
                 <span style={{ position: 'absolute', top: '6px', right: '6px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--error)', border: '2px solid var(--surface-container-lowest)' }}></span>
@@ -66,7 +78,9 @@ export function NavbarIntecnia({ activePage }) {
         
         {isAuthenticated ? (
           <>
-            <Link to="/dashboard" className="nav-link" onClick={() => setMobileOpen(false)}>Dashboard</Link>
+            {user?.role === 'PROFESSIONAL' && <Link to="/dashboard" className="nav-link" onClick={() => setMobileOpen(false)}>Dashboard</Link>}
+            {user?.role === 'CLIENT' && <Link to="/mis-solicitudes" className="nav-link" onClick={() => setMobileOpen(false)}>Mis Citas</Link>}
+            {user?.role === 'ADMIN' && <Link to="/admin" className="nav-link" onClick={() => setMobileOpen(false)}>Panel Admin</Link>}
             <button onClick={() => { handleLogout(); setMobileOpen(false); }} className="nav-link" style={{ textAlign: 'left', border: 'none', background: 'none', width: '100%', color: '#dc2626' }}>Cerrar Sesión</button>
           </>
         ) : (

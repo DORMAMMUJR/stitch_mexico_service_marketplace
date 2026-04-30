@@ -13,6 +13,7 @@ import { VerificationPage } from './pages/VerificationPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminPanel } from './pages/AdminPanel';
+import { ClientDashboard } from './pages/ClientDashboard';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { SupportPage } from './pages/SupportPage';
@@ -46,6 +47,7 @@ ReactDOM.createRoot(document.getElementById('app')).render(
             <Route path="/intecnia-profile" element={<IntecniaProfilePage />} />
             <Route path="/intecnia-profile/:id" element={<IntecniaProfilePage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/mis-solicitudes" element={<ClientDashboard />} />
             <Route path="/verification" element={<VerificationPage />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/terms" element={<TermsPage />} />

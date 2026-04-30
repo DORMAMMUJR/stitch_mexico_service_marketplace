@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { NavbarIntecnia } from '../components/NavbarIntecnia';
+import NavbarIntecnia from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 
 export function NotFoundPage() {

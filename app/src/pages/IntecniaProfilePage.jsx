@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { NavbarIntecnia } from '../components/NavbarIntecnia';
+import NavbarIntecnia from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 import { NotifBanner } from '../components/NotifBanner';
 import { ChatWidget } from '../components/ChatWidget';

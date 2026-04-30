@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavbarIntecnia } from '../components/NavbarIntecnia';
+import NavbarIntecnia from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 
 export function PrivacyPage() {

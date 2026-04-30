@@ -54,8 +54,8 @@ router.post('/register', registerLimiter, async (req, res) => {
       await prisma.professional.create({
         data: {
           userId: user.id,
-          title: 'Nuevo Profesional', // Default
-          category: 'GENERAL_MAINTENANCE', // Default
+          title: '', // Default vacío
+          category: 'GENERAL_MAINTENANCE', // Requerido por schema
           currency: 'MXN',
         },
       });

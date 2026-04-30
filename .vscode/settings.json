@@ -1,0 +1,19 @@
+{
+    "sqltools.connections": [
+        {
+            "pgOptions": {
+                "ssl": {
+                    "rejectUnauthorized": false
+                }
+            },
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "up-de-fra1-postgresql-2.db.run-on-seenode.com",
+            "port": 11550,
+            "driver": "PostgreSQL",
+            "name": "conectia_db",
+            "database": "db_dvk76pmcco2e",
+            "username": "db_dvk76pmcco2e"
+        }
+    ]
+}

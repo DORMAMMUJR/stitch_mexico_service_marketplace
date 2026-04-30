@@ -195,5 +195,46 @@ router.post('/reset-password-request', async (req, res) => {
   }
 });
 
-export { router as authRouter };
+// Endpoint: POST /api/auth/reset-password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
 
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Faltan datos requeridos' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+
+    // Verificar el token
+    const key = (env.JWT_PRIVATE_KEY || 'secret_fallback_key') as string;
+    let payload;
+    try {
+      payload = jwt.verify(token, key) as any;
+    } catch (err) {
+      return res.status(400).json({ error: 'Token inválido o expirado' });
+    }
+
+    if (payload.intent !== 'reset_password' || !payload.userId) {
+      return res.status(400).json({ error: 'Token no válido para esta operación' });
+    }
+
+    // Hashear la nueva contraseña
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Actualizar la contraseña en la base de datos
+    await prisma.user.update({
+      where: { id: payload.userId },
+      data: { passwordHash: hashedPassword }
+    });
+
+    res.json({ message: 'Contraseña actualizada exitosamente. Ya puedes iniciar sesión.' });
+  } catch (error: any) {
+    console.error('Error in /reset-password:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+export { router as authRouter };

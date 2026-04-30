@@ -144,6 +144,7 @@ export function VisoBot() {
 
         await fetch("/api/appointments", {
           method: "POST",
+          credentials: 'include',
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             client_id: user?.id || guestId,

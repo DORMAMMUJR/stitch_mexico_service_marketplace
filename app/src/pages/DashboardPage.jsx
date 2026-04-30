@@ -185,39 +185,26 @@ export function DashboardPage() {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Preview local inmediato
-    const reader = new FileReader();
-    reader.onloadend = () => setAvatarPreview(reader.result);
-    reader.readAsDataURL(file);
+    const formData = new FormData();
+    formData.append('avatar', file);
 
-    showToast('Subiendo foto de perfil...', 'info');
-    
     try {
-      const formData = new FormData();
-      formData.append('avatar', file);
-
-      const res = await fetch('/api/users/avatar', {
+      const response = await fetch('/api/users/avatar', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: formData,
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
       });
 
-      if (res.ok) {
-        const result = await res.json();
-        setAvatarPreview(result.avatarUrl); // update local
-        showToast('¡Foto de perfil actualizada correctamente!', 'success');
-        // Recargar para actualizar avatar en Navbar y Sidebar simultáneamente
-        setTimeout(() => window.location.reload(), 1500);
+      if (response.ok) {
+        alert('¡Foto actualizada!');
+        window.location.reload(); 
       } else {
-        const errorData = await res.json().catch(() => ({}));
-        showToast(errorData.error || 'Error al subir imagen', 'error');
-        setAvatarPreview(null); // revert on failure
+        alert('Error al subir la foto en el servidor.');
       }
-    } catch (err) {
-      console.error(err);
-      showToast('Error de conexión al subir la imagen', 'error');
-      setAvatarPreview(null);
+    } catch (error) {
+      alert('Error de conexión.');
     }
   };
 

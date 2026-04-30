@@ -2,55 +2,108 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Footer } from '../components/Footer';
 import { useToast } from '../components/ToastContext';
+import { CATEGORIES } from '../constants/verificationFields';
 
 export function VerificationPage() {
+  const [currentStep, setCurrentStep] = useState(0); // 0: Perfil, 1: INE, 2: SAT, 3: CONOCER
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [professionalId, setProfessionalId] = useState(null);
+  const [profile, setProfile] = useState(null);
+  
+  // Step 0: Profile Form State
+  const [profileForm, setProfileForm] = useState({ title: '', category: 'GENERAL_MAINTENANCE', bio: '', hourlyRate: '' });
+  
+  // File Upload State
   const [file, setFile] = useState(null);
-  const [uploadState, setUploadState] = useState('idle'); // idle | uploading | success | error
-  const [uploadResult, setUploadResult] = useState(null);
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef(null);
 
-  // FIX: Estado para el ID real
-  const [professionalId, setProfessionalId] = useState(null);
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  // FIX: Cargar el perfil del profesional al montar el componente
   useEffect(() => {
-    const fetchMyProfile = async () => {
-      const token = localStorage.getItem('token'); // Asumiendo que el JWT está aquí
-      if (!token) return;
+    const fetchProfile = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
       
       try {
         const response = await fetch('/api/professionals/me', {
           credentials: 'include',
           headers: { 'Authorization': `Bearer ${token}` }
         });
+        
         if (response.ok) {
           const data = await response.json();
           setProfessionalId(data.id);
+          setProfile(data);
+          setProfileForm({
+            title: data.title || '',
+            category: data.category || 'GENERAL_MAINTENANCE',
+            bio: data.bio || '',
+            hourlyRate: data.hourlyRate || ''
+          });
+
+          // Determinar paso actual
+          const docs = data.documents || [];
+          const hasIne = docs.some(d => d.type === 'INE' || d.type === 'PASSPORT');
+          const hasSat = docs.some(d => d.type === 'SAT_CONSTANCIA');
+
+          if (data.title && data.bio && data.hourlyRate) {
+            if (!hasIne) setCurrentStep(1);
+            else if (!hasSat) setCurrentStep(2);
+            else setCurrentStep(3);
+          } else {
+            setCurrentStep(0);
+          }
         }
       } catch (err) {
         console.error("Error cargando perfil:", err);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchMyProfile();
-  }, []);
+    fetchProfile();
+  }, [navigate]);
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/professionals/me', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(profileForm)
+      });
+      
+      if (!response.ok) throw new Error('Error guardando el perfil');
+      
+      showToast('Perfil guardado exitosamente', 'success');
+      setCurrentStep(1); // Avanzar a INE
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-
-      // Validación de tamaño en frontend (5MB)
       if (selectedFile.size > 5 * 1024 * 1024) {
         setUploadError('El archivo excede el límite de 5MB.');
         return;
       }
-
       setFile(selectedFile);
-      setUploadState('idle');
       setUploadError('');
-      setUploadResult(null);
     }
   };
 
@@ -58,32 +111,24 @@ export function VerificationPage() {
     fileInputRef.current.click();
   };
 
-  const handleUpload = async () => {
+  const uploadDocument = async (docType) => {
     if (!file) return;
-
-    // FIX: Validar que ya tengamos el ID real
-    if (!professionalId) {
-      setUploadError('No se pudo identificar tu perfil. Inicia sesión nuevamente.');
-      return;
-    }
-
-    setUploadState('uploading');
+    setSubmitting(true);
     setUploadError('');
 
     try {
       const formData = new FormData();
       formData.append('constancia', file);
       formData.append('professionalId', professionalId);
-      formData.append('docType', 'SAT_CONSTANCIA');
+      formData.append('docType', docType);
 
-      const token = localStorage.getItem('token'); // Token para la subida
+      const token = localStorage.getItem('token');
 
       const response = await fetch('/api/verification/upload', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
-        // No Content-Type header — browser sets multipart boundary automatically
       });
 
       if (!response.ok) {
@@ -91,21 +136,58 @@ export function VerificationPage() {
         throw new Error(errData.error || 'Error al subir el documento');
       }
 
-      const result = await response.json();
-      setUploadResult(result);
-      setUploadState('success');
+      showToast('Documento subido exitosamente', 'success');
+      setFile(null); // Limpiar para el siguiente paso
+      
+      if (currentStep < 3) {
+        setCurrentStep(currentStep + 1);
+      } else {
+        await finishVerification();
+      }
     } catch (err) {
       setUploadError(err.message || 'Error al subir el documento. Intente de nuevo.');
-      setUploadState('error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const progressPercent = uploadState === 'success' ? 85 : file ? 75 : 65;
-  const currentStep = uploadState === 'success' ? 3 : file ? 3 : 2;
+  const finishVerification = async () => {
+    setSubmitting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/professionals/me/submit-review', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Error al enviar perfil a revisión');
+      }
+
+      showToast('Perfil enviado a revisión', 'success');
+      navigate('/dashboard');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', animation: 'spin 1s linear infinite' }}>progress_activity</span>
+      </div>
+    );
+  }
+
+  const steps = ['Perfil', 'Biometría', 'SAT & Fiscal', 'CONOCER'];
+  const progressPercent = Math.round(((currentStep) / 4) * 100);
 
   return (
     <>
-      {/* Minimal Nav */}
       <header className="nav-top">
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '3.5rem' }}>
           <Link to="/" style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)', cursor: 'pointer', textDecoration: 'none' }}>Intecnia</Link>
@@ -115,7 +197,7 @@ export function VerificationPage() {
         </div>
       </header>
 
-      <div className="container" style={{ padding: '2.5rem 1.5rem 4rem', maxWidth: '960px' }}>
+      <div className="container" style={{ padding: '2.5rem 1.5rem 4rem', maxWidth: '800px' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
@@ -127,232 +209,152 @@ export function VerificationPage() {
               <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)' }}>PROGRESO GENERAL</p>
               <p style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--secondary)' }}>{progressPercent}% Completado</p>
             </div>
-            <div style={{ width: '3rem', height: '3rem', borderRadius: '50%', border: '3px solid var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(45,188,254,0.05)' }}>
-              <span className="material-symbols-outlined icon-filled" style={{ color: 'var(--secondary)', fontSize: '20px' }}>{uploadState === 'success' ? 'check_circle' : file ? 'pending' : 'pending'}</span>
-            </div>
           </div>
         </div>
 
-        {/* Progress Steps */}
+        {/* Progress Steps Indicator */}
         <div style={{ display: 'flex', marginBottom: '3rem', position: 'relative' }}>
-          {['Perfil', 'Biometría', 'SAT & Fiscal', 'CONOCER'].map((step, i) => (
+          {steps.map((step, i) => (
             <div key={step} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
-              <div style={{ height: '3px', background: i < currentStep ? 'var(--secondary)' : 'var(--surface-container)', marginBottom: '0.75rem', borderRadius: i === 0 ? '4px 0 0 4px' : i === 3 ? '0 4px 4px 0' : '' }}></div>
-              <span style={{ fontSize: '0.8125rem', fontWeight: i === currentStep ? 600 : 500, color: i < currentStep ? 'var(--secondary)' : 'var(--on-surface-variant)' }}>{step}</span>
+              <div style={{ height: '4px', background: i <= currentStep ? 'var(--secondary)' : 'var(--surface-container)', marginBottom: '0.75rem', borderRadius: i === 0 ? '4px 0 0 4px' : i === steps.length - 1 ? '0 4px 4px 0' : '' }}></div>
+              <span style={{ fontSize: '0.8125rem', fontWeight: i === currentStep ? 700 : 500, color: i <= currentStep ? 'var(--secondary)' : 'var(--on-surface-variant)' }}>{step}</span>
             </div>
           ))}
         </div>
 
-        <div className="grid-sidebar-right">
-          {/* Left Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {/* Biometric Identity */}
-            <div className="card" style={{ padding: '2rem' }}>
+        <div className="card" style={{ padding: '2rem' }}>
+          
+          {/* STEP 0: PERFIL */}
+          {currentStep === 0 && (
+            <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-lg)', background: 'rgba(45,188,254,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="material-symbols-outlined" style={{ color: 'var(--secondary)' }}>photo_camera_front</span>
-                </div>
-                <div>
-                  <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)' }}>Identidad Biométrica</h2>
-                </div>
+                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--secondary)' }}>person</span>
+                <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Datos del Perfil</h2>
               </div>
-              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Utilizamos tecnología de grado bancario para validar su identidad mediante reconocimiento facial y cotejo de INE/Pasaporte.</p>
+              
               <div className="grid-2">
-                <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', textAlign: 'center' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--primary)', marginBottom: '0.5rem', display: 'block' }}>badge</span>
-                  <p style={{ fontWeight: 500, fontSize: '0.875rem', marginBottom: '0.25rem' }}>INE / Pasaporte</p>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}><span className="material-symbols-outlined icon-filled" style={{ fontSize: '12px' }}>check_circle</span> Validado</span>
-                </div>
-                <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', textAlign: 'center', border: '1px solid rgba(45,188,254,0.2)' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--secondary)', marginBottom: '0.5rem', display: 'block' }}>photo_camera</span>
-                  <p style={{ fontWeight: 500, fontSize: '0.875rem', marginBottom: '0.25rem' }}>Captura Facial Liveness</p>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}><span className="material-symbols-outlined icon-filled" style={{ fontSize: '12px' }}>check_circle</span> Completado</span>
-                </div>
-              </div>
-            </div>
-
-            {/* SAT Fiscal */}
-            <div className="card" style={{ padding: '2rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-lg)', background: 'rgba(231,83,29,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span className="material-symbols-outlined" style={{ color: 'var(--on-tertiary-container)' }}>account_balance</span>
-                  </div>
-                  <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)' }}>Situación Fiscal (SAT)</h2>
-                </div>
-                <span style={{ background: 'var(--on-tertiary-container)', color: 'var(--on-primary)', fontSize: '0.625rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-md)' }}>OBLIGATORIO</span>
-              </div>
-              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Validación de Constancia de Situación Fiscal y cumplimiento ante el SAT para emisión de facturas institucionales.</p>
-
-              <div style={{ background: file ? 'rgba(45,188,254,0.03)' : 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '2rem', textAlign: 'center', marginBottom: '1.5rem', border: file ? '2px dashed var(--secondary)' : '2px dashed transparent', transition: 'all 0.3s' }}>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileChange} 
-                  style={{ display: 'none' }} 
-                  accept=".pdf"
-                />
-                <span className="material-symbols-outlined" style={{ fontSize: '36px', color: file ? 'var(--secondary)' : 'var(--on-surface-variant)', marginBottom: '0.75rem', display: 'block' }}>{file ? 'task' : 'upload_file'}</span>
-                <p style={{ fontWeight: 600, fontSize: '0.9375rem', marginBottom: '0.25rem' }}>{file ? file.name : 'Cargar Constancia de Situación Fiscal'}</p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '1.25rem' }}>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'PDF original (no mayor a 3 meses de antigüedad). Max 5MB.'}</p>
-                <button 
-                  className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} 
-                  style={{ borderRadius: 'var(--radius-lg)' }}
-                  onClick={triggerFileSelect}
-                  disabled={uploadState === 'uploading'}
-                >
-                  {file ? 'Cambiar Archivo' : 'Seleccionar Archivo'}
-                </button>
-              </div>
-
-              {/* Upload error message */}
-              {uploadError && (
-                <div style={{ background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 'var(--radius-lg)', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#dc2626' }}>error</span>
-                  <p style={{ fontSize: '0.8125rem', color: '#dc2626' }}>{uploadError}</p>
-                </div>
-              )}
-
-              {/* Upload success message */}
-              {uploadState === 'success' && uploadResult && (
-                <div style={{ background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.2)', borderRadius: 'var(--radius-lg)', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span className="material-symbols-outlined icon-filled" style={{ fontSize: '18px', color: '#16a34a' }}>check_circle</span>
-                  <div>
-                    <p style={{ fontSize: '0.8125rem', color: '#16a34a', fontWeight: 600 }}>{uploadResult.message}</p>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>ID: {uploadResult.id}</p>
-                  </div>
-                </div>
-              )}
-
-              <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--on-surface-variant)', marginBottom: '0.125rem' }}>ESTADO ACTUAL</p>
-                  <p style={{ fontWeight: 500, fontSize: '0.875rem', color: uploadState === 'success' ? '#16a34a' : file ? 'var(--secondary)' : 'inherit' }}>
-                    {uploadState === 'success' ? 'Documento enviado — Pendiente de revisión' : file ? 'Documento listo para envío' : 'Pendiente de carga de documento'}
-                  </p>
-                </div>
-                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: uploadState === 'success' ? '#16a34a' : 'var(--secondary)' }}>
-                  {uploadState === 'success' ? 'verified' : file ? 'check_circle' : 'info'}
-                </span>
-              </div>
-            </div>
-
-            {/* CONOCER Certifications */}
-            <div style={{ borderLeft: '3px solid var(--secondary)', paddingLeft: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-lg)', background: 'rgba(45,188,254,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="material-symbols-outlined" style={{ color: 'var(--secondary)' }}>workspace_premium</span>
+                  <label className="text-label-md">Título Profesional</label>
+                  <input type="text" value={profileForm.title} onChange={e => setProfileForm({...profileForm, title: e.target.value})} className="form-input" placeholder="Ej. Especialista en Seguridad" required />
                 </div>
                 <div>
-                  <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.125rem', color: 'var(--primary)' }}>Certificaciones CONOCER</h2>
-                  <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)' }}>Acredite sus competencias laborales para obtener el distintivo de "Profesional Verificado" en el directorio.</p>
+                  <label className="text-label-md">Categoría Principal</label>
+                  <select value={profileForm.category} onChange={e => setProfileForm({...profileForm, category: e.target.value})} className="form-input" required>
+                    {Object.entries(CATEGORIES).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {[
-                  { code: 'EC0217.01', desc: 'Impartición de cursos de formación del capital humano' },
-                  { code: 'EC0301', desc: 'Diseño de cursos de formación del capital humano' },
-                ].map(cert => (
-                  <div key={cert.code} style={{ background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-lg)', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: 'var(--ambient-shadow)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--on-surface-variant)' }}>description</span>
-                      <div>
-                        <p style={{ fontWeight: 600, fontSize: '0.875rem' }}>{cert.code}</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{cert.desc}</p>
-                      </div>
-                    </div>
-                    <a href="#" onClick={(e) => { e.preventDefault(); showToast(`Certificación ${cert.code} vinculada exitosamente`, 'success'); }} style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem', textDecoration: 'none' }}>Vincular <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>arrow_forward</span></a>
-                  </div>
-                ))}
-                <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--on-surface-variant)', fontSize: '0.875rem', padding: '0.75rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', justifyContent: 'center', border: 'none', cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background='var(--surface-container)'} onMouseOut={(e) => e.currentTarget.style.background='var(--surface-container-low)'}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span> Agregar otra certificación oficial
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '5rem', height: 'fit-content' }}>
-            {/* Privacy Protocol */}
-            <div style={{ background: 'var(--primary)', borderRadius: 'var(--radius-xl)', padding: '1.5rem', color: 'var(--on-primary)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary-container)' }}>security</span>
-              </div>
-              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1rem', marginBottom: '0.75rem' }}>Protocolo de Privacidad Digital</h3>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--primary-fixed-dim)', lineHeight: 1.6, marginBottom: '1rem' }}>
-                En Intecnia, sus datos están encriptados bajo el estándar AES-256. La información compartida es estrictamente para fines de verificación institucional y cumplimiento normativo.
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {['Cumplimiento Ley Federal de Datos', 'Infraestructura de Grado Militar', 'Auditado por Entidades Reguladoras'].map(item => (
-                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--primary-fixed-dim)' }}>
-                    <span className="material-symbols-outlined icon-filled" style={{ fontSize: '12px', color: 'var(--secondary-container)' }}>check_circle</span> {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Validated By */}
-            <div>
-              <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>VALIDADO POR</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                {['GOB MÉXICO', 'SAT', 'CONOCER', 'ISO 27001'].map(org => (
-                  <span key={org} style={{ background: 'var(--surface-container-low)', padding: '0.5rem', borderRadius: 'var(--radius-md)', textAlign: 'center', fontSize: '0.75rem', fontWeight: 500, color: 'var(--on-surface-variant)' }}>{org}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Support Chat */}
-            <div style={{ background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-xl)', padding: '1.25rem', boxShadow: 'var(--ambient-shadow)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=50&h=50&fit=crop&crop=face" alt="Support" style={{ width: '2.75rem', height: '2.75rem', borderRadius: '50%', objectFit: 'cover' }} />
               <div>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>¿Necesita asistencia?</p>
-                <p style={{ fontWeight: 600, fontSize: '0.875rem' }}>Chat con Soporte Elite</p>
-                <span style={{ fontSize: '0.6875rem', color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--secondary)' }}></span> En línea ahora
-                </span>
+                <label className="text-label-md">Biografía Profesional</label>
+                <textarea value={profileForm.bio} onChange={e => setProfileForm({...profileForm, bio: e.target.value})} className="form-input" placeholder="Describa su experiencia y especialidades..." rows="4" required></textarea>
+              </div>
+
+              <div>
+                <label className="text-label-md">Tarifa por Hora Estimada (MXN)</label>
+                <input type="number" value={profileForm.hourlyRate} onChange={e => setProfileForm({...profileForm, hourlyRate: e.target.value})} className="form-input" placeholder="Ej. 800" min="0" required />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Guardando...' : 'Guardar y Continuar'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* STEP 1: INE / BIOMETRÍA */}
+          {currentStep === 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--secondary)' }}>badge</span>
+                <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Identidad Oficial (INE/Pasaporte)</h2>
+              </div>
+              <p style={{ color: 'var(--on-surface-variant)' }}>Por favor suba una copia legible de su identificación oficial por ambos lados (formato PDF).</p>
+
+              <div style={{ background: file ? 'rgba(45,188,254,0.03)' : 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '3rem 2rem', textAlign: 'center', border: file ? '2px dashed var(--secondary)' : '2px dashed transparent' }}>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".pdf" />
+                <span className="material-symbols-outlined" style={{ fontSize: '48px', color: file ? 'var(--secondary)' : 'var(--on-surface-variant)', marginBottom: '1rem', display: 'block' }}>{file ? 'task' : 'upload_file'}</span>
+                <p style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{file ? file.name : 'Seleccionar Documento PDF'}</p>
+                <button className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} style={{ marginTop: '1rem' }} onClick={triggerFileSelect}>{file ? 'Cambiar Archivo' : 'Elegir Archivo'}</button>
+              </div>
+
+              {uploadError && <p style={{ color: 'var(--error)', fontSize: '0.875rem' }}>{uploadError}</p>}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
+                <button className="btn btn-outline" onClick={() => setCurrentStep(0)}>Atrás</button>
+                <button className="btn btn-primary" onClick={() => uploadDocument('INE')} disabled={!file || submitting}>
+                  {submitting ? 'Subiendo...' : 'Subir y Continuar'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
+                </button>
               </div>
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Bottom Actions */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
-          <a href="#" onClick={(e) => { e.preventDefault(); navigate('/dashboard'); showToast('Progreso guardado localmente', 'success'); }} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--on-surface-variant)', fontSize: '0.875rem', textDecoration: 'none' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span> Guardar y continuar más tarde
-          </a>
-          <button 
-            className="btn btn-primary" 
-            style={{ padding: '0.75rem 2rem', borderRadius: 'var(--radius-lg)', fontSize: '0.9375rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-            onClick={uploadState === 'success' ? () => navigate('/dashboard') : handleUpload}
-            disabled={!file || uploadState === 'uploading'}
-          >
-            {uploadState === 'uploading' ? (
-              <>
-                <span className="material-symbols-outlined" style={{ fontSize: '18px', animation: 'spin 1s linear infinite' }}>progress_activity</span>
-                Subiendo...
-              </>
-            ) : uploadState === 'success' ? (
-              <>
-                Entrar al Dashboard <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
-              </>
-            ) : (
-              <>
-                Finalizar Verificación <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_right</span>
-              </>
-            )}
-          </button>
+          {/* STEP 2: SAT & FISCAL */}
+          {currentStep === 2 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: '#e7531d' }}>account_balance</span>
+                <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Situación Fiscal (SAT)</h2>
+              </div>
+              <p style={{ color: 'var(--on-surface-variant)' }}>Suba su Constancia de Situación Fiscal actualizada (no mayor a 3 meses) en formato PDF para poder emitir comprobantes a sus clientes.</p>
+
+              <div style={{ background: file ? 'rgba(45,188,254,0.03)' : 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '3rem 2rem', textAlign: 'center', border: file ? '2px dashed var(--secondary)' : '2px dashed transparent' }}>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".pdf" />
+                <span className="material-symbols-outlined" style={{ fontSize: '48px', color: file ? 'var(--secondary)' : 'var(--on-surface-variant)', marginBottom: '1rem', display: 'block' }}>{file ? 'task' : 'upload_file'}</span>
+                <p style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{file ? file.name : 'Constancia del SAT (PDF)'}</p>
+                <button className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} style={{ marginTop: '1rem' }} onClick={triggerFileSelect}>{file ? 'Cambiar Archivo' : 'Elegir Archivo'}</button>
+              </div>
+
+              {uploadError && <p style={{ color: 'var(--error)', fontSize: '0.875rem' }}>{uploadError}</p>}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
+                <button className="btn btn-outline" onClick={() => setCurrentStep(1)}>Atrás</button>
+                <button className="btn btn-primary" onClick={() => uploadDocument('SAT_CONSTANCIA')} disabled={!file || submitting}>
+                  {submitting ? 'Subiendo...' : 'Subir y Continuar'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3: CONOCER (Opcional) */}
+          {currentStep === 3 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--secondary)' }}>workspace_premium</span>
+                <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Certificaciones CONOCER</h2>
+              </div>
+              <p style={{ color: 'var(--on-surface-variant)' }}>Suba certificados CONOCER u otras certificaciones oficiales (Opcional). Esto mejorará su posicionamiento en el directorio.</p>
+
+              <div style={{ background: file ? 'rgba(45,188,254,0.03)' : 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '3rem 2rem', textAlign: 'center', border: file ? '2px dashed var(--secondary)' : '2px dashed transparent' }}>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".pdf" />
+                <span className="material-symbols-outlined" style={{ fontSize: '48px', color: file ? 'var(--secondary)' : 'var(--on-surface-variant)', marginBottom: '1rem', display: 'block' }}>{file ? 'task' : 'upload_file'}</span>
+                <p style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{file ? file.name : 'Certificado Adicional (PDF)'}</p>
+                <button className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} style={{ marginTop: '1rem' }} onClick={triggerFileSelect}>{file ? 'Cambiar Archivo' : 'Elegir Archivo'}</button>
+              </div>
+
+              {uploadError && <p style={{ color: 'var(--error)', fontSize: '0.875rem' }}>{uploadError}</p>}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
+                <button className="btn btn-outline" onClick={() => setCurrentStep(2)}>Atrás</button>
+                {file ? (
+                  <button className="btn btn-primary" onClick={() => uploadDocument('CONOCER_CERT')} disabled={submitting}>
+                    {submitting ? 'Subiendo...' : 'Subir y Finalizar'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span>
+                  </button>
+                ) : (
+                  <button className="btn btn-primary" onClick={finishVerification} style={{ background: '#16a34a', borderColor: '#16a34a' }}>
+                    Omitir y Finalizar Verificación <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
-
       <Footer />
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </>
   );
 }

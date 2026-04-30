@@ -58,7 +58,10 @@ router.get('/me', authenticate, async (req: any, res: any) => {
   try {
     const professional = await prisma.professional.findUnique({
       where: { userId: req.user.userId },
-      include: { user: { select: { name: true, avatarUrl: true, email: true } } }
+      include: { 
+        user: { select: { name: true, avatarUrl: true, email: true } },
+        documents: true 
+      }
     });
     if (!professional) return res.status(404).json({ error: 'Perfil no encontrado' });
     res.json(professional);
@@ -123,6 +126,38 @@ router.put('/me', authenticate, async (req: any, res) => {
   } catch (error) {
     console.error('Error actualizando perfil:', error);
     res.status(500).json({ error: 'Error interno al actualizar el perfil' });
+  }
+});
+
+// POST /api/professionals/me/submit-review (Enviar perfil a revisión)
+router.post('/me/submit-review', authenticate, async (req: any, res: any) => {
+  try {
+    const userId = req.user.userId;
+    
+    const professional = await prisma.professional.findUnique({
+      where: { userId },
+      include: { documents: true }
+    });
+
+    if (!professional) return res.status(404).json({ error: 'Perfil no encontrado' });
+
+    // Validar que tengan lo mínimo: INE y SAT (si es obligatorio)
+    const hasIne = professional.documents.some(d => d.type === 'INE' || d.type === 'PASSPORT');
+    const hasSat = professional.documents.some(d => d.type === 'SAT_CONSTANCIA');
+
+    if (!hasIne || !hasSat) {
+      return res.status(400).json({ error: 'Debes subir tu INE y Constancia de Situación Fiscal para solicitar revisión.' });
+    }
+
+    const updatedProfile = await prisma.professional.update({
+      where: { userId },
+      data: { verificationStatus: 'IN_REVIEW' }
+    });
+
+    res.json({ message: 'Perfil enviado a revisión', profile: updatedProfile });
+  } catch (error) {
+    console.error('Error submitting review:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 

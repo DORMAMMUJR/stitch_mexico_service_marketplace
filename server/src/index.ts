@@ -390,7 +390,7 @@ Mantén respuestas cortas.`;
            data: {
              clientId,
              professionalId,
-             date: new Date(args.date),
+             date: new Date(args.date).toISOString(),
              notes: args.notes,
            }
         });

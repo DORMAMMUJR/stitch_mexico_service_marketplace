@@ -29,7 +29,7 @@ router.get('/my', authenticate, async (req: any, res: any) => {
     if (role === 'PROFESSIONAL') {
       // Buscar el professionalId primero
       const prof = await prisma.professional.findUnique({ where: { userId } });
-      if (!prof) return res.status(404).json({ error: 'Perfil profesional no encontrado' });
+      if (!prof) return res.json([]); // Sin perfil = sin citas, no error
       
       appointments = await prisma.appointment.findMany({
         where: { professionalId: prof.id },

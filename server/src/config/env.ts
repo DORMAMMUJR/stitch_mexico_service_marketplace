@@ -9,7 +9,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('3000'),
   DATABASE_URL: z.string().url(),
-  OPENAI_API_KEY: z.string(),
+  OPENAI_API_KEY: z.string().optional(), // Opcional: el servidor arranca sin ella; /api/chat retorna error manejado
   APP_URL: z.string().default('http://localhost:5173'),
 
   // ─── Auth (opcional hasta implementar módulo de auth) ───────────

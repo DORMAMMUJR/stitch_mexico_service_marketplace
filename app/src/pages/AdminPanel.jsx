@@ -109,7 +109,7 @@ export function AdminPanel() {
           </div>
         ) : (
           <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
                 <thead style={{ background: 'var(--surface-container-low)' }}>
                   <tr>
@@ -133,7 +133,8 @@ export function AdminPanel() {
                       </td>
                       <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
                         <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', gap: '0.25rem' }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>visibility</span> Ver PDF
+                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>visibility</span>
+                          {doc.fileUrl?.match(/\.(jpg|jpeg|png|webp)$/i) ? 'Ver Imagen' : 'Ver PDF'}
                         </a>
                       </td>
                       <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>

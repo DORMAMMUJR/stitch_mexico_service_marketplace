@@ -37,6 +37,14 @@ export function VerificationPage() {
       }
       
       try {
+        // CRITICAL FIX: Garantizar que existe el registro Professional antes de leer el perfil.
+        // Si el usuario era CLIENT, este endpoint lo crea y actualiza el rol a PROFESSIONAL.
+        await fetch('/api/professionals/me/ensure', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
         const response = await fetch('/api/professionals/me', {
           credentials: 'include',
           headers: { 'Authorization': `Bearer ${token}` }
@@ -286,9 +294,10 @@ export function VerificationPage() {
               <p style={{ color: 'var(--on-surface-variant)' }}>Subir tu identificación oficial (INE o Pasaporte) aumentará la confianza de los clientes en tu perfil. Puedes omitir este paso y hacerlo después.</p>
 
               <div style={{ background: file ? 'rgba(45,188,254,0.03)' : 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '3rem 2rem', textAlign: 'center', border: file ? '2px dashed var(--secondary)' : '2px dashed transparent' }}>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".pdf" />
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".pdf,image/jpeg,image/png,image/webp" />
                 <span className="material-symbols-outlined" style={{ fontSize: '48px', color: file ? 'var(--secondary)' : 'var(--on-surface-variant)', marginBottom: '1rem', display: 'block' }}>{file ? 'task' : 'upload_file'}</span>
-                <p style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{file ? file.name : 'Seleccionar Documento PDF (Opcional)'}</p>
+                <p style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{file ? file.name : 'Seleccionar Documento (Opcional)'}</p>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>PDF, JPG, PNG o WebP · Máximo 5 MB</p>
                 <button className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} style={{ marginTop: '1rem' }} onClick={triggerFileSelect}>{file ? 'Cambiar Archivo' : 'Elegir Archivo'}</button>
               </div>
 

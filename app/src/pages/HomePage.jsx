@@ -12,6 +12,18 @@ const CATEGORIES = [
   { label: 'Hogar', icon: 'home_repair_service', key: 'GENERAL_MAINTENANCE' },
 ];
 
+const CATEGORY_MAP = {
+  'HEALTH_WELLNESS': 'Salud y Bienestar',
+  'LEGAL': 'Consultoría Legal',
+  'FINANCE_TAX': 'Contabilidad y Finanzas',
+  'IT_SECURITY': 'Tecnología y Desarrollo',
+  'ENGINEERING': 'Ingeniería',
+  'PLUMBING': 'Plomería',
+  'ELECTRICAL': 'Electricidad',
+  'HVAC': 'Climatización',
+  'GENERAL_MAINTENANCE': 'Mantenimiento General',
+};
+
 function ProfessionalSkeleton() {
   return (
     <div style={{ borderRadius: 'var(--radius-xl)', border: '1px solid var(--outline-variant)', padding: '1.5rem', background: 'var(--surface-container-lowest)', animation: 'pulse 1.5s ease-in-out infinite' }}>
@@ -57,10 +69,10 @@ export function HomePage() {
           PLATAFORMA VERIFICADA · CDMX
         </p>
         <h1 className="animate-in stagger-2" style={{ fontFamily: 'Manrope', fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, maxWidth: '750px', margin: '0 auto 1.25rem', color: 'var(--on-primary)' }}>
-          Encuentra y agenda profesionales<br />sin riesgos ni fraudes
+          Encuentra profesionales<br />confiables sin fraudes
         </h1>
         <p className="animate-in stagger-3" style={{ fontSize: '1.0625rem', color: 'var(--primary-fixed-dim)', maxWidth: '560px', margin: '0 auto 2.5rem', lineHeight: 1.7 }}>
-          Nuestro asistente agenda tu cita por ti con especialistas verificados cerca de ti.
+          Agenda citas con especialistas verificados cerca de ti, en minutos.
         </p>
 
         <form onSubmit={handleSearch} className="hero-search-container animate-in stagger-4" style={{ maxWidth: '640px', margin: '0 auto 1.25rem', borderRadius: 'var(--radius-xl)', padding: '0.375rem' }}>
@@ -86,7 +98,7 @@ export function HomePage() {
 
         {/* Micro-confianza */}
         <div className="animate-in stagger-5" style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.5rem' }}>
-          {['✔️ Profesionales verificados', '⭐ Calificaciones reales', '🤖 Agenda automática en minutos'].map(chip => (
+          {['✔️ Profesionales verificados', '⭐ Calificaciones reales', '📍 Cerca de ti'].map(chip => (
             <span key={chip} style={{ background: 'rgba(255,255,255,0.12)', color: 'var(--on-primary)', fontSize: '0.8125rem', fontWeight: 500, padding: '0.375rem 0.875rem', borderRadius: 'var(--radius-full)', border: '1px solid rgba(255,255,255,0.15)' }}>
               {chip}
             </span>
@@ -237,7 +249,7 @@ export function HomePage() {
                     )}
                     <div style={{ minWidth: 0 }}>
                       <p style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--primary)', marginBottom: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pro.user?.name || 'Profesional'}</p>
-                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pro.title || pro.category}</p>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pro.title || CATEGORY_MAP[pro.category] || pro.category}</p>
                     </div>
                   </div>
                   {pro.rating > 0 && (

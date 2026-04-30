@@ -229,26 +229,28 @@ export function VisoBot() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
+          className="visobot-widget"
           style={{
             position: 'fixed',
-            bottom: '2rem',
-            right: '2rem',
+            bottom: '1.5rem',
+            right: '1.5rem',
             width: '4rem',
             height: '4rem',
             borderRadius: '50%',
             background: 'var(--primary)',
             color: 'var(--on-primary)',
             border: 'none',
-            boxShadow: 'var(--ambient-shadow)',
+            boxShadow: '0 8px 24px rgba(6,78,59,0.3)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
             zIndex: 9999,
-            transition: 'transform 0.2s',
+            transition: 'transform 0.2s, box-shadow 0.2s',
           }}
-          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
           onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+          aria-label="Abrir asistente Viso"
         >
           <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>smart_toy</span>
         </button>
@@ -256,22 +258,23 @@ export function VisoBot() {
 
       {/* Ventana de chat */}
       {isOpen && (
-        <div style={{
-          position: 'fixed',
-          bottom: '2rem',
-          right: '2rem',
-          width: '380px',
-          height: '600px',
-          maxHeight: '80vh',
-          background: 'var(--surface)',
-          borderRadius: 'var(--radius-xl)',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
-          display: 'flex',
-          flexDirection: 'column',
-          zIndex: 9999,
-          overflow: 'hidden',
-          animation: 'slideUp 0.3s ease-out'
-        }}>
+        <div
+          className="visobot-chat-panel"
+          style={{
+            position: 'fixed',
+            bottom: '6.5rem',
+            right: '1.5rem',
+            width: 'min(380px, calc(100vw - 2rem))', /* Se adapta a pantallas pequeñas */
+            height: 'min(600px, 75vh)',
+            background: 'var(--surface)',
+            borderRadius: 'var(--radius-xl)',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+            zIndex: 9999,
+            overflow: 'hidden',
+            animation: 'slideUp 0.3s ease-out'
+          }}>
           {/* Header */}
           <div style={{ padding: '1.25rem', background: 'var(--primary)', color: 'var(--on-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

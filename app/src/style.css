@@ -543,18 +543,86 @@ img { display: block; max-width: 100%; }
   
   /* Container Overrides */
   .container { padding: 0 1rem; }
-  section[style*="padding: 5rem 1.5rem"] { padding: 3rem 1rem !important; }
-  section[style*="padding: '5rem 1.5rem'"] { padding: 3rem 1rem !important; }
 
-  /* Hero Section Overrides */
-  .hero-gradient[style] { padding: 4rem 1rem 3rem !important; }
-  .hero-search-container { flex-direction: column; border-radius: var(--radius-lg) !important; padding: 1rem !important; gap: 0.75rem; }
+  /* Secciones: reducir padding vertical */
+  section[style*="5rem 1.5rem"] { padding: 3rem 1rem !important; }
+  section[style*="6rem 1.5rem"] { padding: 3.5rem 1rem !important; }
+
+  /* Hero */
+  .hero-gradient[style] { padding: 3.5rem 1rem 3rem !important; }
+
+  /* Hero search bar: se apila verticalmente */
+  .hero-search-container {
+    flex-direction: column !important;
+    border-radius: var(--radius-xl) !important;
+    padding: 1rem !important;
+    gap: 0.75rem !important;
+    max-width: 100% !important;
+    margin: 0 0 1.25rem !important;
+  }
   .hero-search-container > div { padding: 0 !important; width: 100%; }
-  .hero-search-container input { width: 100%; text-align: center; }
-  .hero-search-container .btn { width: 100%; justify-content: center; }
-  
+  .hero-search-container input { width: 100%; font-size: 16px; } /* 16px evita zoom en iOS */
+  .hero-search-container .btn { width: 100%; justify-content: center; padding: 0.875rem !important; }
+
+  /* Tablas con scroll horizontal (AdminPanel, etc.) */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius-xl); }
+
   /* Footer */
   .footer { padding: 2rem 1rem; }
+
+  /* Cards */
+  .card { border-radius: var(--radius-lg); }
+  .testimonial-card { padding: 1.5rem; }
+
+  /* Botones full-width en móvil */
+  .btn-full-mobile { width: 100% !important; justify-content: center !important; }
+
+  /* Hamburger: área táctil mínima 44x44px (WCAG) */
+  .hamburger-btn {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+  }
+
+  /* VisoBot: no tapar contenido en móvil */
+  .visobot-widget { bottom: 1rem !important; right: 1rem !important; }
+  .visobot-chat-panel {
+    bottom: 5rem !important;
+    right: 1rem !important;
+    left: 1rem !important;
+    width: auto !important;
+    max-height: 65vh !important;
+  }
+
+  /* Safe area (iPhone con notch/Dynamic Island) */
+  .nav-top {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .mobile-menu {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+  .footer {
+    padding-bottom: max(2rem, calc(1rem + env(safe-area-inset-bottom)));
+  }
+}
+
+/* ── Extra pequeño (≤ 480px — teléfonos compactos) ── */
+@media (max-width: 480px) {
+  .text-display-lg { font-size: 1.75rem; }
+  .text-headline-md { font-size: 1.25rem; }
+  .hero-gradient[style] { padding: 2.5rem 1rem 2rem !important; }
+  .grid-4 { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+  /* Inputs: siempre 16px para evitar zoom automático en iOS/Android */
+  input, select, textarea { font-size: 16px !important; }
+
+  /* Chips del hero: reducir tamaño */
+  .hero-chip { font-size: 0.75rem !important; padding: 0.25rem 0.625rem !important; }
 }
 
 /* ── Utility ── */

@@ -45,7 +45,7 @@ export function RegisterPage() {
       const loginData = await loginRes.json();
 
       if (loginRes.ok) {
-        login(loginData.token, loginData.user);
+        login(null, loginData.user); // El token viene en cookie HttpOnly, no en el body
       }
 
       // 3. Redirección inteligente

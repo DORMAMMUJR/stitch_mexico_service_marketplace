@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -9,7 +10,7 @@ import multerS3 from 'multer-s3';
 import { S3Client } from '@aws-sdk/client-s3';
 import Stripe from 'stripe';
 import { prisma } from './lib/db';
-import { EscrowStateMachine } from './lib/escrow'; // Asumiendo que está exportado así
+import { EscrowStateMachine } from './lib/escrow';
 import { authenticate } from './middleware/auth';
 import { sendEmail, emailTemplates } from './lib/email';
 
@@ -131,7 +132,7 @@ app.get('/health', async (req, res) => {
 /**
  * Upload Verification Document
  */
-app.post('/api/verification/upload', uploadDoc.single('constancia'), async (req, res) => {
+app.post('/api/verification/upload', authenticate, uploadDoc.single('constancia'), async (req: any, res) => {
   try {
     const { professionalId, docType } = req.body;
     const file = (req as any).file; // Castear a any por diferencias entre multer y multerS3 types
@@ -301,9 +302,17 @@ app.patch('/api/admin/verifications/:id/reject', authenticate, async (req, res) 
 
 
 /**
- * AI Chat Endpoint (OpenAI fallback)
+ * AI Chat Endpoint (OpenAI)
+ * Rate Limited: 20 requests/min por IP para proteger la cuota de OpenAI
  */
-app.post('/api/chat', async (req, res) => {
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,        // 1 minuto
+  max: 20,                    // 20 mensajes por minuto por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados mensajes enviados. Por favor espera un momento antes de continuar.' },
+});
+app.post('/api/chat', chatLimiter, async (req, res) => {
   try {
     const { message, professional, history = [], clientId, professionalId } = req.body;
 

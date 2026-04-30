@@ -419,7 +419,8 @@ router.get('/stripe-connect/status', authenticate, async (req: any, res: any) =>
     const professional = await prisma.professional.findUnique({ where: { userId } });
 
     if (!professional) {
-      return res.status(404).json({ error: 'Perfil no encontrado' });
+      // Sin perfil profesional = sin cuenta Stripe, responder con estado base
+      return res.json({ connected: false, payoutsEnabled: false });
     }
 
     if (!professional.stripeAccountId) {

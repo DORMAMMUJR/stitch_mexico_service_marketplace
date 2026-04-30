@@ -26,7 +26,24 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any) => {
     });
 
     if (!professional) {
-      return res.status(404).json({ error: 'Perfil profesional no encontrado' });
+      // El registro Professional aún no existe (transición CLIENT→PROFESSIONAL en curso)
+      // Devolver dashboard base con métricas en cero para no bloquear el acceso
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, avatarUrl: true } });
+      return res.json({
+        profileViews: 0,
+        profileViewsGrowth: '0%',
+        totalInteractions: 0,
+        conversionRate: '0%',
+        automatedMessages: 0,
+        appointmentsScheduled: 0,
+        verificationStatus: 'PENDING',
+        user: {
+          name: user?.name || 'Profesional',
+          title: '',
+          avatarUrl: user?.avatarUrl || null,
+          isVerified: false,
+        }
+      });
     }
 
     const completedOrders = professional.orders.filter(o => o.status === 'COMPLETADO');
@@ -77,26 +94,99 @@ router.get('/me', authenticate, async (req: any, res: any) => {
         portfolioItems: { orderBy: { createdAt: 'desc' } }
       }
     });
-    if (!professional) return res.status(404).json({ error: 'Perfil no encontrado' });
+    // Si no existe el perfil profesional, devolver un objeto base en lugar de 404
+    // para que VerificationPage y DashboardPage puedan inicializar sus estados
+    if (!professional) {
+      return res.json({
+        id: null,
+        userId: req.user.userId,
+        title: '',
+        bio: null,
+        category: 'GENERAL_MAINTENANCE',
+        hourlyRate: null,
+        isVerified: false,
+        verificationStatus: 'PENDING',
+        documents: [],
+        portfolioItems: [],
+        user: null,
+        _notCreated: true, // Flag para que el frontend sepa que debe crear el registro
+      });
+    }
     res.json(professional);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener perfil' });
   }
 });
 
-// PUT /api/professionals/me (Actualizar perfil)
+// POST /api/professionals/me/ensure (Inicializar perfil profesional si no existe)
+// Llamado por VerificationPage cuando un CLIENT quiere convertirse en PROFESSIONAL
+router.post('/me/ensure', authenticate, async (req: any, res: any) => {
+  try {
+    const userId = req.user.userId;
+
+    // Verificar si ya existe
+    const existing = await prisma.professional.findUnique({ where: { userId } });
+    if (existing) {
+      return res.json({ message: 'Perfil ya existe', professional: existing, created: false });
+    }
+
+    // Actualizar rol del usuario a PROFESSIONAL
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: 'PROFESSIONAL' }
+    });
+
+    // Crear registro Professional con valores por defecto
+    const professional = await prisma.professional.create({
+      data: {
+        userId,
+        title: '',
+        category: 'GENERAL_MAINTENANCE',
+        currency: 'MXN',
+      }
+    });
+
+    res.status(201).json({ message: 'Perfil profesional creado', professional, created: true });
+  } catch (error) {
+    console.error('Error en /me/ensure:', error);
+    res.status(500).json({ error: 'Error al inicializar perfil profesional' });
+  }
+});
+
+// PUT /api/professionals/me (Actualizar o crear perfil — upsert)
 router.put('/me', authenticate, async (req: any, res) => {
   try {
     const { title, category, bio, hourlyRate } = req.body;
     const userId = req.user.userId;
 
-    // 1. Verificar que el profesional existe
+    // 1. Buscar si ya existe (puede no existir si el usuario era CLIENT)
     const professional = await prisma.professional.findUnique({
       where: { userId }
     });
 
+    // Si no existe, crearlo (upsert manual para poder comparar campos críticos)
     if (!professional) {
-      return res.status(404).json({ error: 'Perfil profesional no encontrado' });
+      // Actualizar rol a PROFESSIONAL en la tabla User
+      await prisma.user.update({
+        where: { id: userId },
+        data: { role: 'PROFESSIONAL' }
+      });
+
+      const newProfessional = await prisma.professional.create({
+        data: {
+          userId,
+          title: title || '',
+          category: (category as any) || 'GENERAL_MAINTENANCE',
+          bio: bio || null,
+          hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
+          currency: 'MXN',
+        }
+      });
+      return res.status(201).json({
+        message: 'Perfil profesional creado exitosamente',
+        profile: newProfessional,
+        requiresReview: false,
+      });
     }
 
     // 2. Detectar si hay cambios en campos críticos

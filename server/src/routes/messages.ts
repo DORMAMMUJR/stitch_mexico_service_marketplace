@@ -94,7 +94,9 @@ router.get('/:conversationId', async (req, res) => {
   const { conversationId } = req.params;
 
   // Seguridad: verificar que el usuario es parte de esta conversación
-  if (!conversationId.includes(myId)) {
+  // Usamos split en lugar de includes() para evitar falsos positivos con IDs que son substrings
+  const participants = conversationId.split('_');
+  if (!participants.includes(myId)) {
     return res.status(403).json({ error: 'No tienes acceso a esta conversación' });
   }
 

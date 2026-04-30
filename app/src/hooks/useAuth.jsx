@@ -57,6 +57,7 @@ export function AuthProvider({ children }) {
       console.error('Error al cerrar sesión:', err);
     } finally {
       localStorage.removeItem('user');
+      localStorage.removeItem('token'); // Limpiar cualquier residuo de versiones anteriores
       // La cookie access_token se borra via el endpoint del backend
       setUser(null);
     }

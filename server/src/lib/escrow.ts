@@ -1,5 +1,14 @@
-import { Prisma, OrderStatus, Order, OrderEvent, DisputeResolution } from '@prisma/client';
+import { Prisma, OrderStatus, Order } from '@prisma/client';
 import { prisma } from './db';
+import Stripe from 'stripe';
+
+// Stripe se inicializa aquí para que el cron job pueda ejecutar payouts independientemente
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_dummy', {
+  apiVersion: '2026-04-22.dahlia' as any,
+});
+
+// Comisión de la plataforma (10%). Ajustar según modelo de negocio.
+const PLATFORM_FEE_RATE = 0.10;
 
 export class EscrowStateMachine {
   
@@ -46,8 +55,6 @@ export class EscrowStateMachine {
         }
       });
 
-      // TODO: Aquí se deberían disparar las notificaciones usando un event emitter o similar
-
       return updatedOrder;
     });
   }
@@ -70,27 +77,109 @@ export class EscrowStateMachine {
     return transitions[current]?.includes(next) || false;
   }
 
-  // Método para el cron job de timeout automático
-  static async processAutoReleases() {
-    // 72h = 72 * 60 * 60 * 1000 ms
-    const timeoutDate = new Date(Date.now() - (72 * 60 * 60 * 1000));
-    
-    const ordersToRelease = await prisma.order.findMany({
-      where: {
-        status: 'COMPLETADO',
-        completedAt: {
-          lt: timeoutDate
+  /**
+   * Ejecuta la transferencia real de fondos a la cuenta Stripe Connect del profesional.
+   * Descuenta la comisión de la plataforma (PLATFORM_FEE_RATE) antes de transferir.
+   * Retorna true si el payout fue exitoso, false si falló.
+   */
+  static async executePayout(orderId: string): Promise<boolean> {
+    // Obtener la orden con los datos del profesional
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        professional: {
+          select: { id: true, stripeAccountId: true }
         }
       }
     });
 
+    if (!order) {
+      console.error(`❌ Payout: orden ${orderId} no encontrada`);
+      return false;
+    }
+
+    if (!order.professional.stripeAccountId) {
+      console.warn(`⚠️  Payout: profesional de orden ${orderId} no tiene cuenta Stripe Connect. Payout manual requerido.`);
+      // No fallamos — la orden ya está en PAYOUT_INICIADO, un admin puede resolverla manualmente
+      return false;
+    }
+
+    const totalAmountCents = Math.round(Number(order.agreedPrice) * 100);
+    const platformFeeCents = Math.round(totalAmountCents * PLATFORM_FEE_RATE);
+    const transferAmountCents = totalAmountCents - platformFeeCents;
+    const currency = (order.currency || 'mxn').toLowerCase();
+
+    try {
+      // Crear la transferencia a la cuenta conectada del profesional
+      const transfer = await stripe.transfers.create({
+        amount: transferAmountCents,
+        currency,
+        destination: order.professional.stripeAccountId,
+        metadata: {
+          orderId: order.id,
+          professionalId: order.professionalId,
+          platformFeeCents: String(platformFeeCents),
+          releaseReason: 'AUTO_RELEASE_72H',
+        },
+      });
+
+      console.log(`✅ Payout exitoso para orden ${orderId}: transfer ${transfer.id} | $${(transferAmountCents / 100).toFixed(2)} ${currency.toUpperCase()} → profesional`);
+
+      // Marcar la orden como PAYOUT_COMPLETADO
+      await this.transition(orderId, 'PAYOUT_COMPLETADO', {
+        stripeTransferId: transfer.id,
+        transferAmountCents,
+        platformFeeCents,
+        currency,
+      });
+
+      return true;
+    } catch (stripeError: any) {
+      console.error(`❌ Payout fallido para orden ${orderId}: ${stripeError.message}`);
+
+      // Marcar como PAYOUT_FALLIDO para que el admin pueda hacer retry
+      await this.transition(orderId, 'PAYOUT_FALLIDO', {
+        error: stripeError.message,
+        stripeErrorCode: stripeError.code,
+      }).catch(e => console.error('Error marcando PAYOUT_FALLIDO:', e));
+
+      return false;
+    }
+  }
+
+  /**
+   * Cron job: libera fondos de órdenes completadas hace más de 72h sin disputa.
+   * Ejecuta: 1. Transición a PAYOUT_INICIADO, 2. Transferencia Stripe real.
+   */
+  static async processAutoReleases() {
+    const timeoutDate = new Date(Date.now() - (72 * 60 * 60 * 1000)); // 72 horas
+    
+    const ordersToRelease = await prisma.order.findMany({
+      where: {
+        status: 'COMPLETADO',
+        completedAt: { lt: timeoutDate }
+      }
+    });
+
+    if (ordersToRelease.length === 0) {
+      console.log('   No hay órdenes pendientes de payout.');
+      return;
+    }
+
+    console.log(`   Procesando ${ordersToRelease.length} orden(es) para payout automático...`);
+
     for (const order of ordersToRelease) {
       try {
-        await this.transition(order.id, 'PAYOUT_INICIADO', { reason: 'AUTOMATIC_TIMEOUT' });
-        // TODO: Llamar al servicio de pagos para iniciar el transfer a Stripe Connect
-      } catch (error) {
-        console.error(`Error processing auto-release for order ${order.id}:`, error);
+        // Paso 1: Transicionar a PAYOUT_INICIADO (registra el evento en BD)
+        await this.transition(order.id, 'PAYOUT_INICIADO', { reason: 'AUTOMATIC_TIMEOUT_72H' });
+        console.log(`   📋 Orden ${order.id} → PAYOUT_INICIADO`);
+
+        // Paso 2: Ejecutar la transferencia real a Stripe Connect
+        await this.executePayout(order.id);
+      } catch (error: any) {
+        console.error(`   ❌ Error procesando orden ${order.id}:`, error.message);
       }
     }
   }
 }
+

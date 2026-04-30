@@ -60,7 +60,7 @@ export function LoginPage() {
         throw new Error(data.error || 'Error al iniciar sesión');
       }
 
-      login(data.token, data.user);
+      login(null, data.user); // El token viene en la cookie HttpOnly, no en el body de la respuesta
 
       const returnUrl = localStorage.getItem('returnUrl');
       if (returnUrl) {

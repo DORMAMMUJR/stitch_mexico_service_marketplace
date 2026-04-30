@@ -26,9 +26,42 @@ import { VisoBot } from './components/VisoBot';
 
 import './style.css';
 
+// ErrorBoundary global para capturar crashes silenciosos (pantallas en blanco sin mensaje)
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', flexDirection: 'column', gap: '1rem', padding: '2rem', textAlign: 'center' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '48px', color: '#dc2626' }}>error</span>
+          <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)' }}>Algo salió mal</h2>
+          <p style={{ color: 'var(--on-surface-variant)', fontFamily: 'monospace', fontSize: '0.875rem', background: 'var(--surface-container)', padding: '1rem', borderRadius: '8px', maxWidth: '600px' }}>
+            {this.state.error?.message || 'Error desconocido'}
+          </p>
+          <button onClick={() => window.location.href = '/'} style={{ padding: '0.75rem 2rem', borderRadius: '8px', background: 'var(--secondary)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Volver al inicio</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Dashboard unificado: renderiza ClientDashboard o DashboardPage según el rol
 function SmartDashboard() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  // Esperar confirmación del servidor antes de decidir el componente
+  // Evita flash visual si el rol en localStorage no coincide con el de la BD
+  if (isLoading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
+      <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', animation: 'spin 1s linear infinite' }}>progress_activity</span>
+    </div>
+  );
   if (!user) return null;
   if (user.role === 'PROFESSIONAL') return <DashboardPage />;
   return <ClientDashboard />;
@@ -74,7 +107,7 @@ ReactDOM.createRoot(document.getElementById('app')).render(
               </PrivateRoute>
             } />
             <Route path="/verification" element={
-              <PrivateRoute allowedRoles={['PROFESSIONAL']}>
+              <PrivateRoute allowedRoles={['CLIENT', 'PROFESSIONAL']}>
                 <VerificationPage />
               </PrivateRoute>
             } />

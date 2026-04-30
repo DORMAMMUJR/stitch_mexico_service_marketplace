@@ -10,6 +10,8 @@ export function DashboardPage() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
+  const [availStatus, setAvailStatus] = useState(null); // Fix: variable era usada sin declarar
+  const [updateStatus, setUpdateStatus] = useState(null); // Fix: variable era usada sin declarar
   const [profileForm, setProfileForm] = useState({
     title: '', category: 'HEALTH_WELLNESS', bio: '', hourlyRate: ''
   });
@@ -76,44 +78,37 @@ export function DashboardPage() {
 
   // DEMO_DASHBOARD eliminado para forzar datos reales o ceros
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    // Todas las peticiones usan cookies HttpOnly (credentials: 'include')
+    // No se necesita header Authorization manual — la cookie se envía automáticamente
 
-    // Modo demo eliminado
-    
     // Fetch Dashboard Data
     const fetchDashboard = fetch('/api/professionals/me/dashboard', {
       credentials: 'include',
-      headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => ({}));
 
     // Fetch Appointments
     const fetchAppointments = fetch('/api/appointments/my', {
       credentials: 'include',
-      headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => []);
 
     // Fetch Profile
     const fetchProfile = fetch('/api/professionals/me', {
       credentials: 'include',
-      headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => ({}));
 
     // Fetch Availability
     const fetchAvailability = fetch('/api/professionals/me/availability', {
       credentials: 'include',
-      headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => []);
 
     // Fetch Notifications
     const fetchNotifications = fetch('/api/users/me/notifications', {
       credentials: 'include',
-      headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => []);
 
     // Fetch Stripe Connect Status
     const fetchStripeStatus = fetch('/api/orders/stripe-connect/status', {
       credentials: 'include',
-      headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => res.json()).catch(() => null);
 
     Promise.all([fetchDashboard, fetchAppointments, fetchProfile, fetchAvailability, fetchNotifications, fetchStripeStatus])
@@ -122,6 +117,8 @@ export function DashboardPage() {
         setData(dashboardJson);
       } else {
         // Fallback: mostrar en ceros si no hay datos de analíticas
+        // profileJson._notCreated indica que el registro Professional aún no existe en BD
+        const userName = profileJson?.user?.name || profileJson?.name || 'Profesional';
         setData({
           profileViews: 0,
           profileViewsGrowth: '0%',
@@ -129,11 +126,12 @@ export function DashboardPage() {
           conversionRate: '0%',
           automatedMessages: 0,
           appointmentsScheduled: 0,
+          verificationStatus: profileJson?.verificationStatus || 'PENDING',
           user: {
-            name: profileJson?.user?.name || 'Profesional',
+            name: userName,
             title: profileJson?.title || '',
             avatarUrl: profileJson?.user?.avatarUrl || null,
-            isVerified: profileJson?.user?.isVerified || false,
+            isVerified: profileJson?.isVerified || false,
           }
         });
       }
@@ -186,26 +184,40 @@ export function DashboardPage() {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Validar tamaño en cliente antes de subir
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('La imagen no puede superar 5 MB', 'error');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('avatar', file);
+
+    // Vista previa inmediata (optimistic UI)
+    const localUrl = URL.createObjectURL(file);
+    setAvatarPreview(localUrl);
+    showToast('Subiendo foto de perfil...', 'info');
 
     try {
       const response = await fetch('/api/users/avatar', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        },
+        credentials: 'include',
         body: formData
       });
 
       if (response.ok) {
-        alert('¡Foto actualizada!');
-        window.location.reload(); 
+        const result = await response.json();
+        // Actualizar la vista previa con la URL real del servidor
+        if (result.avatarUrl) setAvatarPreview(result.avatarUrl);
+        showToast('¡Foto de perfil actualizada!', 'success');
       } else {
-        alert('Error al subir la foto en el servidor.');
+        // Revertir vista previa si falló
+        setAvatarPreview(null);
+        showToast('Error al subir la foto. Por favor intenta de nuevo.', 'error');
       }
     } catch (error) {
-      alert('Error de conexión.');
+      setAvatarPreview(null);
+      showToast('Error de conexión al subir la foto', 'error');
     }
   };
 
@@ -222,9 +234,6 @@ export function DashboardPage() {
       const res = await fetch('/api/professionals/me/portfolio', {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: formData,
       });
 
@@ -267,14 +276,10 @@ export function DashboardPage() {
     showToast('Guardando perfil...', 'info');
     
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch('/api/professionals/me', {
         method: 'PUT',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profileForm)
       });
 
@@ -290,7 +295,6 @@ export function DashboardPage() {
 
   const handleUpdateAvailability = async () => {
     showToast('Guardando horarios...', 'info');
-    const token = localStorage.getItem('token');
     const toSave = availabilities.filter(a => a.active).map(a => ({
       dayOfWeek: a.dayOfWeek,
       startTime: a.startTime,
@@ -301,7 +305,7 @@ export function DashboardPage() {
       const res = await fetch('/api/professionals/me/availability', {
         method: 'PUT',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ availabilities: toSave })
       });
       if (res.ok) {
@@ -320,7 +324,6 @@ export function DashboardPage() {
       const res = await fetch('/api/orders/stripe-connect/onboarding', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       const data = await res.json();
       if (data.url) {
@@ -363,7 +366,11 @@ export function DashboardPage() {
         <aside className="sidebar" style={{ top: '5rem', height: 'calc(100vh - 5rem)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', padding: '0.5rem' }}>
             <div style={{ position: 'relative' }}>
-              <img src={user.avatarUrl} alt={user.name} style={{ width: '3rem', height: '3rem', borderRadius: '50%', objectFit: 'cover' }} />
+              <img 
+                src={avatarPreview || user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'P')}&background=2dbcfe&color=fff&size=48`} 
+                alt={user.name} 
+                style={{ width: '3rem', height: '3rem', borderRadius: '50%', objectFit: 'cover' }} 
+              />
               <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', background: 'var(--secondary)', borderRadius: '50%', border: '2px solid white' }}></div>
             </div>
             <div>

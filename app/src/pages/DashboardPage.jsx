@@ -207,6 +207,8 @@ export function DashboardPage() {
         const result = await res.json();
         setAvatarPreview(result.avatarUrl); // update local
         showToast('¡Foto de perfil actualizada correctamente!', 'success');
+        // Recargar para actualizar avatar en Navbar y Sidebar simultáneamente
+        setTimeout(() => window.location.reload(), 1500);
       } else {
         const errorData = await res.json().catch(() => ({}));
         showToast(errorData.error || 'Error al subir imagen', 'error');
@@ -232,6 +234,9 @@ export function DashboardPage() {
       const res = await fetch('/api/professionals/me/portfolio', {
         method: 'POST',
         credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: formData,
       });
 

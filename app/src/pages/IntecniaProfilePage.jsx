@@ -24,22 +24,6 @@ export function IntecniaProfilePage() {
     chatRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleAction = (actionCallback) => {
-    if (!isAuthenticated) {
-      localStorage.setItem('returnUrl', window.location.pathname);
-      navigate('/login');
-      return;
-    }
-    actionCallback();
-  };
-
-  const handleWhatsApp = () => {
-    handleAction(() => {
-      const phone = profile?.phone || '525512345678'; 
-      const message = `Hola ${profile?.name || 'profesional'}, te contacto desde Intecnia. Estoy interesado en tus servicios de ${profile?.title || ''}. ¿Podríamos agendar una consulta?`;
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
-    });
-  };
 
   // ── Estados de carga y error ────────────────────────────────────────────────
   if (isLoading) return (
@@ -129,8 +113,8 @@ export function IntecniaProfilePage() {
                   {prof.isVerified && <span className="badge badge-green"><span className="material-symbols-outlined icon-filled" style={{ fontSize: '14px' }}>verified</span> CERTIFICADA</span>}
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <button onClick={handleWhatsApp} className="btn btn-primary">
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chat</span> WhatsApp (Viso Bot)
+                  <button onClick={scrollToChat} className="btn btn-primary">
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>smart_toy</span> Enviar Mensaje
                   </button>
                 </div>
               </div>

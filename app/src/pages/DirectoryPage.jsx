@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
-import { useToast } from '../components/ToastContext';
 
 // Mapeo de categoría de backend → label legible
 const CATEGORY_MAP = {
@@ -34,7 +33,7 @@ export function DirectoryPage() {
   const [maxPrice, setMaxPrice] = useState(5000);
   const [minRating, setMinRating] = useState(0);
   const [filterVersion, setFilterVersion] = useState(0);
-  const { showToast } = useToast();
+  const { showToast: _unused } = { showToast: () => {} }; // kept for future use
 
   // Leer category y query de la URL (vienen del Hero o de las categorías)
   const queryFromUrl = searchParams.get('q') || '';
@@ -48,14 +47,6 @@ export function DirectoryPage() {
     setSelectedCategory(categoryFromUrl);
   }, [categoryFromUrl]);
 
-  const handleWhatsApp = (e, professional) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const phone = professional.phone || '525512345678';
-    const message = `Hola ${professional.name}, te contacto desde Intecnia. Estoy interesado en tus servicios de ${professional.title}. ¿Podríamos agendar una consulta?`;
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
-    showToast(`Conectando con ${professional.name} vía WhatsApp...`, 'info');
-  };
 
   useEffect(() => {
     const fetchProfessionals = async () => {
@@ -228,8 +219,10 @@ export function DirectoryPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button onClick={(e) => handleWhatsApp(e, p)} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem' }}>Mensaje</button>
-                    <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem' }}>Ver Perfil</button>
+                  <Link to={`/profile/${p.id}`} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem', textDecoration: 'none' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>smart_toy</span> Mensaje
+                  </Link>
+                  <Link to={`/profile/${p.id}`} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem', textDecoration: 'none' }}>Ver Perfil</Link>
                   </div>
                 </Link>
               </div>

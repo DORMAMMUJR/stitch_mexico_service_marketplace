@@ -231,6 +231,7 @@ export function VisoBot() {
         <button
           onClick={() => setIsOpen(true)}
           className="visobot-widget"
+          data-viso-trigger="true"
           style={{
             position: 'fixed',
             bottom: '1.5rem',

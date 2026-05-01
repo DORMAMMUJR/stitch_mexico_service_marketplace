@@ -186,7 +186,8 @@ export function VerificationPage() {
       }
 
       showToast('Perfil enviado a revisión', 'success');
-      navigate('/dashboard');
+      // Forzar recarga completa para que el AuthProvider actualice el rol de CLIENT a PROFESSIONAL
+      window.location.href = '/dashboard';
     } catch (err) {
       showToast(err.message, 'error');
     } finally {

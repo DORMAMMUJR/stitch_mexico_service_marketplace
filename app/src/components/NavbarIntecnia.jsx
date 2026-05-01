@@ -29,7 +29,7 @@ export function NavbarIntecnia({ activePage }) {
   };
 
   // Ruta del dashboard unificada
-  const dashboardPath = user?.role === 'ADMIN' ? '/admin' : '/dashboard';
+  const dashboardPath = user?.role === 'ADMIN' ? '/admin' : user?.role === 'CLIENT' ? '/mis-solicitudes' : '/dashboard';
 
   return (
     <nav className="nav-top">
@@ -59,7 +59,7 @@ export function NavbarIntecnia({ activePage }) {
                   <Link to="/verification" className="btn btn-outline hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
                     Ofrecer Servicios
                   </Link>
-                  <Link to="/dashboard" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
+                  <Link to="/mis-solicitudes" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
                     Mis Citas
                   </Link>
                 </>
@@ -262,7 +262,12 @@ export function NavbarIntecnia({ activePage }) {
                 <Link to="/dashboard?tab=profile" className="nav-link" onClick={() => setMobileOpen(false)}>Mi Perfil</Link>
               </>
             )}
-            {user?.role === 'CLIENT' && <Link to="/dashboard" className="nav-link" onClick={() => setMobileOpen(false)}>Mis Citas</Link>}
+            {user?.role === 'CLIENT' && (
+              <>
+                <Link to="/verification" className="nav-link" onClick={() => setMobileOpen(false)}>Ofrecer Servicios</Link>
+                <Link to="/mis-solicitudes" className="nav-link" onClick={() => setMobileOpen(false)}>Mis Citas</Link>
+              </>
+            )}
             {user?.role === 'ADMIN' && <Link to="/admin" className="nav-link" onClick={() => setMobileOpen(false)}>Panel Admin</Link>}
             <button
               onClick={handleLogout}

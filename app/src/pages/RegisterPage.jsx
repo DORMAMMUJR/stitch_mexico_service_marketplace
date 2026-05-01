@@ -52,7 +52,7 @@ export function RegisterPage() {
       const returnUrl = localStorage.getItem('returnUrl');
       if (returnUrl) {
         localStorage.removeItem('returnUrl');
-        navigate(returnUrl);
+        navigate(returnUrl, { replace: true });
         return;
       }
 
@@ -60,11 +60,7 @@ export function RegisterPage() {
         localStorage.removeItem('guest_id');
       }
 
-      if (window.history.state && window.history.state.idx > 0) {
-        navigate(-1);
-      } else {
-        navigate('/dashboard');
-      }
+      navigate(loginData.user?.role === 'PROFESSIONAL' ? '/dashboard' : '/mis-solicitudes', { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {

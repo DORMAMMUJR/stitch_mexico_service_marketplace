@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
+import { apiFetch } from '../lib/api';
 
-// ─── API Helpers ─────────────────────────────────────────────────────────────
-const apiFetch = (path, opts = {}) =>
-  fetch(path, { credentials: 'include', headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json', ...(opts.headers || {}) }, ...opts })
-    .then(r => r.json());
 
 // Formatea una fecha relativa: "hace 2 min", "ayer", etc.
 function timeAgo(dateStr) {

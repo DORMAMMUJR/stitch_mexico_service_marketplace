@@ -65,15 +65,14 @@ export function LoginPage() {
       const returnUrl = localStorage.getItem('returnUrl');
       if (returnUrl) {
         localStorage.removeItem('returnUrl');
-        navigate(returnUrl);
+        navigate(returnUrl, { replace: true });
         return;
       }
 
-      if (window.history.state && window.history.state.idx > 0) {
-        navigate(-1);
-      } else {
-        navigate('/');
-      }
+      const role = data.user?.role;
+      if (role === 'PROFESSIONAL') navigate('/dashboard', { replace: true });
+      else if (role === 'CLIENT') navigate('/mis-solicitudes', { replace: true });
+      else navigate('/', { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {

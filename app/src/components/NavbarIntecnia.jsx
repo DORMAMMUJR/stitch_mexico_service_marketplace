@@ -55,14 +55,9 @@ export function NavbarIntecnia({ activePage }) {
                 </Link>
               )}
               {user?.role === 'CLIENT' && (
-                <>
-                  <Link to="/verification" className="btn btn-outline hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
-                    Ofrecer Servicios
-                  </Link>
-                  <Link to="/mis-solicitudes" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
-                    Mis Citas
-                  </Link>
-                </>
+                <Link to="/verification" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
+                  Ofrecer Servicios
+                </Link>
               )}
               {user?.role === 'ADMIN' && (
                 <Link to="/admin" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>

@@ -108,16 +108,18 @@ router.post('/login', loginLimiter, async (req, res) => {
     const token = jwt.sign(
       { userId: user.id, role: user.role, email: user.email },
       privateKey,
-      { algorithm: algorithm as any, expiresIn: env.JWT_ACCESS_EXPIRY || '1d' } as any
+      { algorithm: algorithm as any, expiresIn: '7d' } as any
     );
 
     // Configurar cookie HttpOnly segura
     const isProduction = process.env.NODE_ENV === 'production';
+    const JWT_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
+
     res.cookie('access_token', token, {
       httpOnly: true,
       secure: isProduction,
       sameSite: isProduction ? 'strict' : 'lax',
-      maxAge: 24 * 60 * 60 * 1000, // 1 día en milisegundos
+      maxAge: JWT_EXPIRY_MS,
       path: '/',
     });
 

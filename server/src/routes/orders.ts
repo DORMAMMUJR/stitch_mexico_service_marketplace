@@ -1,19 +1,39 @@
 import { Router } from 'express';
-import Stripe from 'stripe';
+import { stripe } from '../lib/stripe';
 import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
 import { EscrowStateMachine } from '../lib/escrow';
+import { validate } from '../middleware/validate';
+import { createOrderSchema, disputeOrderSchema, resolveDisputeSchema } from '../schemas/orderSchemas';
+import { sendEmail } from '../lib/email';
+import { env } from '../config/env';
 
 const router = Router();
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_dummy', {
-  apiVersion: '2026-04-22.dahlia' as any,
+import rateLimit from 'express-rate-limit';
+
+const createOrderLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 20, // máx 20 órdenes por hora por IP
+  message: { error: 'Demasiadas órdenes creadas. Intenta de nuevo en 1 hora.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
+
+const checkoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10,
+  message: { error: 'Demasiados intentos de pago. Intenta de nuevo en 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /api/orders — Crear una Orden (DRAFT)
 // ═══════════════════════════════════════════════════════════════════════════════
-router.post('/', authenticate, async (req: any, res: any) => {
+router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), async (req: any, res: any) => {
   try {
     const clientId = req.user.userId;
     const { professionalId, description, agreedPrice, currency } = req.body;
@@ -50,6 +70,38 @@ router.post('/', authenticate, async (req: any, res: any) => {
       },
     });
 
+    // Notificar al profesional (async, no bloquea la respuesta)
+    prisma.professional.findUnique({
+      where: { id: professionalId },
+      include: { user: true }
+    }).then(prof => {
+      if (prof?.user?.email) {
+        // Crear notificación en BD
+        prisma.notification.create({
+          data: {
+            userId: prof.userId,
+            type: 'ORDER_STATUS',
+            title: 'Nueva orden recibida',
+            body: `Tienes una nueva orden de trabajo: "${description.substring(0, 50)}..."`,
+            metadata: { orderId: order.id },
+          }
+        }).catch(console.error);
+
+        // Enviar email
+        sendEmail({
+          to: prof.user.email,
+          subject: 'Nueva orden recibida — Intecnia',
+          html: `
+            <h2>¡Tienes una nueva orden!</h2>
+            <p>Un cliente ha creado una orden para ti:</p>
+            <p><strong>${description.substring(0, 200)}</strong></p>
+            <p>Precio acordado: $${agreedPrice} MXN</p>
+            <a href="${env.APP_URL}/dashboard">Ver orden en mi dashboard</a>
+          `,
+        }).catch(console.error);
+      }
+    }).catch(console.error);
+
     res.status(201).json({ message: 'Orden creada exitosamente', order });
   } catch (error) {
     console.error('Error creating order:', error);
@@ -60,7 +112,7 @@ router.post('/', authenticate, async (req: any, res: any) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /api/orders/:id/checkout — Generar PaymentIntent de Stripe
 // ═══════════════════════════════════════════════════════════════════════════════
-router.post('/:id/checkout', authenticate, async (req: any, res: any) => {
+router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res: any) => {
   try {
     const { id } = req.params;
     const clientId = req.user.userId;
@@ -81,16 +133,21 @@ router.post('/:id/checkout', authenticate, async (req: any, res: any) => {
 
     const amountInCents = Math.round(Number(order.agreedPrice) * 100);
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: (order.currency || 'mxn').toLowerCase(),
-      metadata: {
-        orderId: order.id,
-        clientId: order.clientId,
-        professionalId: order.professionalId,
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: amountInCents,
+        currency: (order.currency || 'mxn').toLowerCase(),
+        metadata: {
+          orderId: order.id,
+          clientId: order.clientId,
+          professionalId: order.professionalId,
+        },
+        description: `Intecnia Order ${order.id}: ${order.description}`,
       },
-      description: `Intecnia Order ${order.id}: ${order.description}`,
-    });
+      {
+        idempotencyKey: `checkout-${order.id}`, // ← CRÍTICO: evita doble cobro
+      }
+    );
 
     await EscrowStateMachine.transition(order.id, 'PAGO_PENDIENTE', {
       stripePaymentIntentId: paymentIntent.id,
@@ -124,36 +181,58 @@ router.get('/my', authenticate, async (req: any, res: any) => {
     const userId = req.user.userId;
     const role = req.user.role;
 
+    // ✅ Paginación
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
+    const skip = (page - 1) * limit;
+
     let orders;
+    let total;
 
     if (role === 'PROFESSIONAL') {
       const professional = await prisma.professional.findUnique({ where: { userId } });
       if (!professional) {
-        return res.json([]);
+        return res.json({ data: [], total: 0, page, limit });
       }
 
-      orders = await prisma.order.findMany({
-        where: { professionalId: professional.id },
-        include: {
-          client: { select: { name: true, avatarUrl: true, email: true } },
-          timeline: { orderBy: { createdAt: 'desc' }, take: 5 },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-    } else {
-      orders = await prisma.order.findMany({
-        where: { clientId: userId },
-        include: {
-          professional: {
-            include: { user: { select: { name: true, avatarUrl: true } } }
+      [orders, total] = await Promise.all([
+        prisma.order.findMany({
+          where: { professionalId: professional.id },
+          include: {
+            client: { select: { name: true, avatarUrl: true, email: true } },
+            timeline: { orderBy: { createdAt: 'desc' }, take: 5 },
           },
-          timeline: { orderBy: { createdAt: 'desc' }, take: 5 },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.order.count({ where: { professionalId: professional.id } })
+      ]);
+    } else {
+      [orders, total] = await Promise.all([
+        prisma.order.findMany({
+          where: { clientId: userId },
+          include: {
+            professional: {
+              include: { user: { select: { name: true, avatarUrl: true } } }
+            },
+            timeline: { orderBy: { createdAt: 'desc' }, take: 5 },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.order.count({ where: { clientId: userId } })
+      ]);
     }
 
-    res.json(orders);
+    res.json({
+      data: orders,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
     console.error('Error fetching orders:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -275,7 +354,7 @@ router.patch('/:id/cancel', authenticate, async (req: any, res: any) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // PATCH /api/orders/:id/dispute — Cliente abre una disputa (solo antes de 72h)
 // ═══════════════════════════════════════════════════════════════════════════════
-router.patch('/:id/dispute', authenticate, async (req: any, res: any) => {
+router.patch('/:id/dispute', authenticate, validate(disputeOrderSchema), async (req: any, res: any) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;

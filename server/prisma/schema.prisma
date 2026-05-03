@@ -110,6 +110,11 @@ model Order {
   professional      Professional @relation("ProfessionalOrders", fields: [professionalId], references: [id])
   review            Review?
   timeline          OrderEvent[]
+
+  @@index([clientId])
+  @@index([professionalId])
+  @@index([status])
+  @@index([status, completedAt]) // Para el cron job de escrow
 }
 
 model OrderEvent {
@@ -160,6 +165,9 @@ model Notification {
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, read]) // Para contar no-leídas eficientemente
+  @@index([userId])
 }
 
 model RefreshToken {

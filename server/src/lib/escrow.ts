@@ -1,11 +1,6 @@
 import { Prisma, OrderStatus, Order } from '@prisma/client';
 import { prisma } from './db';
-import Stripe from 'stripe';
-
-// Stripe se inicializa aquí para que el cron job pueda ejecutar payouts independientemente
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_dummy', {
-  apiVersion: '2026-04-22.dahlia' as any,
-});
+import { stripe } from './stripe';
 
 // Comisión de la plataforma (10%). Ajustar según modelo de negocio.
 const PLATFORM_FEE_RATE = 0.10;

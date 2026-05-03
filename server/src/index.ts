@@ -1,4 +1,17 @@
+import * as Sentry from '@sentry/node';
+import { env as configEnv } from './config/env';
+
+Sentry.init({
+  dsn: configEnv.SENTRY_DSN,
+  environment: configEnv.NODE_ENV,
+  tracesSampleRate: configEnv.NODE_ENV === 'production' ? 0.1 : 1.0,
+});
+
 import express from 'express';
+import helmet from 'helmet';
+import compression from 'compression';
+import pinoHttp from 'pino-http';
+import { logger } from './lib/logger';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
@@ -8,11 +21,12 @@ import fs from 'fs';
 import multer from 'multer';
 import multerS3 from 'multer-s3';
 import { S3Client } from '@aws-sdk/client-s3';
-import Stripe from 'stripe';
+import { stripe } from './lib/stripe';
 import { prisma } from './lib/db';
 import { EscrowStateMachine } from './lib/escrow';
 import { authenticate } from './middleware/auth';
 import { sendEmail, emailTemplates } from './lib/email';
+import { startEscrowCron } from './jobs/escrowCron';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
@@ -20,22 +34,32 @@ const app = express();
 app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
 
-// ─── Stripe Config ───────────────────────────────────────────────────────────
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_dummy', {
-  apiVersion: '2026-04-22.dahlia', // Usa la versión requerida por la SDK instalada
-});
+// ✅ AGREGAR AQUÍ — antes de cualquier otro middleware
+app.use(helmet({
+  contentSecurityPolicy: false, // Desactivar CSP por ahora si sirves el frontend desde aquí
+  crossOriginEmbedderPolicy: false,
+}));
+
+app.use(compression());
+app.use(pinoHttp({ logger }));
+
+
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
+import { env } from './config/env';
+
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:4173',
   'http://localhost:3000',
+  // Agregar dominios de producción desde .env
+  ...(env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : []),
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.some(o => origin.startsWith(o)) || origin.includes('seenode.com')) {
+    if (allowedOrigins.some(o => origin === o)) {
       return callback(null, true);
     }
     callback(new Error(`CORS bloqueado para: ${origin}`));
@@ -97,6 +121,7 @@ import { appointmentsRouter } from './routes/appointments';
 import { professionalsRouter } from './routes/professionals';
 import { ordersRouter } from './routes/orders';
 import { messagesRouter } from './routes/messages';
+import { adminRouter } from './routes/admin';
 import { uploadDoc } from './lib/upload';
 
 // ─── Servir archivos subidos localmente ──────────────────────────────────────
@@ -112,6 +137,8 @@ app.use('/api/appointments', appointmentsRouter);
 app.use('/api/professionals', professionalsRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/messages', messagesRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/verification', adminRouter); // Para el upload de docs
 
 // ─── Servir el build del frontend React ──────────────────────────────────────
 const frontendDist = path.join(__dirname, '../public');
@@ -119,186 +146,28 @@ app.use(express.static(frontendDist));
 
 // ─── Healthcheck ─────────────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
+  const checks: Record<string, string> = {};
+
+  // DB check
   try {
-    const result: any[] = await prisma.$queryRaw`SELECT NOW()`;
-    res.json({ status: 'ok', env: process.env.NODE_ENV, db: result[0]?.now });
-  } catch (err) {
-    res.json({ status: 'ok', env: process.env.NODE_ENV, db: 'no conectada' });
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = 'ok';
+  } catch (e) {
+    checks.database = 'error';
   }
+
+  const allOk = Object.values(checks).every(v => v === 'ok');
+  res.status(allOk ? 200 : 503).json({
+    status: allOk ? 'ok' : 'degraded',
+    env: process.env.NODE_ENV,
+    timestamp: new Date().toISOString(),
+    checks,
+  });
 });
 
 
 
-/**
- * Upload Verification Document
- */
-app.post('/api/verification/upload', authenticate, uploadDoc.single('constancia'), async (req: any, res) => {
-  try {
-    const { professionalId, docType } = req.body;
-    const file = (req as any).file; // Castear a any por diferencias entre multer y multerS3 types
 
-    if (!file) {
-      return res.status(400).json({ error: 'No se cargó ningún archivo' });
-    }
-
-    if (!professionalId || !docType) {
-      return res.status(400).json({ error: 'professionalId y docType son requeridos' });
-    }
-
-    const validDocTypes = ['INE', 'PASSPORT', 'SAT_CONSTANCIA', 'CONOCER_CERT', 'COMPROBANTE_DOMICILIO'];
-    if (!validDocTypes.includes(docType)) {
-      return res.status(400).json({ error: `docType inválido. Válidos: ${validDocTypes.join(', ')}` });
-    }
-
-    // Si es S3 usará file.location, si es local usará file.filename
-    const fileUrl = file.location || `/uploads/${file.filename}`;
-
-    const document = await prisma.verificationDocument.create({
-      data: {
-        professionalId,
-        type: docType as any,
-        fileUrl: fileUrl,
-        status: 'PENDING',
-      },
-    });
-
-    res.json({
-      id: document.id,
-      fileUrl: document.fileUrl,
-      status: document.status,
-      message: 'Documento subido exitosamente. Pendiente de revisión.',
-    });
-  } catch (error) {
-    console.error('Error uploading document:', error);
-    res.status(500).json({ error: 'Error al subir el documento' });
-  }
-});
-
-
-/**
- * Admin Panel: Get Pending Verifications
- * GET /api/admin/verifications/pending
- */
-app.get('/api/admin/verifications/pending', authenticate, async (req, res) => {
-  try {
-    const user = (req as any).user;
-    if (user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
-    }
-
-    const pendingDocs = await prisma.verificationDocument.findMany({
-      where: { status: 'PENDING' },
-      include: {
-        professional: {
-          include: { user: { select: { name: true, email: true } } }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    res.json(pendingDocs);
-  } catch (error) {
-    console.error('Error fetching pending verifications:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-/**
- * Admin Panel: Approve Verification Document
- * PATCH /api/admin/verifications/:id/approve
- */
-// FIX: Middleware authenticate añadido
-app.patch('/api/admin/verifications/:id/approve', authenticate, async (req, res) => {
-  try {
-    const user = (req as any).user;
-    
-    // FIX: Validación estricta de Rol
-    if (user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
-    }
-
-    const { id } = req.params;
-    const adminId = user.userId; 
-
-    const result = await prisma.$transaction(async (tx: any) => {
-      const doc = await tx.verificationDocument.update({
-        where: { id },
-        data: {
-          status: 'APPROVED',
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
-        },
-      });
-
-      if (doc.type === 'SAT_CONSTANCIA') {
-        const updatedProf = await tx.professional.update({
-          where: { id: doc.professionalId },
-          data: { isVerified: true, verificationStatus: 'APPROVED', satVerifiedAt: new Date() },
-          include: { user: true }
-        });
-
-        // Notificar al profesional asincrónicamente
-        sendEmail({
-          to: updatedProf.user.email,
-          subject: '¡Verificación Aprobada! - Intecnia',
-          html: emailTemplates.verificationApproved(updatedProf.user.name)
-        }).catch(console.error);
-      }
-      return doc;
-    });
-
-    res.json({ message: 'Documento aprobado exitosamente', document: result });
-  } catch (error) {
-    res.status(500).json({ error: 'Error interno al aprobar documento' });
-  }
-});
-
-/**
- * Admin Panel: Reject Verification Document
- * PATCH /api/admin/verifications/:id/reject
- */
-app.patch('/api/admin/verifications/:id/reject', authenticate, async (req, res) => {
-  try {
-    const user = (req as any).user;
-    if (user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
-    }
-
-    const { id } = req.params;
-    const { reason } = req.body;
-    const adminId = user.userId;
-
-    if (!reason?.trim()) {
-      return res.status(400).json({ error: 'El motivo de rechazo es obligatorio.' });
-    }
-
-    const doc = await prisma.verificationDocument.update({
-      where: { id },
-      data: {
-        status: 'REJECTED',
-        reviewedBy: adminId,
-        reviewedAt: new Date(),
-      },
-      include: {
-        professional: {
-          include: { user: true }
-        }
-      }
-    });
-
-    // Notificar al profesional con el motivo
-    sendEmail({
-      to: doc.professional.user.email,
-      subject: 'Actualizacion requerida en tu Verificacion - Intecnia',
-      html: emailTemplates.verificationRejected(doc.professional.user.name, reason.trim())
-    }).catch(console.error);
-
-    res.json({ message: 'Documento rechazado. Se notificara al profesional.', document: doc });
-  } catch (error) {
-    console.error('Error rejecting document:', error);
-    res.status(500).json({ error: 'Error interno al rechazar documento' });
-  }
-});
 
 
 /**
@@ -423,17 +292,17 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
-// ─── Automatización: Liberación de Fondos en Escrow (72 hrs) ────────────────
-setInterval(() => {
-  console.log('⏳ Ejecutando revisión de Escrow Automático...');
-  EscrowStateMachine.processAutoReleases()
-    .then(() => console.log('✅ Revisión de Escrow completada.'))
-    .catch(err => console.error('❌ Error en cron de Escrow:', err));
-}, 60 * 60 * 1000); // Se ejecuta cada hora (1 hora en milisegundos)
+import { globalErrorHandler } from './middleware/errorHandler';
+
+Sentry.setupExpressErrorHandler(app);
+app.use(globalErrorHandler);
 
 app.listen(Number(port), '0.0.0.0', () => {
   console.log(`🚀 Intecnia corriendo en http://localhost:${port}`);
   console.log(`   ENV: ${process.env.NODE_ENV}`);
   console.log(`   Frontend: ${frontendDist}`);
   console.log(`   ORM: Prisma Client (producción)`);
+
+  // ✅ AGREGAR AQUÍ:
+  startEscrowCron();
 });

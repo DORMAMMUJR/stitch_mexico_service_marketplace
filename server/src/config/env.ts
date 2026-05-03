@@ -7,13 +7,14 @@ dotenv.config();
 const envSchema = z.object({
   // ─── Core (requeridas para arrancar) ────────────────────────────
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  ALLOWED_ORIGINS: z.string().optional(),
   PORT: z.string().default('3000'),
   DATABASE_URL: z.string().url(),
   OPENAI_API_KEY: z.string().optional(), // Opcional: el servidor arranca sin ella; /api/chat retorna error manejado
   APP_URL: z.string().default('http://localhost:5173'),
 
   // ─── Auth (opcional hasta implementar módulo de auth) ───────────
-  JWT_PRIVATE_KEY: z.string().optional(),
+  JWT_PRIVATE_KEY: z.string().min(1, 'JWT_PRIVATE_KEY es requerida'),
   JWT_PUBLIC_KEY: z.string().optional(),
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
@@ -26,6 +27,9 @@ const envSchema = z.object({
   // ─── Notificaciones (opcional) ───────────────────────────────────
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().email().optional(),
+
+  // ─── Monitoring (opcional) ───────────────────────────────────────
+  SENTRY_DSN: z.string().url().optional(),
 
   // ─── Webhooks (opcional) ─────────────────────────────────────────
   N8N_WEBHOOK_SECRET: z.string().optional(),

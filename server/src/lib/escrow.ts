@@ -6,25 +6,22 @@ import { getStripe } from './stripe';
 const PLATFORM_FEE_RATE = 0.10;
 
 export class EscrowStateMachine {
-  
+
   static async transition(orderId: string, newState: OrderStatus, metadata: any = {}): Promise<Order> {
     return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const order = await tx.order.findUnique({ where: { id: orderId } });
-      
+
       if (!order) {
         throw new Error('Order not found');
       }
 
-      // Validar transiciones según la máquina de estados definida
       const isValid = this.isValidTransition(order.status, newState);
       if (!isValid) {
         throw new Error(`Invalid transition from ${order.status} to ${newState}`);
       }
 
-      // Actualizar la orden
       const updateData: any = { status: newState };
-      
-      // Manejo de campos especiales dependiendo del estado
+
       if (newState === 'FONDOS_EN_ESCROW') {
         updateData.escrowFundedAt = new Date();
       } else if (newState === 'COMPLETADO') {
@@ -41,7 +38,6 @@ export class EscrowStateMachine {
         data: updateData
       });
 
-      // Registrar el evento
       await tx.orderEvent.create({
         data: {
           orderId,
@@ -61,12 +57,12 @@ export class EscrowStateMachine {
       FONDOS_EN_ESCROW: ['EN_PROGRESO', 'CANCELADO'],
       EN_PROGRESO: ['COMPLETADO', 'EN_DISPUTA'],
       COMPLETADO: ['PAYOUT_INICIADO', 'EN_DISPUTA'],
-      EN_DISPUTA: ['REEMBOLSADO', 'PAYOUT_INICIADO'], // Resoluciones del admin
+      EN_DISPUTA: ['REEMBOLSADO', 'PAYOUT_INICIADO'],
       PAYOUT_INICIADO: ['PAYOUT_COMPLETADO', 'PAYOUT_FALLIDO'],
-      PAYOUT_FALLIDO: ['PAYOUT_INICIADO'], // Retries
-      PAYOUT_COMPLETADO: [], // Estado terminal
-      CANCELADO: ['REEMBOLSADO'], // Si había fondos
-      REEMBOLSADO: [] // Estado terminal
+      PAYOUT_FALLIDO: ['PAYOUT_INICIADO'],
+      PAYOUT_COMPLETADO: [],
+      CANCELADO: ['REEMBOLSADO'],
+      REEMBOLSADO: []
     };
 
     return transitions[current]?.includes(next) || false;
@@ -74,12 +70,25 @@ export class EscrowStateMachine {
 
   /**
    * Ejecuta la transferencia real de fondos a la cuenta Stripe Connect del profesional.
-   * Descuenta la comisión de la plataforma (PLATFORM_FEE_RATE) antes de transferir.
-   * Retorna true si el payout fue exitoso, false si falló.
+   * FIX: Guard explícito para cuando Stripe no está configurado — marca la orden
+   * como PAYOUT_FALLIDO en lugar de explotar con una excepción no capturada.
    */
   static async executePayout(orderId: string): Promise<boolean> {
-    const stripe = getStripe();
-    // Obtener la orden con los datos del profesional
+    // FIX: Validar que Stripe esté disponible ANTES de consultar la orden.
+    // Si no hay key configurada, marcar como PAYOUT_FALLIDO para que el admin
+    // pueda hacer el payout manualmente cuando Stripe esté activo.
+    let stripe;
+    try {
+      stripe = getStripe();
+    } catch {
+      console.warn(`⚠️  Payout: Stripe no configurado. Orden ${orderId} requiere payout manual.`);
+      await this.transition(orderId, 'PAYOUT_FALLIDO', {
+        error: 'STRIPE_NOT_CONFIGURED',
+        message: 'Stripe no está configurado en este entorno. Payout manual requerido.',
+      }).catch(e => console.error('Error marcando PAYOUT_FALLIDO (sin Stripe):', e));
+      return false;
+    }
+
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -96,7 +105,6 @@ export class EscrowStateMachine {
 
     if (!order.professional.stripeAccountId) {
       console.warn(`⚠️  Payout: profesional de orden ${orderId} no tiene cuenta Stripe Connect. Payout manual requerido.`);
-      // No fallamos — la orden ya está en PAYOUT_INICIADO, un admin puede resolverla manualmente
       return false;
     }
 
@@ -106,7 +114,6 @@ export class EscrowStateMachine {
     const currency = (order.currency || 'mxn').toLowerCase();
 
     try {
-      // Crear la transferencia a la cuenta conectada del profesional
       const transfer = await stripe.transfers.create(
         {
           amount: transferAmountCents,
@@ -120,13 +127,12 @@ export class EscrowStateMachine {
           },
         },
         {
-          idempotencyKey: `payout-${orderId}`, // ← CRÍTICO: evita doble pago si el cron se ejecuta dos veces
+          idempotencyKey: `payout-${orderId}`, // ← CRÍTICO: evita doble pago
         }
       );
 
       console.log(`✅ Payout exitoso para orden ${orderId}: transfer ${transfer.id} | $${(transferAmountCents / 100).toFixed(2)} ${currency.toUpperCase()} → profesional`);
 
-      // Marcar la orden como PAYOUT_COMPLETADO
       await this.transition(orderId, 'PAYOUT_COMPLETADO', {
         stripeTransferId: transfer.id,
         transferAmountCents,
@@ -138,7 +144,6 @@ export class EscrowStateMachine {
     } catch (stripeError: any) {
       console.error(`❌ Payout fallido para orden ${orderId}: ${stripeError.message}`);
 
-      // Marcar como PAYOUT_FALLIDO para que el admin pueda hacer retry
       await this.transition(orderId, 'PAYOUT_FALLIDO', {
         error: stripeError.message,
         stripeErrorCode: stripeError.code,
@@ -150,11 +155,10 @@ export class EscrowStateMachine {
 
   /**
    * Cron job: libera fondos de órdenes completadas hace más de 72h sin disputa.
-   * Ejecuta: 1. Transición a PAYOUT_INICIADO, 2. Transferencia Stripe real.
    */
   static async processAutoReleases() {
-    const timeoutDate = new Date(Date.now() - (72 * 60 * 60 * 1000)); // 72 horas
-    
+    const timeoutDate = new Date(Date.now() - (72 * 60 * 60 * 1000));
+
     const ordersToRelease = await prisma.order.findMany({
       where: {
         status: 'COMPLETADO',
@@ -171,15 +175,10 @@ export class EscrowStateMachine {
 
     for (const order of ordersToRelease) {
       try {
-        // Paso 1: Transicionar a PAYOUT_INICIADO (registra el evento en BD)
         await this.transition(order.id, 'PAYOUT_INICIADO', { reason: 'AUTOMATIC_TIMEOUT_72H' });
         console.log(`   📋 Orden ${order.id} → PAYOUT_INICIADO`);
-
-        // Paso 2: Ejecutar la transferencia real a Stripe Connect
         await this.executePayout(order.id);
       } catch (error: any) {
-        // Si la transición falla con "Invalid transition", la orden ya estaba en PAYOUT_INICIADO
-        // (race condition con otra instancia del servidor). No es un error real.
         if (error.message?.includes('Invalid transition')) {
           console.log(`   ⚠️ Orden ${order.id} ya fue procesada por otra instancia.`);
         } else {
@@ -188,7 +187,7 @@ export class EscrowStateMachine {
       }
     }
 
-    // Reintentar órdenes con PAYOUT_FALLIDO (las que fallaron en ejecuciones anteriores)
+    // Reintentar órdenes con PAYOUT_FALLIDO
     const failedOrders = await prisma.order.findMany({
       where: { status: 'PAYOUT_FALLIDO' }
     });
@@ -206,4 +205,3 @@ export class EscrowStateMachine {
     }
   }
 }
-

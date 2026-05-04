@@ -5,14 +5,19 @@ import { sendEmail, emailTemplates } from '../lib/email';
 
 const router = Router();
 
-// GET /api/admin/verifications/pending
-router.get('/verifications/pending', authenticate, async (req, res) => {
-  try {
-    const user = (req as any).user;
-    if (user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
-    }
+// FIX: Guard de ADMIN centralizado — se aplica a TODAS las rutas del router.
+// Elimina la necesidad de repetir el check en cada handler individualmente.
+// Si alguien agrega un nuevo endpoint y olvida el check, igual queda protegido.
+router.use(authenticate, (req: any, res: any, next: any) => {
+  if (req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
+  }
+  next();
+});
 
+// GET /api/admin/verifications/pending
+router.get('/verifications/pending', async (req, res) => {
+  try {
     const pendingDocs = await prisma.verificationDocument.findMany({
       where: { status: 'PENDING' },
       include: {
@@ -31,15 +36,10 @@ router.get('/verifications/pending', authenticate, async (req, res) => {
 });
 
 // PATCH /api/admin/verifications/:id/approve
-router.patch('/verifications/:id/approve', authenticate, async (req, res) => {
+router.patch('/verifications/:id/approve', async (req: any, res) => {
   try {
-    const user = (req as any).user;
-    if (user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
-    }
-
     const { id } = req.params;
-    const adminId = user.userId;
+    const adminId = req.user.userId;
 
     const result = await prisma.$transaction(async (tx: any) => {
       const doc = await tx.verificationDocument.update({
@@ -74,16 +74,11 @@ router.patch('/verifications/:id/approve', authenticate, async (req, res) => {
 });
 
 // PATCH /api/admin/verifications/:id/reject
-router.patch('/verifications/:id/reject', authenticate, async (req, res) => {
+router.patch('/verifications/:id/reject', async (req: any, res) => {
   try {
-    const user = (req as any).user;
-    if (user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
-    }
-
     const { id } = req.params;
     const { reason } = req.body;
-    const adminId = user.userId;
+    const adminId = req.user.userId;
 
     if (!reason?.trim()) {
       return res.status(400).json({ error: 'El motivo de rechazo es obligatorio.' });
@@ -115,7 +110,5 @@ router.patch('/verifications/:id/reject', authenticate, async (req, res) => {
     res.status(500).json({ error: 'Error interno al rechazar documento' });
   }
 });
-
-
 
 export { router as adminRouter };

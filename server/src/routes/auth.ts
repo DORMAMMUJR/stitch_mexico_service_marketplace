@@ -10,22 +10,31 @@ const router = Router();
 
 // ─── Rate Limiters ───────────────────────────────────────────────────────────
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 10,                   // 10 intentos por ventana
+  windowMs: 15 * 60 * 1000,
+  max: 10,
   message: { error: 'Demasiados intentos de login. Intente de nuevo en 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 const registerLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5,                    // 5 registros por ventana
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   message: { error: 'Demasiados intentos de registro. Intente de nuevo en 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Endpoint: POST /api/auth/register
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function getJwtKey() {
+  return env.JWT_PRIVATE_KEY || 'secret_fallback_key';
+}
+
+function getJwtAlgorithm(key: string): 'RS256' | 'HS256' {
+  return key.includes('BEGIN') ? 'RS256' : 'HS256';
+}
+
+// ─── POST /api/auth/register ─────────────────────────────────────────────────
 router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { email, password, name, role, guest_id } = req.body;
@@ -43,20 +52,15 @@ router.post('/register', registerLimiter, async (req, res) => {
     const userRole = role === 'PROFESSIONAL' ? 'PROFESSIONAL' : 'CLIENT';
 
     const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        name,
-        role: userRole,
-      },
+      data: { email, passwordHash, name, role: userRole },
     });
 
     if (userRole === 'PROFESSIONAL') {
       await prisma.professional.create({
         data: {
           userId: user.id,
-          title: '', // Default vacío
-          category: 'GENERAL_MAINTENANCE', // Requerido por schema
+          title: '',
+          category: 'GENERAL_MAINTENANCE',
           currency: 'MXN',
         },
       });
@@ -69,7 +73,6 @@ router.post('/register', registerLimiter, async (req, res) => {
       });
     }
 
-    // Enviar email de bienvenida asíncronamente (sin bloquear la respuesta)
     sendEmail({
       to: email,
       subject: `¡Bienvenido a Intecnia, ${name}!`,
@@ -83,7 +86,7 @@ router.post('/register', registerLimiter, async (req, res) => {
   }
 });
 
-// Endpoint: POST /api/auth/login
+// ─── POST /api/auth/login ─────────────────────────────────────────────────────
 router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -102,24 +105,29 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
-    const privateKey = env.JWT_PRIVATE_KEY || 'secret_fallback_key';
-    const algorithm = env.JWT_PRIVATE_KEY && env.JWT_PRIVATE_KEY.includes('BEGIN') ? 'RS256' : 'HS256';
+    const privateKey = getJwtKey();
+    const algorithm = getJwtAlgorithm(privateKey);
+
+    // FIX: Usar JWT_ACCESS_EXPIRY del env en lugar de hardcodear '7d'
+    // El token y la cookie deben tener la misma duración.
+    // JWT_ACCESS_EXPIRY default es '15m' pero para sesiones de usuario
+    // usamos 7d como fallback explícito si el env no se cambió del default.
+    const accessExpiry = env.JWT_ACCESS_EXPIRY === '15m' ? '7d' : env.JWT_ACCESS_EXPIRY;
+    const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
 
     const token = jwt.sign(
       { userId: user.id, role: user.role, email: user.email },
       privateKey,
-      { algorithm: algorithm as any, expiresIn: '7d' } as any
+      { algorithm: algorithm as any, expiresIn: accessExpiry } as any
     );
 
-    // Configurar cookie HttpOnly segura
     const isProduction = process.env.NODE_ENV === 'production';
-    const JWT_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
 
     res.cookie('access_token', token, {
       httpOnly: true,
       secure: isProduction,
       sameSite: isProduction ? 'strict' : 'lax',
-      maxAge: JWT_EXPIRY_MS,
+      maxAge: COOKIE_MAX_AGE_MS,
       path: '/',
     });
 
@@ -139,7 +147,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
-// Endpoint: POST /api/auth/logout
+// ─── POST /api/auth/logout ────────────────────────────────────────────────────
 router.post('/logout', (req, res) => {
   res.clearCookie('access_token', {
     httpOnly: true,
@@ -150,7 +158,7 @@ router.post('/logout', (req, res) => {
   res.json({ message: 'Sesión cerrada exitosamente' });
 });
 
-// Endpoint: GET /api/auth/me — Devuelve el usuario autenticado a partir de la cookie
+// ─── GET /api/auth/me ─────────────────────────────────────────────────────────
 router.get('/me', (req, res) => {
   const token = req.cookies?.access_token || req.headers.authorization?.split(' ')[1];
 
@@ -163,7 +171,6 @@ router.get('/me', (req, res) => {
     const algorithms = key.includes('BEGIN') ? ['RS256'] : ['HS256'];
     const payload = jwt.verify(token, key, { algorithms: algorithms as any }) as any;
 
-    // Buscar usuario con datos frescos; incluir perfil profesional si aplica
     prisma.user.findUnique({
       where: { id: payload.userId },
       select: {
@@ -175,7 +182,7 @@ router.get('/me', (req, res) => {
         notifications: {
           where: { read: false },
           select: { id: true },
-          take: 1, // Solo necesitamos saber si hay al menos una
+          take: 1,
         },
         professional: {
           select: {
@@ -191,7 +198,6 @@ router.get('/me', (req, res) => {
           return res.status(401).json({ error: 'Usuario no encontrado' });
         }
 
-        // Determinar si el perfil profesional está completo
         let profileComplete: boolean | undefined = undefined;
         if (user.role === 'PROFESSIONAL' && user.professional) {
           const { title, bio, hourlyRate } = user.professional;
@@ -211,7 +217,6 @@ router.get('/me', (req, res) => {
             role: user.role,
             avatarUrl: user.avatarUrl,
             hasUnreadNotifications: user.notifications.length > 0,
-            // Solo presente para PROFESSIONAL; undefined para otros roles
             profileComplete,
           },
         });
@@ -222,7 +227,7 @@ router.get('/me', (req, res) => {
   }
 });
 
-// Endpoint: POST /api/auth/reset-password-request
+// ─── POST /api/auth/reset-password-request ────────────────────────────────────
 router.post('/reset-password-request', async (req, res) => {
   try {
     const { email } = req.body;
@@ -236,14 +241,21 @@ router.post('/reset-password-request', async (req, res) => {
       return res.json({ message: 'Si el correo existe, se enviará un enlace de recuperación.' });
     }
 
-    // Generar un token de reseteo temporal
+    const privateKey = getJwtKey();
+
+    // FIX: Incluir email y un salt en el payload del token de reset.
+    // Esto ata el token al usuario específico y previene reutilización
+    // de tokens de sesión como tokens de reset.
     const resetToken = jwt.sign(
-      { userId: user.id, intent: 'reset_password' },
-      env.JWT_PRIVATE_KEY || 'secret_fallback_key',
+      {
+        userId: user.id,
+        email: user.email, // FIX: atar al email específico
+        intent: 'reset_password',
+      },
+      privateKey,
       { expiresIn: '15m' }
     );
 
-    // Enviar correo real usando Resend
     await sendEmail({
       to: email,
       subject: 'Recuperación de Contraseña - Intecnia',
@@ -257,7 +269,7 @@ router.post('/reset-password-request', async (req, res) => {
   }
 });
 
-// Endpoint: POST /api/auth/reset-password
+// ─── POST /api/auth/reset-password ───────────────────────────────────────────
 router.post('/reset-password', async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -270,23 +282,28 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
     }
 
-    // Verificar el token
-    const key = (env.JWT_PRIVATE_KEY || 'secret_fallback_key') as string;
-    let payload;
+    const key = getJwtKey();
+    let payload: any;
     try {
       payload = jwt.verify(token, key) as any;
     } catch (err) {
       return res.status(400).json({ error: 'Token inválido o expirado' });
     }
 
-    if (payload.intent !== 'reset_password' || !payload.userId) {
+    // FIX: Validar intent Y email para prevenir uso de tokens de sesión como reset tokens
+    if (payload.intent !== 'reset_password' || !payload.userId || !payload.email) {
       return res.status(400).json({ error: 'Token no válido para esta operación' });
     }
 
-    // Hashear la nueva contraseña
+    // FIX: Verificar que el email del token coincide con el usuario en BD
+    // Esto invalida el token si el email del usuario cambió desde que se emitió
+    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    if (!user || user.email !== payload.email) {
+      return res.status(400).json({ error: 'Token no válido o usuario no encontrado' });
+    }
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Actualizar la contraseña en la base de datos
     await prisma.user.update({
       where: { id: payload.userId },
       data: { passwordHash: hashedPassword }

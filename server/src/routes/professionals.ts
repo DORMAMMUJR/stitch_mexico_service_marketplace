@@ -53,13 +53,13 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any) => {
     // Métricas reales calculadas
     // Vista de perfil podría requerir una tabla PageViews, mientras usamos un valor conservador:
     const profileViews = Math.round(completedOrders.length * 2.5) + totalNonDraftOrders;
-    
+
     // Total de interacciones = mensajes (citas agendadas) + disputas o resoluciones
     const totalInteractions = professional.appointments.length + professional.orders.length;
-    
+
     // Tasa de conversión = Órdenes Completadas / Total de Órdenes que salieron de DRAFT
-    const conversionRateStr = totalNonDraftOrders > 0 
-      ? `${Math.round((completedOrders.length / totalNonDraftOrders) * 100)}%` 
+    const conversionRateStr = totalNonDraftOrders > 0
+      ? `${Math.round((completedOrders.length / totalNonDraftOrders) * 100)}%`
       : '0%';
 
     res.json({
@@ -88,7 +88,7 @@ router.get('/me', authenticate, async (req: any, res: any) => {
   try {
     const professional = await prisma.professional.findUnique({
       where: { userId: req.user.userId },
-      include: { 
+      include: {
         user: { select: { name: true, avatarUrl: true, email: true } },
         documents: true,
         portfolioItems: { orderBy: { createdAt: 'desc' } }
@@ -220,10 +220,10 @@ router.put('/me', authenticate, async (req: any, res) => {
       data: updateData
     });
 
-    res.json({ 
+    res.json({
       message: criticalChanged && professional.isVerified
         ? 'Perfil actualizado. Se requiere re-verificación por cambios en campos críticos.'
-        : 'Perfil actualizado exitosamente', 
+        : 'Perfil actualizado exitosamente',
       profile: updatedProfile,
       requiresReview: criticalChanged && professional.isVerified,
     });
@@ -237,7 +237,7 @@ router.put('/me', authenticate, async (req: any, res) => {
 router.post('/me/submit-review', authenticate, async (req: any, res: any) => {
   try {
     const userId = req.user.userId;
-    
+
     const professional = await prisma.professional.findUnique({
       where: { userId },
       include: { documents: true }
@@ -318,7 +318,7 @@ router.get('/me/availability', authenticate, async (req: any, res: any) => {
   try {
     const userId = req.user.userId;
     const professional = await prisma.professional.findUnique({ where: { userId } });
-    
+
     if (!professional) return res.status(404).json({ error: 'Perfil no encontrado' });
 
     const availabilities = await prisma.availability.findMany({
@@ -403,7 +403,7 @@ router.get('/', async (req, res) => {
     const professionals = await prisma.professional.findMany({
       where: whereClause,
       include: {
-        user: { select: { name: true, avatarUrl: true, phone: true } },
+        user: { select: { name: true, avatarUrl: true } },
         reviews: { select: { rating: true } }
       },
       take: 20 // Paginación básica
@@ -418,7 +418,6 @@ router.get('/', async (req, res) => {
       return {
         id: p.id,
         name: p.user.name,
-        phone: p.user.phone,
         avatarUrl: p.user.avatarUrl,
         title: p.title,
         category: p.category,

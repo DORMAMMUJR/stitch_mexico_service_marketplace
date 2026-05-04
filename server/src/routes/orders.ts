@@ -4,7 +4,7 @@ import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
 import { EscrowStateMachine } from '../lib/escrow';
 import { validate } from '../middleware/validate';
-import { createOrderSchema, disputeOrderSchema, resolveDisputeSchema } from '../schemas/orderSchemas';
+import { createOrderSchema, disputeOrderSchema } from '../schemas/orderSchemas';
 import { sendEmail } from '../lib/email';
 import { env } from '../config/env';
 
@@ -13,22 +13,20 @@ const router = Router();
 import rateLimit from 'express-rate-limit';
 
 const createOrderLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hora
-  max: 20, // máx 20 órdenes por hora por IP
+  windowMs: 60 * 60 * 1000,
+  max: 20,
   message: { error: 'Demasiadas órdenes creadas. Intenta de nuevo en 1 hora.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 const checkoutLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
+  windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: 'Demasiados intentos de pago. Intenta de nuevo en 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
-
-
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /api/orders — Crear una Orden (DRAFT)
@@ -76,7 +74,6 @@ router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), 
       include: { user: true }
     }).then(prof => {
       if (prof?.user?.email) {
-        // Crear notificación en BD
         prisma.notification.create({
           data: {
             userId: prof.userId,
@@ -87,7 +84,6 @@ router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), 
           }
         }).catch(console.error);
 
-        // Enviar email
         sendEmail({
           to: prof.user.email,
           subject: 'Nueva orden recibida — Intecnia',
@@ -114,6 +110,8 @@ router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), 
 // ═══════════════════════════════════════════════════════════════════════════════
 router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res: any) => {
   try {
+    // FIX: getStripe() aquí es correcto — si no hay key, el checkout no puede proceder
+    // y el error se propaga al catch con mensaje claro
     const stripe = getStripe();
     const { id } = req.params;
     const clientId = req.user.userId;
@@ -146,7 +144,7 @@ router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res
         description: `Intecnia Order ${order.id}: ${order.description}`,
       },
       {
-        idempotencyKey: `checkout-${order.id}`, // ← CRÍTICO: evita doble cobro
+        idempotencyKey: `checkout-${order.id}`,
       }
     );
 
@@ -170,6 +168,10 @@ router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res
     if (error.type === 'StripeCardError') {
       return res.status(400).json({ error: error.message });
     }
+    // FIX: Error claro si Stripe no está configurado
+    if (error.message?.includes('STRIPE_SECRET_KEY')) {
+      return res.status(503).json({ error: 'Pagos no disponibles en este momento. Contacta al administrador.' });
+    }
     res.status(500).json({ error: 'Error interno al procesar el pago' });
   }
 });
@@ -182,7 +184,6 @@ router.get('/my', authenticate, async (req: any, res: any) => {
     const userId = req.user.userId;
     const role = req.user.role;
 
-    // ✅ Paginación
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
     const skip = (page - 1) * limit;
@@ -241,7 +242,7 @@ router.get('/my', authenticate, async (req: any, res: any) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PATCH /api/orders/:id/complete — Profesional marca orden como completada
+// PATCH /api/orders/:id/complete
 // ═══════════════════════════════════════════════════════════════════════════════
 router.patch('/:id/complete', authenticate, async (req: any, res: any) => {
   try {
@@ -276,8 +277,7 @@ router.patch('/:id/complete', authenticate, async (req: any, res: any) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PATCH /api/orders/:id/start — Profesional confirma inicio de trabajo
-// Transicion: FONDOS_EN_ESCROW -> EN_PROGRESO
+// PATCH /api/orders/:id/start
 // ═══════════════════════════════════════════════════════════════════════════════
 router.patch('/:id/start', authenticate, async (req: any, res: any) => {
   try {
@@ -316,7 +316,7 @@ router.patch('/:id/start', authenticate, async (req: any, res: any) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PATCH /api/orders/:id/cancel — Cliente o Profesional cancela una orden
+// PATCH /api/orders/:id/cancel
 // ═══════════════════════════════════════════════════════════════════════════════
 router.patch('/:id/cancel', authenticate, async (req: any, res: any) => {
   try {
@@ -353,7 +353,7 @@ router.patch('/:id/cancel', authenticate, async (req: any, res: any) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PATCH /api/orders/:id/dispute — Cliente abre una disputa (solo antes de 72h)
+// PATCH /api/orders/:id/dispute
 // ═══════════════════════════════════════════════════════════════════════════════
 router.patch('/:id/dispute', authenticate, validate(disputeOrderSchema), async (req: any, res: any) => {
   try {
@@ -399,6 +399,7 @@ router.patch('/:id/dispute', authenticate, validate(disputeOrderSchema), async (
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PATCH /api/orders/:id/resolve — Admin resuelve una disputa
+// FIX: Ahora pasa por EscrowStateMachine para mantener consistencia de estados
 // ═══════════════════════════════════════════════════════════════════════════════
 router.patch('/:id/resolve', authenticate, async (req: any, res: any) => {
   try {
@@ -410,35 +411,47 @@ router.patch('/:id/resolve', authenticate, async (req: any, res: any) => {
     const { id } = req.params;
     const { resolution } = req.body;
 
+    if (!resolution) {
+      return res.status(400).json({ error: 'El campo resolution es requerido' });
+    }
+
+    const validResolutions = ['FAVOR_CLIENT', 'FAVOR_PROFESSIONAL', 'PARTIAL_REFUND', 'TIMEOUT_RELEASE'];
+    if (!validResolutions.includes(resolution)) {
+      return res.status(400).json({ error: `Resolution inválida. Válidas: ${validResolutions.join(', ')}` });
+    }
+
     const order = await prisma.order.findUnique({ where: { id } });
     if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
     if (order.status !== 'EN_DISPUTA') {
       return res.status(400).json({ error: 'Esta orden no esta en disputa' });
     }
 
-    let newStatus: any;
-    if (resolution === 'FAVOR_CLIENT') {
-      newStatus = 'REEMBOLSADO';
-    } else {
-      newStatus = 'PAYOUT_INICIADO';
-    }
+    // FIX: Usar EscrowStateMachine para mantener el audit trail correcto
+    // El estado destino depende de la resolución:
+    // - FAVOR_CLIENT → REEMBOLSADO (el cliente recupera su dinero)
+    // - FAVOR_PROFESSIONAL / PARTIAL_REFUND / TIMEOUT_RELEASE → PAYOUT_INICIADO
+    const newStatus = resolution === 'FAVOR_CLIENT' ? 'REEMBOLSADO' : 'PAYOUT_INICIADO';
 
+    await EscrowStateMachine.transition(id, newStatus as any, {
+      resolvedBy: user.userId,
+      resolution,
+    });
+
+    // Actualizar campos de disputa que no maneja el state machine
     const updated = await prisma.order.update({
       where: { id },
       data: {
-        status: newStatus,
         disputeResolvedAt: new Date(),
         disputeResolution: resolution,
       }
     });
 
-    await prisma.orderEvent.create({
-      data: {
-        orderId: id,
-        event: `DISPUTE_RESOLVED_${resolution}`,
-        metadata: { resolvedBy: user.userId, resolution },
-      }
-    });
+    // Si la resolución favorece al profesional, ejecutar el payout real
+    if (newStatus === 'PAYOUT_INICIADO') {
+      EscrowStateMachine.executePayout(id).catch(err =>
+        console.error(`Error ejecutando payout post-disputa para orden ${id}:`, err)
+      );
+    }
 
     res.json({ message: `Disputa resuelta: ${resolution}`, order: updated });
   } catch (error: any) {
@@ -448,11 +461,19 @@ router.patch('/:id/resolve', authenticate, async (req: any, res: any) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// POST /api/orders/stripe-connect/onboarding — Generar link de Stripe Connect
+// POST /api/orders/stripe-connect/onboarding
+// FIX: Guard contra Stripe no configurado
 // ═══════════════════════════════════════════════════════════════════════════════
 router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: any) => {
   try {
-    const stripe = getStripe();
+    // FIX: Guard explícito antes de intentar usar Stripe
+    let stripe;
+    try {
+      stripe = getStripe();
+    } catch {
+      return res.status(503).json({ error: 'Pagos no disponibles en este momento. Contacta al administrador.' });
+    }
+
     const userId = req.user.userId;
 
     const professional = await prisma.professional.findUnique({ where: { userId } });
@@ -479,8 +500,8 @@ router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: an
 
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
-      refresh_url: `${req.headers.origin || 'http://localhost:5173'}/dashboard?tab=finance&status=refresh`,
-      return_url: `${req.headers.origin || 'http://localhost:5173'}/dashboard?tab=finance&status=complete`,
+      refresh_url: `${req.headers.origin || env.APP_URL}/dashboard?tab=finance&status=refresh`,
+      return_url: `${req.headers.origin || env.APP_URL}/dashboard?tab=finance&status=complete`,
       type: 'account_onboarding',
     });
 
@@ -492,25 +513,38 @@ router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: an
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// GET /api/orders/stripe-connect/status — Estado de la cuenta Stripe
+// GET /api/orders/stripe-connect/status
+// FIX CRÍTICO: era el bug activo en producción (500 por getStripe() sin catch)
+// Ahora responde { connected: false } limpiamente si Stripe no está configurado
 // ═══════════════════════════════════════════════════════════════════════════════
 router.get('/stripe-connect/status', authenticate, async (req: any, res: any) => {
   try {
-    const stripe = getStripe();
     const userId = req.user.userId;
     const professional = await prisma.professional.findUnique({ where: { userId } });
 
+    // Sin perfil profesional → sin cuenta Stripe
     if (!professional) {
-      // Sin perfil profesional = sin cuenta Stripe, responder con estado base
       return res.json({ connected: false, payoutsEnabled: false });
     }
 
+    // Sin stripeAccountId → nunca completó el onboarding
     if (!professional.stripeAccountId) {
       return res.json({ connected: false, payoutsEnabled: false });
     }
 
+    // FIX: Solo llamar getStripe() si hay una cuenta real que consultar.
+    // Si Stripe no está configurado, responder con estado base en lugar de 500.
+    let stripe;
+    try {
+      stripe = getStripe();
+    } catch {
+      console.warn('[Stripe] stripe-connect/status: Stripe no configurado, devolviendo estado base.');
+      return res.json({ connected: false, payoutsEnabled: false, stripeConfigured: false });
+    }
+
     const account = await stripe.accounts.retrieve(professional.stripeAccountId);
 
+    // Sincronizar payoutEnabled en BD si cambió en Stripe
     if (account.payouts_enabled !== professional.payoutEnabled) {
       await prisma.professional.update({
         where: { id: professional.id },
@@ -531,7 +565,7 @@ router.get('/stripe-connect/status', authenticate, async (req: any, res: any) =>
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// GET /api/orders/admin/disputes — Admin: listar ordenes en disputa
+// GET /api/orders/admin/disputes
 // ═══════════════════════════════════════════════════════════════════════════════
 router.get('/admin/disputes', authenticate, async (req: any, res: any) => {
   try {

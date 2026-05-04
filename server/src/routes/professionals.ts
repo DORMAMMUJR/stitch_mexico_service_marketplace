@@ -64,7 +64,7 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any) => {
 
     res.json({
       profileViews: profileViews,
-      profileViewsGrowth: totalNonDraftOrders > 0 ? '+12%' : '0%', // Simulado para crecimiento a corto plazo
+      profileViewsGrowth: null, // Se implementará con tabla PageViews en iteración futura
       totalInteractions: totalInteractions,
       conversionRate: conversionRateStr,
       automatedMessages: professional.appointments.length, // Un mensaje automatizado por cita

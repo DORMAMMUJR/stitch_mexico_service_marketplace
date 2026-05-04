@@ -279,7 +279,7 @@ Mantén respuestas cortas.`;
            data: {
              clientId,
              professionalId,
-             date: new Date(args.date).toISOString(),
+             scheduledAt: new Date(args.date),
              notes: args.notes,
            }
         });

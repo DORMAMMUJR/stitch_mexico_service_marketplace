@@ -5,7 +5,7 @@ import { authenticate } from '../middleware/auth';
 import { EscrowStateMachine } from '../lib/escrow';
 import { validate } from '../middleware/validate';
 import { createOrderSchema, disputeOrderSchema } from '../schemas/orderSchemas';
-import { sendEmail } from '../lib/email';
+import { notifyUser } from '../lib/notifications';
 import { env } from '../config/env';
 
 const router = Router();
@@ -68,34 +68,28 @@ router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), 
       },
     });
 
-    // Notificar al profesional (async, no bloquea la respuesta)
+    // Notificar al profesional (fire-and-forget via servicio centralizado)
     prisma.professional.findUnique({
       where: { id: professionalId },
-      include: { user: true }
+      include: { user: { select: { id: true, email: true } } },
     }).then(prof => {
-      if (prof?.user?.email) {
-        prisma.notification.create({
-          data: {
-            userId: prof.userId,
-            type: 'ORDER_STATUS',
-            title: 'Nueva orden recibida',
-            body: `Tienes una nueva orden de trabajo: "${description.substring(0, 50)}..."`,
-            metadata: { orderId: order.id },
-          }
-        }).catch(console.error);
-
-        sendEmail({
-          to: prof.user.email,
-          subject: 'Nueva orden recibida — Intecnia',
-          html: `
-            <h2>¡Tienes una nueva orden!</h2>
-            <p>Un cliente ha creado una orden para ti:</p>
-            <p><strong>${description.substring(0, 200)}</strong></p>
-            <p>Precio acordado: $${agreedPrice} MXN</p>
-            <a href="${env.APP_URL}/dashboard">Ver orden en mi dashboard</a>
-          `,
-        }).catch(console.error);
-      }
+      if (!prof) return;
+      notifyUser({
+        userId: prof.userId,
+        type: 'ORDER_STATUS',
+        title: 'Nueva orden recibida',
+        body: `Tienes una nueva orden de trabajo: "${description.substring(0, 50)}..."`,
+        metadata: { orderId: order.id },
+        email: prof.user.email,
+        emailSubject: 'Nueva orden recibida — Intecnia',
+        emailHtml: `
+          <h2>¡Tienes una nueva orden!</h2>
+          <p>Un cliente ha creado una orden para ti:</p>
+          <p><strong>${description.substring(0, 200)}</strong></p>
+          <p>Precio acordado: $${agreedPrice} MXN</p>
+          <a href="${env.APP_URL}/dashboard">Ver orden en mi dashboard</a>
+        `,
+      }).catch(console.error);
     }).catch(console.error);
 
     res.status(201).json({ message: 'Orden creada exitosamente', order });

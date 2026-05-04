@@ -281,6 +281,8 @@ model Availability {
   updatedAt      DateTime     @updatedAt
 
   professional   Professional @relation(fields: [professionalId], references: [id])
+
+  @@unique([professionalId, dayOfWeek])
 }
 
 model Appointment {
@@ -289,8 +291,7 @@ model Appointment {
   guestId        String?
   professionalId String
   service        String?
-  date           String?
-  time           String?
+  scheduledAt    DateTime?         // ← reemplaza `date String?` y `time String?`
   status         AppointmentStatus @default(SCHEDULED)
   notes          String?
   createdAt      DateTime          @default(now())
@@ -298,6 +299,14 @@ model Appointment {
 
   client         User?             @relation(fields: [clientId], references: [id])
   professional   Professional      @relation(fields: [professionalId], references: [id])
+
+  // 1.2 — Evita citas duplicadas en el mismo slot
+  @@unique([professionalId, scheduledAt])
+
+  // 1.3 — Índices para queries frecuentes
+  @@index([professionalId, scheduledAt])
+  @@index([clientId])
+  @@index([guestId])
 }
 
 enum AppointmentStatus {

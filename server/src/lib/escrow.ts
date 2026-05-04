@@ -247,32 +247,31 @@ export class EscrowStateMachine {
 
     if (failedOrders.length === 0) {
       console.log('   No hay pagos fallidos pendientes de reintento.');
-      return;
-    }
+    } else {
+      console.log(
+        `   🔁 Evaluando ${failedOrders.length} pago(s) fallido(s) para reintento...`
+      );
 
-    console.log(
-      `   🔁 Evaluando ${failedOrders.length} pago(s) fallido(s) para reintento...`
-    );
+      for (const order of failedOrders) {
+        // Verificar si el backoff ya transcurrió antes de reintentar
+        if (!isBackoffElapsed(order.lastPayoutAttemptAt, order.payoutAttempts)) {
+          console.log(
+            `   ⏳ Orden ${order.id}: backoff activo ` +
+            `(intento ${order.payoutAttempts}, esperar ${getBackoffHours(order.payoutAttempts)}h)`
+          );
+          continue;
+        }
 
-    for (const order of failedOrders) {
-      // Verificar si el backoff ya transcurrió antes de reintentar
-      if (!isBackoffElapsed(order.lastPayoutAttemptAt, order.payoutAttempts)) {
-        console.log(
-          `   ⏳ Orden ${order.id}: backoff activo ` +
-          `(intento ${order.payoutAttempts}, esperar ${getBackoffHours(order.payoutAttempts)}h)`
-        );
-        continue;
-      }
-
-      try {
-        await this.transition(order.id, 'PAYOUT_INICIADO', { reason: 'RETRY' });
-        console.log(
-          `   🔁 Reintentando orden ${order.id} ` +
-          `(intento ${order.payoutAttempts + 1}/${MAX_PAYOUT_ATTEMPTS})`
-        );
-        await this.executePayout(order.id);
-      } catch (e: any) {
-        console.error(`   ❌ Retry fallido para orden ${order.id}:`, e.message);
+        try {
+          await this.transition(order.id, 'PAYOUT_INICIADO', { reason: 'RETRY' });
+          console.log(
+            `   🔁 Reintentando orden ${order.id} ` +
+            `(intento ${order.payoutAttempts + 1}/${MAX_PAYOUT_ATTEMPTS})`
+          );
+          await this.executePayout(order.id);
+        } catch (e: any) {
+          console.error(`   ❌ Retry fallido para orden ${order.id}:`, e.message);
+        }
       }
     }
 

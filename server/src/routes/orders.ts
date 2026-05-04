@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { stripe } from '../lib/stripe';
+import { getStripe } from '../lib/stripe';
 import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
 import { EscrowStateMachine } from '../lib/escrow';
@@ -114,6 +114,7 @@ router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), 
 // ═══════════════════════════════════════════════════════════════════════════════
 router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res: any) => {
   try {
+    const stripe = getStripe();
     const { id } = req.params;
     const clientId = req.user.userId;
 
@@ -451,6 +452,7 @@ router.patch('/:id/resolve', authenticate, async (req: any, res: any) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: any) => {
   try {
+    const stripe = getStripe();
     const userId = req.user.userId;
 
     const professional = await prisma.professional.findUnique({ where: { userId } });
@@ -494,6 +496,7 @@ router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: an
 // ═══════════════════════════════════════════════════════════════════════════════
 router.get('/stripe-connect/status', authenticate, async (req: any, res: any) => {
   try {
+    const stripe = getStripe();
     const userId = req.user.userId;
     const professional = await prisma.professional.findUnique({ where: { userId } });
 

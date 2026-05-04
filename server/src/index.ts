@@ -21,7 +21,8 @@ import fs from 'fs';
 import multer from 'multer';
 import multerS3 from 'multer-s3';
 import { S3Client } from '@aws-sdk/client-s3';
-import { stripe } from './lib/stripe';
+import { getStripe } from './lib/stripe';
+import Stripe from 'stripe';
 import { prisma } from './lib/db';
 import { EscrowStateMachine } from './lib/escrow';
 import { authenticate } from './middleware/auth';
@@ -68,12 +69,23 @@ app.use(cors({
 }));
 
 // ─── Stripe Webhook (Debe ir ANTES de express.json) ──────────────────────────
-// Stripe necesita el raw body para verificar la firma criptográfica
+// Stripe necesita el raw body para verificar la firma criptográfica.
+// Si STRIPE_SECRET_KEY no está configurada, el endpoint responde 503
+// en lugar de tumbar el servidor al arrancar.
 app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+  // Validación temprana: si Stripe no está configurado, responder limpiamente
+  let stripe: any;
+  try {
+    stripe = getStripe();
+  } catch {
+    console.warn('[Stripe] Webhook recibido pero Stripe no está configurado. Ignorando.');
+    return res.status(503).json({ error: 'Stripe no está configurado en este entorno.' });
+  }
+
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  let event;
+  let event: any;
 
   try {
     if (!sig || !endpointSecret) {
@@ -85,17 +97,15 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Manejar el evento
   try {
     if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object as any;
-      // Asumimos que al crear el PaymentIntent, guardaste el orderId en metadata
       const orderId = paymentIntent.metadata.orderId;
 
       if (orderId) {
         console.log(`💰 Pago completado para la orden: ${orderId}. Cambiando estado a FONDOS_EN_ESCROW...`);
         await EscrowStateMachine.transition(orderId, 'FONDOS_EN_ESCROW', {
-          stripePaymentIntentId: paymentIntent.id
+          stripePaymentIntentId: paymentIntent.id,
         });
       } else {
         console.warn('⚠️ PaymentIntent succeeded pero no tiene orderId en metadata.');

@@ -1,6 +1,6 @@
 import { Prisma, OrderStatus, Order } from '@prisma/client';
 import { prisma } from './db';
-import { stripe } from './stripe';
+import { getStripe } from './stripe';
 
 // Comisión de la plataforma (10%). Ajustar según modelo de negocio.
 const PLATFORM_FEE_RATE = 0.10;
@@ -78,6 +78,7 @@ export class EscrowStateMachine {
    * Retorna true si el payout fue exitoso, false si falló.
    */
   static async executePayout(orderId: string): Promise<boolean> {
+    const stripe = getStripe();
     // Obtener la orden con los datos del profesional
     const order = await prisma.order.findUnique({
       where: { id: orderId },

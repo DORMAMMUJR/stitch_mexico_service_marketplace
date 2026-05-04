@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 
@@ -24,6 +25,27 @@ const CATEGORY_MAP = {
   'HVAC': 'Climatización',
   'GENERAL_MAINTENANCE': 'Reparaciones del Hogar',
 };
+
+// ── Tarjetas de placeholder — visibles solo cuando no hay profesionales reales ──
+// Flag IS_PLACEHOLDER: true identifica estos datos como ficticios en todo el codebase
+const PLACEHOLDER_PROFESSIONALS = [
+  {
+    id: 'placeholder-1',
+    IS_PLACEHOLDER: true,
+    user: { name: 'Dra. Sofía Ramírez', avatarUrl: null },
+    title: 'Psicóloga Clínica',
+    category: 'HEALTH_WELLNESS',
+    rating: 4.9,
+  },
+  {
+    id: 'placeholder-2',
+    IS_PLACEHOLDER: true,
+    user: { name: 'Lic. Carlos Mendoza', avatarUrl: null },
+    title: 'Abogado Corporativo',
+    category: 'LEGAL',
+    rating: 4.8,
+  },
+];
 
 function ProfessionalSkeleton() {
   return (
@@ -93,6 +115,7 @@ function FloatingChatButton() {
 
 export function HomePage() {
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [featured, setFeatured] = useState([]);
   const [loadingFeatured, setLoadingFeatured] = useState(true);
@@ -122,7 +145,7 @@ export function HomePage() {
 
   return (
     <>
-      <NavbarIntecnia activePage="marketplace" />
+      <NavbarIntecnia activePage="home" />
       <FloatingChatButton />
 
       {/* ── HERO ──────────────────────────────────────────────────── */}
@@ -347,11 +370,35 @@ export function HomePage() {
               {[1, 2, 3, 4].map(i => <ProfessionalSkeleton key={i} />)}
             </div>
           ) : featured.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--surface-container)', borderRadius: 'var(--radius-xl)', border: '1px dashed var(--outline-variant)' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', marginBottom: '1rem', display: 'block' }}>rocket_launch</span>
-              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>Estamos creciendo 🚀</h3>
-              <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem' }}>Sé de los primeros en publicar tu servicio y llega a cientos de clientes.</p>
-              <Link to="/register" className="btn btn-primary">Publicar mi servicio gratis</Link>
+            <div>
+              {/* Banner informativo */}
+              <div style={{ textAlign: 'center', padding: '1.5rem', background: 'var(--surface-container)', borderRadius: 'var(--radius-xl)', border: '1px dashed var(--outline-variant)', marginBottom: '1.5rem' }}>
+                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>
+                  🚀 Estamos creciendo — estos son ejemplos de lo que encontrarás aquí
+                </p>
+              </div>
+              {/* Placeholder cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
+                {PLACEHOLDER_PROFESSIONALS.map(pro => (
+                  <div key={pro.id} className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px dashed var(--outline-variant)', opacity: 0.85 }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: 'var(--secondary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: '28px' }}>person</span>
+                      </div>
+                      <div>
+                        <p style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '1rem', color: 'var(--primary)' }}>
+                          {pro.user.name}
+                          <span style={{ fontSize: '0.625rem', fontWeight: 600, background: 'var(--tertiary-container)', color: 'var(--on-tertiary-container)', padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)', marginLeft: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ejemplo</span>
+                        </p>
+                        <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', fontWeight: 600 }}>{pro.title}</p>
+                      </div>
+                    </div>
+                    <Link to="/register" className="btn btn-primary" style={{ fontSize: '0.875rem', textAlign: 'center', justifyContent: 'center', padding: '0.75rem' }}>
+                      Únete y encuentra profesionales reales
+                    </Link>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
@@ -452,8 +499,12 @@ export function HomePage() {
               <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>rocket_launch</span>
               Conseguir especialista ahora
             </button>
-            <Link to="/register" className="btn" style={{ background: 'transparent', color: 'white', border: '2px solid #334155', padding: '1rem 2.5rem', fontSize: '1.0625rem', fontWeight: 700 }}>
-              Soy profesional (Únete gratis)
+            <Link
+              to={isAuthenticated ? '/verification' : '/register?role=professional'}
+              className="btn"
+              style={{ background: 'transparent', color: 'white', border: '2px solid #334155', padding: '1rem 2.5rem', fontSize: '1.0625rem', fontWeight: 700 }}
+            >
+              {isAuthenticated ? 'Ofrecer mis servicios' : 'Soy profesional (Únete gratis)'}
             </Link>
           </div>
           {/* Señales de confianza finales */}

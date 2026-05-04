@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
+import { useToast } from '../components/ToastContext';
 
 // Mapeo de categoría de backend → label legible
 const CATEGORY_MAP = {
@@ -30,10 +31,10 @@ export function DirectoryPage() {
   const [searchParams] = useSearchParams();
   const [professionals, setProfessionals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [maxPrice, setMaxPrice] = useState(5000);
+  const [priceRange, setPriceRange] = useState('all'); // 'all' | '0-500' | '500-1000' | '1000-2000' | '2000+'
   const [minRating, setMinRating] = useState(0);
   const [filterVersion, setFilterVersion] = useState(0);
-  const { showToast: _unused } = { showToast: () => {} }; // kept for future use
+  const { showToast } = useToast();
 
   // Leer category y query de la URL (vienen del Hero o de las categorías)
   const queryFromUrl = searchParams.get('q') || '';
@@ -55,7 +56,13 @@ export function DirectoryPage() {
         const params = new URLSearchParams();
         if (queryFromUrl) params.set('q', queryFromUrl);
         if (selectedCategory) params.set('category', selectedCategory);
-        if (maxPrice < 5000) params.set('maxPrice', String(maxPrice));
+        if (priceRange !== 'all') {
+          const [min, max] = priceRange === '2000+'
+            ? ['2000', '']
+            : priceRange.split('-');
+          if (min) params.set('minPrice', min);
+          if (max) params.set('maxPrice', max);
+        }
         if (minRating > 0) params.set('minRating', String(minRating));
 
         const res = await fetch(`/api/professionals?${params.toString()}`);
@@ -70,7 +77,7 @@ export function DirectoryPage() {
       }
     };
     fetchProfessionals();
-  }, [queryFromUrl, selectedCategory, filterVersion]);
+  }, [queryFromUrl, selectedCategory, priceRange, minRating, filterVersion]);
 
   const handleCategoryChange = (e) => {
     const label = e.target.value;
@@ -139,10 +146,29 @@ export function DirectoryPage() {
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>RANGO DE PRECIOS (MXN)</label>
-            <input type="range" min="200" max="5000" value={maxPrice} onChange={(e) => setMaxPrice(Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--secondary)' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>
-              <span>$200</span><span style={{ fontWeight: maxPrice < 5000 ? 600 : 400, color: maxPrice < 5000 ? 'var(--secondary)' : 'var(--on-surface-variant)' }}>${maxPrice.toLocaleString()}{maxPrice >= 5000 ? '+' : ''}</span>
+            <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.75rem' }}>RANGO DE PRECIOS (MXN)</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+              {[
+                { label: 'Cualquier precio', value: 'all' },
+                { label: '$0 – $500', value: '0-500' },
+                { label: '$500 – $1,000', value: '500-1000' },
+                { label: '$1,000 – $2,000', value: '1000-2000' },
+                { label: '$2,000+', value: '2000+' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setPriceRange(opt.value)}
+                  style={{
+                    textAlign: 'left', padding: '0.5rem 0.75rem',
+                    borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
+                    fontSize: '0.8125rem', fontWeight: priceRange === opt.value ? 700 : 400,
+                    background: priceRange === opt.value ? 'var(--secondary-container)' : 'transparent',
+                    color: priceRange === opt.value ? 'var(--secondary)' : 'var(--on-surface)',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -173,13 +199,15 @@ export function DirectoryPage() {
 
         {/* Results */}
         <div>
-          {/* Map */}
-          <div style={{ background: 'var(--surface-container)', borderRadius: 'var(--radius-xl)', height: '220px', marginBottom: '1.5rem', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: 'var(--surface-container-lowest)', padding: '0.375rem 1rem', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', fontWeight: 600, boxShadow: 'var(--ambient-shadow)', zIndex: 1 }}>VISTA DE MAPA: CDMX</div>
-            <img src="https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=800&h=300&fit=crop" alt="Map" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
-            <div style={{ position: 'absolute', top: '50%', left: '40%', transform: 'translate(-50%,-50%)' }}>
-              <span className="material-symbols-outlined icon-filled" style={{ fontSize: '32px', color: 'var(--secondary)', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>location_on</span>
-            </div>
+          {/* Banner de zona — reemplaza el mapa */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem', background: 'var(--secondary-container)', borderRadius: 'var(--radius-xl)', marginBottom: '1.5rem', border: '1px solid rgba(16,185,129,0.2)' }}>
+            <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px', color: 'var(--secondary)' }}>location_on</span>
+            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-secondary-container)' }}>
+              Mostrando profesionales verificados en <strong>CDMX y área metropolitana</strong>
+            </p>
+            <button style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--secondary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+              Ver en mapa →
+            </button>
           </div>
 
           {/* Loading State */}

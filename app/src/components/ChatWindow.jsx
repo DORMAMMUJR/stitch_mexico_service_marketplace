@@ -36,7 +36,9 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   const [selectedContact, setSelectedContact] = useState(null);
   const [messageInput, setMessageInput] = useState('');
   const [newChatId, setNewChatId] = useState(initialReceiverId || null);
+  const [hiddenConvs, setHiddenConvs] = useState(new Set()); // Eliminaciones visuales locales
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
 
   // Si viene un receiverId externo (desde perfil de un profesional), seleccionar directamente
@@ -68,9 +70,10 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   });
 
   // Auto-scroll al final cuando llegan mensajes nuevos
+  // Usamos el contenedor del chat, NO window, para evitar que la página entera salte
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
@@ -104,6 +107,17 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
     setSelectedConvId(conv.conversationId);
     setSelectedContact(conv.contact);
     setNewChatId(null);
+  };
+
+  // Eliminar conversación localmente (sin persistencia al servidor en esta fase)
+  const handleDeleteConversation = (e, convId) => {
+    e.stopPropagation();
+    if (!window.confirm('¿Ocultar esta conversación? Solo se eliminará de tu vista.')) return;
+    setHiddenConvs(prev => new Set([...prev, convId]));
+    if (selectedConvId === convId) {
+      setSelectedConvId(null);
+      setSelectedContact(null);
+    }
   };
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
@@ -153,38 +167,61 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
                   </div>
                 </button>
               )}
-              {conversations.map(conv => (
-                <button
+              {conversations
+                .filter(conv => !hiddenConvs.has(conv.conversationId)) // Ocultar localmente
+                .map(conv => (
+                <div
                   key={conv.conversationId}
-                  onClick={() => handleSelectConversation(conv)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', padding: '0.75rem',
-                    borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', textAlign: 'left',
-                    background: selectedConvId === conv.conversationId ? 'var(--secondary-container)' : 'transparent',
-                    transition: 'background 0.15s',
-                    marginBottom: '0.125rem',
-                  }}
+                  style={{ position: 'relative', marginBottom: '0.125rem' }}
+                  className="conv-item"
+                  onMouseEnter={e => e.currentTarget.querySelector('.conv-delete')?.style && (e.currentTarget.querySelector('.conv-delete').style.opacity = '1')}
+                  onMouseLeave={e => e.currentTarget.querySelector('.conv-delete')?.style && (e.currentTarget.querySelector('.conv-delete').style.opacity = '0')}
                 >
-                  <div style={{ position: 'relative' }}>
-                    <Avatar user={conv.contact} size={42} />
-                    {conv.unreadCount > 0 && (
-                      <span style={{ position: 'absolute', top: 0, right: 0, width: '10px', height: '10px', background: 'var(--secondary)', borderRadius: '50%', border: '2px solid white' }} />
-                    )}
-                  </div>
-                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
-                      <p style={{ fontFamily: 'Manrope', fontWeight: conv.unreadCount > 0 ? 700 : 600, fontSize: '0.875rem', color: 'var(--primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }}>
-                        {conv.contact.name}
-                      </p>
-                      <span style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', flexShrink: 0 }}>
-                        {timeAgo(conv.lastMessage.createdAt)}
-                      </span>
+                  <button
+                    onClick={() => handleSelectConversation(conv)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', padding: '0.75rem',
+                      borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', textAlign: 'left',
+                      background: selectedConvId === conv.conversationId ? 'var(--secondary-container)' : 'transparent',
+                      transition: 'background 0.15s',
+                      paddingRight: '2.5rem', // Espacio para el botón de eliminar
+                    }}
+                  >
+                    <div style={{ position: 'relative' }}>
+                      <Avatar user={conv.contact} size={42} />
+                      {conv.unreadCount > 0 && (
+                        <span style={{ position: 'absolute', top: 0, right: 0, width: '10px', height: '10px', background: 'var(--secondary)', borderRadius: '50%', border: '2px solid white' }} />
+                      )}
                     </div>
-                    <p style={{ fontSize: '0.75rem', color: conv.unreadCount > 0 ? 'var(--on-surface)' : 'var(--on-surface-variant)', fontWeight: conv.unreadCount > 0 ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {conv.lastMessage.isMine ? 'Tú: ' : ''}{conv.lastMessage.content}
-                    </p>
-                  </div>
-                </button>
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                        <p style={{ fontFamily: 'Manrope', fontWeight: conv.unreadCount > 0 ? 700 : 600, fontSize: '0.875rem', color: 'var(--primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }}>
+                          {conv.contact.name}
+                        </p>
+                        <span style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', flexShrink: 0 }}>
+                          {timeAgo(conv.lastMessage.createdAt)}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: conv.unreadCount > 0 ? 'var(--on-surface)' : 'var(--on-surface-variant)', fontWeight: conv.unreadCount > 0 ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {conv.lastMessage.isMine ? 'Tú: ' : ''}{conv.lastMessage.content}
+                      </p>
+                    </div>
+                  </button>
+                  {/* Botón eliminar — aparece en hover */}
+                  <button
+                    className="conv-delete"
+                    onClick={(e) => handleDeleteConversation(e, conv.conversationId)}
+                    title="Ocultar conversación"
+                    style={{
+                      position: 'absolute', top: '50%', right: '0.5rem', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem',
+                      color: 'var(--on-surface-variant)', opacity: 0, transition: 'opacity 0.15s',
+                      display: 'flex', alignItems: 'center',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
+                  </button>
+                </div>
               ))}
             </>
           )}
@@ -214,7 +251,10 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
             </div>
 
             {/* Burbujas de mensajes */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div
+              ref={messagesContainerRef}
+              style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}
+            >
               {loadingMsgs && messages.length === 0 ? (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span className="material-symbols-outlined" style={{ animation: 'spin 1s linear infinite', color: 'var(--secondary)', fontSize: '32px' }}>progress_activity</span>

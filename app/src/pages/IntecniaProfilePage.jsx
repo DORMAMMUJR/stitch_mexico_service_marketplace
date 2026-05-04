@@ -81,51 +81,88 @@ export function IntecniaProfilePage() {
       <div className="container layout-profile">
         {/* Left Column */}
         <div>
-          {/* Profile Card */}
-          <div className="card animate-in stagger-1" style={{ padding: '2.5rem', marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              <div style={{ position: 'relative' }}>
-                <img src={prof.avatarUrl} alt={prof.name} style={{ width: '8rem', height: '9rem', borderRadius: 'var(--radius-xl)', objectFit: 'cover', boxShadow: 'var(--ambient-shadow)' }} />
-                <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: 'var(--surface-container-lowest)', padding: '3px', borderRadius: '50%', border: '3px solid var(--surface-container-lowest)' }}>
-                  <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: 'var(--secondary)' }}>verified</span>
-                </div>
-              </div>
-              <div style={{ flex: 1, minWidth: '240px' }}>
-                <h1 style={{ fontFamily: 'Manrope', fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>{prof.name}</h1>
-                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem', marginBottom: '1rem' }}>{prof.title}</p>
+          {/* ── Header Card: Foto → Nombre → Título → Rating → Precio → Bio ── */}
+          <div className="card animate-in stagger-1" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
 
-                {/* ── Teléfono: Anti-Leakage ─────────────────────────────── */}
-                {prof.phone ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--secondary)' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>call</span>
-                    <span style={{ fontWeight: 600 }}>{prof.phone}</span>
+            {/* Fila superior: foto + info esencial */}
+            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+              {/* Foto */}
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <img
+                  src={prof.avatarUrl}
+                  alt={prof.name}
+                  style={{ width: '7rem', height: '7rem', borderRadius: 'var(--radius-xl)', objectFit: 'cover', boxShadow: 'var(--ambient-shadow)' }}
+                />
+                {prof.isVerified && (
+                  <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: 'var(--surface-container-lowest)', padding: '3px', borderRadius: '50%', border: '3px solid var(--surface-container-lowest)' }}>
+                    <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: 'var(--secondary)' }}>verified</span>
                   </div>
-                ) : (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', marginBottom: '1rem', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>lock</span>
-                    El contacto directo se habilita al fondear la orden.
+                )}
+              </div>
+
+              {/* Info principal */}
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                {/* Nombre */}
+                <h1 style={{ fontFamily: 'Manrope', fontSize: '1.625rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.125rem' }}>{prof.name}</h1>
+
+                {/* Título */}
+                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem', marginBottom: '0.625rem' }}>{prof.title}</p>
+
+                {/* Rating + n° reseñas */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.625rem' }}>
+                  <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#f59e0b' }}>star</span>
+                  <span style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)', fontSize: '0.9375rem' }}>{prof.rating || '—'}</span>
+                  <span style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem' }}>({prof.reviewCount || reviews.length} reseñas)</span>
+                </div>
+
+                {/* Precio */}
+                {prof.hourlyRate && (
+                  <p style={{ fontSize: '0.875rem', color: 'var(--secondary)', fontWeight: 700, marginBottom: '0.75rem' }}>
+                    Desde ${Number(prof.hourlyRate).toLocaleString('es-MX')} {prof.currency || 'MXN'} / hora
                   </p>
                 )}
 
+                {/* Chips de verificación y categoría */}
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                  {prof.biometricDone && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '14px' }}>fingerprint</span> BIOMETRÍA</span>}
-                  {prof.satVerifiedAt && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '14px' }}>account_balance</span> SAT</span>}
-                  {prof.isVerified && <span className="badge badge-green"><span className="material-symbols-outlined icon-filled" style={{ fontSize: '14px' }}>verified</span> CERTIFICADA</span>}
+                  {prof.category && (
+                    <span style={{ padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-full)', background: 'var(--surface-container)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--on-surface)', border: '1px solid var(--outline-variant)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>category</span>
+                      {prof.category.replace(/_/g, ' ')}
+                    </span>
+                  )}
+                  {prof.biometricDone && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '13px' }}>fingerprint</span> BIOMETRÍA</span>}
+                  {prof.satVerifiedAt && <span className="badge"><span className="material-symbols-outlined" style={{ fontSize: '13px' }}>account_balance</span> SAT</span>}
+                  {prof.isVerified && <span className="badge badge-green"><span className="material-symbols-outlined icon-filled" style={{ fontSize: '13px' }}>verified</span> CERTIFICADA</span>}
                 </div>
+
+                {/* CTA */}
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <button onClick={scrollToChat} className="btn btn-primary">
                     <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>smart_toy</span> Enviar Mensaje
                   </button>
+                  {prof.phone ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--secondary)', fontSize: '0.875rem', fontWeight: 600 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>call</span>
+                      {prof.phone}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>lock</span>
+                      Contacto al fondear la orden
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* About */}
-          <div className="card animate-in stagger-2" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
-            <h2 className="text-headline-md" style={{ color: 'var(--primary)', marginBottom: '1rem', fontSize: '1.25rem' }}>Sobre Mí</h2>
-            <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.8, marginBottom: '2rem' }}>{prof.bio}</p>
-            <div className="grid-4">
+            {/* Bio */}
+            <div style={{ borderTop: '1px solid var(--outline-variant)', paddingTop: '1.25rem' }}>
+              <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.8125rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', marginBottom: '0.625rem' }}>Sobre Mí</h2>
+              <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.75, fontSize: '0.9375rem' }}>{prof.bio}</p>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid-4" style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--outline-variant)' }}>
               {[
                 { val: prof.yearsExp, label: 'AÑOS EXP.' },
                 { val: prof.projectsCount, label: 'PROYECTOS' },
@@ -133,20 +170,20 @@ export function IntecniaProfilePage() {
                 { val: prof.rating, label: '★ RATING' },
               ].map(s => (
                 <div key={s.label}>
-                  <p style={{ fontFamily: 'Manrope', fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>{s.val}</p>
-                  <p className="text-label-md" style={{ textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>{s.label}</p>
+                  <p style={{ fontFamily: 'Manrope', fontSize: '1.375rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>{s.val}</p>
+                  <p className="text-label-md" style={{ textTransform: 'uppercase', color: 'var(--on-surface-variant)', fontSize: '0.6875rem' }}>{s.label}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Reviews — Dinámicas desde BD */}
-          <div className="card animate-in stagger-3" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
+          {/* Reseñas */}
+          <div className="card animate-in stagger-2" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)' }}>Reseñas Recientes</h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                <span className="material-symbols-outlined icon-filled" style={{ fontSize: '18px', color: '#f59e0b' }}>star</span>
-                <span style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)' }}>{prof.rating}</span>
+                <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#f59e0b' }}>star</span>
+                <span style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)', fontSize: '0.9375rem' }}>{prof.rating || '—'}</span>
                 <span style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem' }}>({prof.reviewCount || reviews.length} reseñas)</span>
               </div>
             </div>
@@ -257,7 +294,7 @@ export function IntecniaProfilePage() {
             if (!isAuthenticated) {
               e.stopPropagation();
               e.preventDefault();
-              localStorage.setItem('returnUrl', window.location.pathname);
+              sessionStorage.setItem('returnUrl', window.location.pathname);
               navigate('/login');
             }
           }}>
@@ -268,7 +305,7 @@ export function IntecniaProfilePage() {
             if (!isAuthenticated) {
               e.stopPropagation();
               e.preventDefault();
-              localStorage.setItem('returnUrl', window.location.pathname);
+              sessionStorage.setItem('returnUrl', window.location.pathname);
               navigate('/login');
             }
           }}>

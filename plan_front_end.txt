@@ -1,0 +1,221 @@
+
+Plan de Ejecución Frontend — Intecnia
+
+Criterios de ordenamiento
+Usé tres criterios para ordenar las fases:
+
+Impacto en negocio — captación primero, según tu respuesta.
+Dependencias técnicas — no puedes arreglar el Dashboard si el sistema de diseño no es consistente.
+Riesgo — lo que puede romper más va al final, cuando ya hay base sólida.
+
+
+Fase 0 — Sistema de Diseño: Tokens y Base Global
+Prerequisito de todo lo demás. Sin esto, cada componente que toques va a tener inconsistencias.
+Problemas que resuelve: #1 (Responsividad), #2 (Contraste y accesibilidad)
+Archivos a modificar:
+
+Archivo de variables CSS global (el que ya existe, incompleto)
+Configuración de breakpoints (si existe, si no se crea)
+
+Objetivo técnico:
+Auditar y completar las variables CSS existentes en cuatro categorías:
+
+Colores: primario, secundario, surface, on-surface, error, success — con variantes de contraste verificadas (ratio mínimo 4.5:1 para texto normal).
+Tipografía: escala de tamaños (xs, sm, base, lg, xl, 2xl), pesos y familia. Una sola fuente de verdad.
+Espaciado: escala de 4px base (4, 8, 12, 16, 24, 32, 48, 64).
+Breakpoints: definir tres: mobile (< 640px), tablet (640–1024px), desktop (> 1024px). Aplicar como variables CSS o constantes JS según el stack.
+
+Precauciones:
+
+No eliminar variables existentes todavía — solo agregar las que faltan y corregir valores. Eliminar después, en la misma fase, cuando confirmemos qué se usa y qué no.
+Este es el único cambio que afecta toda la app simultáneamente. Debe revisarse en los tres breakpoints antes de avanzar.
+
+
+Fase 1 — Landing Page y Navegación
+Primera impresión del producto. Impacto directo en captación.
+Problemas que resuelve: #2.1 (renombrar Marketplace→Inicio), #2.2 (quitar login forzado), #2.3 (Footer y CTA), #2.4 (Directorio: filtros, slider de precio, mapa, data ficticia)
+Archivos a modificar:
+
+Componente de navegación principal (Navbar/Header)
+Página de Landing (/ o /home)
+Componente de Directorio
+Componente de filtros del Directorio
+Footer
+
+Objetivo técnico por ítem:
+
+Navbar: renombrar "Marketplace" → "Inicio". Reordenar links según el nuevo flujo. El usuario no autenticado puede navegar libremente — quitar cualquier redirect forzado a /login en rutas públicas.
+CTA "Publicar mi servicio": el flujo correcto es click → /register?role=professional (si no tiene cuenta) o click → /dashboard/verification (si ya está logueado como cliente). No abrir modal ni redirigir a /login directamente.
+Footer: alinear el botón CTA con el resto del layout. No debe estar flotando fuera del grid.
+Directorio — Mapa: reemplazar el componente de mapa por un grid/lista de tarjetas con foto, nombre, categoría, rating y precio. El mapa puede quedar como vista secundaria opcional ("Ver en mapa") pero no como vista principal.
+Directorio — Filtros: revisar UI de todos los selectores. Deben ser consistentes con el sistema de diseño de Fase 0.
+Directorio — Slider de precio: reemplazar el slider libre por un selector de rangos fijos (ej. $0-500, $500-1000, $1000-2000, $2000+). Más predecible y fácil de usar en móvil.
+Data ficticia: agregar 2 tarjetas de especialistas con datos hardcodeados visibles solo si el directorio está vacío (professionals.length === 0). No mezclar con datos reales.
+
+Precauciones:
+
+La eliminación del login forzado debe auditarse ruta por ruta. Algunas rutas deben seguir protegidas (Dashboard, Chat, Citas). Solo las rutas de exploración pública se abren.
+Los datos ficticios deben tener un flag claro en el código (IS_PLACEHOLDER: true) para no confundirlos con datos reales en el futuro.
+
+
+Fase 2 — Autenticación (Login y Registro)
+Directamente ligada a captación. Va después de Landing porque el flujo empieza allá.
+Problemas que resuelve: #3.1 (Login ocupa toda la pantalla), #3.2 (campos obligatorios), #3.3 (checkboxes legales), #3.4 (redirección post-login)
+Archivos a modificar:
+
+Página/componente de Login
+Página/componente de Registro
+Hook o contexto de autenticación (useAuth)
+Lógica de redirección post-login
+
+Objetivo técnico por ítem:
+
+Login: rediseñar como tarjeta centrada (max-width: 420px) con padding generoso. No debe ocupar toda la pantalla en ningún breakpoint. Fondo con imagen o gradiente detrás de la tarjeta.
+Registro: campos obligatorios: Nombre completo, Correo, Teléfono, Contraseña. El botón de envío permanece deshabilitado (disabled) hasta que los cuatro campos tengan valor y los dos checkboxes estén marcados. Validación en tiempo real, no solo al submit.
+Checkboxes legales: dos casillas independientes: "Acepto los Términos y Condiciones" y "Acepto el Aviso de Privacidad". Ambas con link al documento correspondiente. Ninguna pre-marcada.
+Redirección post-login: implementar lógica de redirectTo. Si el usuario llega al login desde el flujo de agendar una cita, después del login debe volver al perfil del profesional donde estaba, no al Dashboard vacío. Guardar la URL de origen en sessionStorage antes de redirigir a login, y consumirla después del login exitoso.
+
+Precauciones:
+
+El campo Teléfono debe enviarse al backend. Verificar que el endpoint POST /api/auth/register ya lo acepta — según el schema de Prisma, phone existe en el model User pero el endpoint actual no lo recibe. Esto requiere un ajuste mínimo en el backend antes de implementar el frontend.
+Los checkboxes de términos deben persistir su estado de aceptación. El backend ya tiene privacyConsentedAt en el schema — conectarlo al momento del registro.
+
+
+Fase 3 — UI Global: Notificaciones y Estado de Avatar
+Mejoras de retención. Van después de auth porque requieren usuario autenticado.
+Problemas que resuelve: #1.3 (Notificaciones dropdown), #1.4 (Avatar en tiempo real)
+Archivos a modificar:
+
+Componente de campana/notificaciones en el Header
+Contexto de autenticación o estado global (useAuth / Context API o Zustand)
+Componente Header
+
+Objetivo técnico por ítem:
+
+Notificaciones dropdown: al hacer click en la campana, abrir un dropdown (no página, no modal invasivo) de máximo 320px de ancho y 400px de alto con scroll interno. Mostrar las últimas 5 notificaciones con: ícono por tipo, título, tiempo relativo ("hace 5 min") y estado leído/no leído. Click en una notificación la marca como leída y navega al recurso correspondiente.
+Avatar en tiempo real: cuando el usuario actualiza su foto de perfil, el nuevo avatarUrl debe propagarse al estado global inmediatamente sin requerir reload. Si el estado de auth vive en Context, actualizar el objeto user en el contexto directamente desde el handler de éxito del upload.
+
+Precauciones:
+
+El dropdown de notificaciones debe cerrarse al hacer click fuera de él (useEffect con listener en document). Sin esto, queda abierto y bloquea la UI.
+El polling de notificaciones (si se implementa) debe tener un intervalo mínimo de 30 segundos para no saturar el backend. No usar polling menor a eso sin WebSockets.
+
+
+Fase 4 — Dashboards (Profesional y Cliente)
+Retención de usuarios ya registrados. Va después de que el flujo de captación esté sólido.
+Problemas que resuelve: #4.1 (limpieza UI profesional), #4.2 (métricas reales), #4.3 (Stripe en ajustes), #4.4 (dashboard cliente), #4.5 (gestión de citas)
+Archivos a modificar:
+
+Dashboard Profesional (componente principal + tabs)
+Dashboard Cliente
+Componente de gestión de citas
+Página de Ajustes (nueva sección Stripe)
+
+Objetivo técnico por ítem:
+
+Limpieza profesional: eliminar botones "Exportar" y "Últimos 30 días" del DOM — no ocultarlos con CSS, eliminarlos. Eliminar la pestaña "Estadísticas" y consolidar su contenido útil en "Tablero".
+Métricas reales: conectar los contadores a los endpoints reales: citas agendadas desde GET /api/appointments/my, vistas de perfil (retornar null hasta tener la tabla — ya lo hicimos en Fase 2 del backend). Mostrar "Próximamente" en lugar de datos inventados.
+Stripe: mover la configuración de Stripe Connect a una nueva sección dentro de /settings o /ajustes. En el Dashboard solo mostrar un indicador de estado ("Pagos activos ✓" o "Configura tus pagos →").
+Dashboard cliente: mostrar historial de citas desde GET /api/appointments/my. Formulario de edición de perfil (nombre, teléfono, avatar). Botón "Ofrecer servicios" debe llevar a /verification o al formulario de alta de profesional — no a /login si ya está autenticado.
+Gestión de citas profesional: ordenar por scheduledAt DESC (más reciente arriba). Click en nombre del cliente abre un panel lateral (drawer) con datos básicos: nombre, foto, fecha de registro, número de citas previas. Fix del bug de congelamiento al cancelar: deshabilitar el botón durante el request y rehabilitarlo en el finally.
+
+Precauciones:
+
+Eliminar la pestaña "Estadísticas" puede romper rutas si hay links directos a #estadisticas o /dashboard?tab=estadisticas. Buscar todas las referencias antes de eliminar.
+El drawer de perfil del cliente requiere un endpoint que devuelva datos básicos del usuario por ID. Verificar si existe o si hay que crearlo antes de implementar el frontend.
+
+
+Fase 5 — Perfil del Profesional y Disponibilidad
+Cierre de citas. Va después de dashboards porque depende de que la disponibilidad esté bien configurada.
+Problemas que resuelve: #5.1 (restructuración visual del perfil), #5.2 (UI de disponibilidad), #5.3 (protección de horarios en tiempo real), #5.4 (sección Categorías)
+Archivos a modificar:
+
+Página de perfil público del profesional
+Componente AvailabilitySelector (ya refactorizado en Fase 4 del backend)
+Componente de configuración de disponibilidad (en Dashboard profesional)
+
+Objetivo técnico por ítem:
+
+Restructuración visual: layout de dos columnas en desktop (info + booking), una columna en mobile (info arriba, booking abajo). Jerarquía clara: foto → nombre → título → rating → precio → bio → portfolio → disponibilidad.
+UI de disponibilidad: en el dashboard del profesional, mostrar la semana como 7 toggles (Lun–Dom). Al activar un día, aparecer dos selectores de hora (inicio–fin). Guardar con un solo botón "Guardar horarios". Estado visual claro: día activo vs inactivo.
+Protección de horarios: al completar una reserva, el slot desaparece de la lista disponible. Esto ya está protegido en el backend con el @@unique. En el frontend, después de un booking exitoso, refrescar los slots disponibles llamando nuevamente a useAvailability o invalidando el cache local.
+Categorías: evaluar durante la implementación. Si la categoría ya se muestra como badge en la tarjeta del directorio y en el perfil, la sección separada es redundante. Propuesta: mostrarla como un chip/badge en el header del perfil, no como sección.
+
+Precauciones:
+
+La protección de horarios en tiempo real (que el slot desaparezca para otros usuarios) requeriría WebSockets o polling. Para esta fase, implementar la solución simple: refrescar disponibilidad cada vez que se abre el selector. WebSockets es una mejora futura.
+
+
+Fase 6 — Chat, Bots y Soporte
+La más compleja. Va al final porque no bloquea el flujo principal de captación y cierre de citas.
+Problemas que resuelve: #6.1 (bugs visuales del chat), #6.2 (bot del perfil), #6.3 (bot de soporte flotante), #6.4 (historial de mensajes con eliminación)
+Archivos a modificar:
+
+Componente de Chat
+Bot del perfil del profesional
+Nuevo componente: burbuja de soporte flotante
+Vista de historial de conversaciones en Dashboard
+
+Objetivo técnico por ítem:
+
+Bugs visuales: fix del layout del input+botón (flexbox con flex: 1 en el input). Fix del auto-scroll: usar scrollIntoView solo en el contenedor del chat, no en window.
+Bot del perfil: reducir el scope conversacional a 4 flujos únicamente: saludo → pregunta de servicio → mostrar disponibilidad real → ofrecer agendar. Si el usuario sale de ese flujo, redirigir de vuelta. Conectar disponibilidad real desde useAvailability.
+Bot de soporte flotante: burbuja fija en bottom: 24px, right: 24px. Al hacer click abre un panel de 360px. Rol estrictamente de soporte técnico de la plataforma. Si no puede resolver, mostrar formulario: asunto + descripción + botón "Enviar ticket" que hace POST a un endpoint de soporte o abre un mailto estructurado.
+Historial con eliminación: en el Dashboard mostrar lista de conversaciones con: avatar del contacto, último mensaje, fecha. Botón de eliminar con confirmación antes de ejecutar. El delete debe ser del lado del cliente únicamente (marcar como eliminado para ese usuario, no borrar mensajes del otro).
+
+Precauciones:
+
+La eliminación de chat "solo para el usuario" requiere un campo deletedBy String[] o similar en el model Message o Conversation. Esto es un cambio de schema — coordinar con el backend antes de implementar el frontend.
+El bot de soporte no debe tener acceso a datos del usuario ni al historial de citas. Su contexto debe estar completamente aislado del bot del perfil.
+
+
+Resumen Visual del Plan
+Fase 0 — Sistema de Diseño (tokens, breakpoints, contraste)
+      ↓
+Fase 1 — Landing + Directorio (captación, primera impresión)
+      ↓
+Fase 2 — Auth: Login + Registro (conversión de visitante a usuario)
+      ↓
+Fase 3 — Notificaciones + Avatar global (retención temprana)
+      ↓
+Fase 4 — Dashboards Cliente y Profesional (retención avanzada)
+      ↓
+Fase 5 — Perfil Profesional + Disponibilidad (cierre de citas)
+      ↓
+Fase 6 — Chat + Bots + Soporte (experiencia completa)
+
+Dos dependencias de backend que hay que resolver antes de codificar frontend:
+Fase FrontendQué necesita del backendAcciónFase 2POST /api/auth/register debe aceptar phone y privacyConsentedAtAjuste mínimo en auth.tsFase 6Eliminación de chat por usuario requiere cambio de schemaAgregar deletedFor String[] en Message
+
+¿Apruebas este plan o quieres ajustar el alcance de alguna fase antes de empezar con Fase 0?Dijiste: Tenemos luz verde total para ejecutar este plan maestro.Tenemos luz verde total para ejecutar este plan maestro.6:10 a.m.Claude respondió: Perfecto.Perfecto. Misma metodología que el backend: un archivo a la vez, sólido y verificable.
+Antes de tocar cualquier componente, necesito ver exactamente qué tienes hoy en el sistema de diseño para no sobreescribir nada útil.
+¿Puedes compartir el contenido de tu archivo de variables CSS global? Generalmente es algo como:
+
+src/styles/globals.css
+src/index.css
+src/styles/variables.css
+O el archivo raíz donde defines tus --variables
+
+Pega el contenido completo de ese archivo y también dime qué framework de estilos estás usando exactamente — ¿CSS puro, Tailwind, styled-components, CSS Modules, o una combinación?
+Con eso arranco la Fase 0 sin asumir nada.6:18 a.m.Claude respondió: Perfecto.Perfecto. Tengo todo lo que necesito. El sistema de diseño está más completo de lo que esperaba — tokens sólidos, breakpoints definidos, tipografía consistente. Esto cambia el alcance de la Fase 0.
+Antes de escribir una línea, déjame hacer el diagnóstico honesto de lo que hay:
+
+Lo que YA está bien y no tocamos:
+
+Tokens de color completos y bien nombrados
+Breakpoints en 1024px y 768px con overrides correctos
+Sistema de radii, shadows y glass consistente
+Reset CSS limpio
+Safe area para iPhone con notch
+Clases utilitarias funcionales
+
+Lo que SÍ necesita Fase 0:
+Tres problemas concretos que afectan todas las fases siguientes:
+
+--outline y --outline-variant tienen contraste insuficiente — rgba(0,0,0,0.04) y rgba(0,0,0,0.08) son casi invisibles en fondos blancos. Cualquier borde o separador desaparece en mobile bajo luz solar.
+Falta un breakpoint intermedio — el salto de 1024px a 768px es demasiado brusco. Entre tablet landscape (1024px) y tablet portrait (768px) hay layouts rotos. Necesitamos 900px.
+No existe @keyframes slideUp — FloatingChatButton en HomePage.jsx referencia animation: slideUp 0.4s ease pero esa keyframe no está definida en style.css. El botón aparece sin animación y genera un warning silencioso.
+@keyframes pulse — ProfessionalSkeleton usa animation: pulse 1.5s que tampoco está definido.
+
+
+Estos cuatro fixes son quirúrgicos — no reescriben nada, solo agregan y corrigen. ¿Arrancamos con Fase 0 ahora mismo?

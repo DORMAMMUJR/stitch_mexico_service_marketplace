@@ -37,7 +37,7 @@ export function DashboardPage() {
   const avatarInputRef = React.useRef(null);
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, updateUser } = useAuth();
 
   const handleLogout = async () => {
     await logout();
@@ -46,22 +46,24 @@ export function DashboardPage() {
 
   const handleCancelAppointment = async (appointmentId) => {
     if (!window.confirm('¿Estás seguro de que deseas cancelar esta cita?')) return;
-
+    // Deshabilitar el botón optimistamente para evitar doble-click / congelamiento
+    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: true } : a));
     try {
       const res = await fetch(`/api/appointments/${appointmentId}/cancel`, {
         method: 'PATCH',
         credentials: 'include',
       });
       const data = await res.json();
-
       if (res.ok) {
         showToast('Cita cancelada con éxito', 'success');
-        setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: 'CANCELLED' } : a));
+        setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: 'CANCELLED', _cancelling: false } : a));
       } else {
+        // Revertir el estado de carga si falla
+        setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: false } : a));
         showToast(data.error || 'Error al cancelar la cita', 'error');
       }
     } catch (err) {
-      console.error(err);
+      setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: false } : a));
       showToast('Error de conexión', 'error');
     }
   };
@@ -207,8 +209,11 @@ export function DashboardPage() {
 
       if (response.ok) {
         const result = await response.json();
-        // Actualizar la vista previa con la URL real del servidor
-        if (result.avatarUrl) setAvatarPreview(result.avatarUrl);
+        if (result.avatarUrl) {
+          setAvatarPreview(result.avatarUrl);
+          // Propagar el nuevo avatar al estado global (Navbar, Header, etc.) sin recarga
+          updateUser({ avatarUrl: result.avatarUrl });
+        }
         showToast('¡Foto de perfil actualizada!', 'success');
       } else {
         // Revertir vista previa si falló
@@ -399,9 +404,6 @@ export function DashboardPage() {
             <button onClick={() => setActiveTab('messages')} className={`sidebar-link ${activeTab === 'messages' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>forum</span> Mensajes
             </button>
-            <button onClick={() => setActiveTab('stats')} className={`sidebar-link ${activeTab === 'stats' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>insights</span> Estadísticas
-            </button>
             <button onClick={() => setActiveTab('finance')} className={`sidebar-link ${activeTab === 'finance' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>account_balance_wallet</span> Finanzas
             </button>
@@ -429,8 +431,17 @@ export function DashboardPage() {
             <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Rendimiento</h1>
           </div>
           <div className="dashboard-header-actions hide-mobile">
-            <button onClick={(e) => { e.preventDefault(); showToast('Mostrando últimos 30 días', 'info'); }} className="btn btn-outline"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>calendar_today</span> Últimos 30 Días</button>
-            <button onClick={(e) => { e.preventDefault(); showToast('Exportando datos en formato CSV...', 'success'); }} className="btn btn-secondary"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span> Exportar</button>
+            {/* Indicador de estado Stripe compacto — el botón de configuración vive en la pestaña Finanzas */}
+            {stripeStatus && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.875rem', background: stripeStatus.connected && stripeStatus.payoutsEnabled ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)', borderRadius: 'var(--radius-full)', border: `1px solid ${stripeStatus.connected && stripeStatus.payoutsEnabled ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)'}` }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '14px', color: stripeStatus.connected && stripeStatus.payoutsEnabled ? '#16a34a' : '#dc2626' }}>
+                  {stripeStatus.connected && stripeStatus.payoutsEnabled ? 'check_circle' : 'warning'}
+                </span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: stripeStatus.connected && stripeStatus.payoutsEnabled ? '#16a34a' : '#dc2626' }}>
+                  Pagos {stripeStatus.connected && stripeStatus.payoutsEnabled ? 'activos' : 'sin configurar'}
+                </span>
+              </div>
+            )}
           </div>
         </header>
 
@@ -482,31 +493,24 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* Banner Stripe Connect */}
-        {stripeStatus && (!stripeStatus.connected || !stripeStatus.payoutsEnabled) && (
+        {/* Indicador Stripe Connect — la configuración completa vive en la pestaña Finanzas */}
+        {stripeStatus && !stripeStatus.connected && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '1rem',
-            padding: '1.25rem 1.5rem',
+            padding: '1rem 1.5rem',
             background: 'var(--surface-container)',
             borderRadius: 'var(--radius-xl)',
             border: '1px solid var(--outline-variant)',
             marginBottom: '2rem',
           }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#6366f1' }}>payments</span>
-            <div style={{ flex: 1 }}>
-              <h4 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>
-                Configura tus pagos
-              </h4>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
-                Conecta tu cuenta bancaria con Stripe para poder recibir pagos por tus servicios.
-              </p>
-            </div>
-            <button onClick={handleStripeConnect} className="btn btn-primary" style={{ background: '#6366f1', borderColor: '#6366f1', color: '#fff', fontSize: '0.8125rem', flexShrink: 0 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>account_balance</span>
-              Conectar Stripe
-            </button>
+            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#6366f1' }}>payments</span>
+            <p style={{ flex: 1, fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
+              Configura tus pagos en{' '}
+              <button onClick={() => setActiveTab('finance')} style={{ background: 'none', border: 'none', color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}>Finanzas</button>
+              {' '}para recibir cobros.
+            </p>
           </div>
         )}
 
@@ -610,13 +614,16 @@ export function DashboardPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                       <span className={`badge ${app.status === 'SCHEDULED' ? 'badge-blue' : ''}`}>{app.status}</span>
                       {app.status === 'SCHEDULED' && (
-                        <button 
+                        <button
                           onClick={() => handleCancelAppointment(app.id)}
+                          disabled={app._cancelling}
                           className="btn btn-outline"
-                          style={{ borderColor: 'var(--error)', color: 'var(--error)', fontSize: '0.75rem', padding: '0.5rem 0.75rem' }}
+                          style={{ borderColor: 'var(--error)', color: 'var(--error)', fontSize: '0.75rem', padding: '0.5rem 0.75rem', opacity: app._cancelling ? 0.5 : 1 }}
                         >
-                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>cancel</span>
-                          Cancelar
+                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                            {app._cancelling ? 'progress_activity' : 'cancel'}
+                          </span>
+                          {app._cancelling ? 'Cancelando...' : 'Cancelar'}
                         </button>
                       )}
                     </div>

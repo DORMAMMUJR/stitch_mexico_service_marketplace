@@ -5,15 +5,22 @@ import { useAuth } from '../hooks/useAuth';
 export function NavbarIntecnia({ activePage }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState([]);
+  const [notifsLoading, setNotifsLoading] = useState(false);
   const { isAuthenticated, logout, user } = useAuth();
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
+  const notifRef = useRef(null);
 
   // Cerrar el dropdown al hacer click fuera de él
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setProfileOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -24,8 +31,27 @@ export function NavbarIntecnia({ activePage }) {
     setProfileOpen(false);
     setMobileOpen(false);
     await logout();
-    // logout() limpia el estado; navigate asegura la redirección
     navigate('/login');
+  };
+
+  // Fetch notificaciones al abrir el dropdown
+  const handleNotifToggle = async () => {
+    const willOpen = !notifOpen;
+    setNotifOpen(willOpen);
+    if (willOpen && notifs.length === 0) {
+      setNotifsLoading(true);
+      try {
+        const res = await fetch('/api/notifications?limit=5', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setNotifs(data.notifications || []);
+        }
+      } catch (_) {
+        // silencioso — el estado vacío ya cubre este caso
+      } finally {
+        setNotifsLoading(false);
+      }
+    }
   };
 
   // Ruta del dashboard unificada
@@ -40,7 +66,7 @@ export function NavbarIntecnia({ activePage }) {
             <span style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', letterSpacing: '-0.02em' }}>Intecnia</span>
           </Link>
           <div style={{ display: 'flex', gap: '0.25rem' }} className="hide-mobile">
-            <Link to="/" className={`nav-link ${activePage === 'marketplace' ? 'active' : ''}`}>Marketplace</Link>
+            <Link to="/" className={`nav-link ${activePage === 'home' ? 'active' : ''}`}>Inicio</Link>
             <Link to="/directory" className={`nav-link ${activePage === 'directory' ? 'active' : ''}`}>Directorio</Link>
             <Link to="/categories" className={`nav-link ${activePage === 'categories' ? 'active' : ''}`}>Categorías</Link>
           </div>
@@ -65,17 +91,114 @@ export function NavbarIntecnia({ activePage }) {
                 </Link>
               )}
 
-              {/* Ícono de notificaciones — punto rojo solo si hay notificaciones no leídas */}
-              <Link
-                to={`${dashboardPath}?tab=notifications`}
-                style={{ padding: '0.5rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center', position: 'relative', textDecoration: 'none' }}
-                title="Notificaciones"
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>notifications</span>
-                {user?.hasUnreadNotifications && (
-                  <span style={{ position: 'absolute', top: '6px', right: '6px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--error)', border: '2px solid var(--surface-container-lowest)' }} />
+              {/* Ícono de notificaciones */}
+              <div ref={notifRef} style={{ position: 'relative' }}>
+                <button
+                  id="navbar-notif-btn"
+                  onClick={handleNotifToggle}
+                  style={{ padding: '0.5rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center', position: 'relative', background: 'none', border: 'none', cursor: 'pointer' }}
+                  title="Notificaciones"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>notifications</span>
+                  {(user?.hasUnreadNotifications || notifs.some(n => !n.read)) && (
+                    <span style={{ position: 'absolute', top: '6px', right: '6px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--error)', border: '2px solid var(--surface-container-lowest)' }} />
+                  )}
+                </button>
+
+                {notifOpen && (
+                  <div
+                    id="navbar-notif-dropdown"
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 0.75rem)',
+                      right: 0,
+                      width: '320px',
+                      maxHeight: '400px',
+                      overflowY: 'auto',
+                      background: 'var(--surface-container-lowest)',
+                      border: '1px solid var(--outline-variant)',
+                      borderRadius: 'var(--radius-xl)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                      zIndex: 1000,
+                      animation: 'fadeInDown 0.15s ease',
+                    }}
+                  >
+                    {/* Header */}
+                    <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--outline-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <p style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.875rem', color: 'var(--primary)' }}>Notificaciones</p>
+                      {notifs.length > 0 && (
+                        <button
+                          onClick={() => setNotifs(prev => prev.map(n => ({ ...n, read: true })))}
+                          style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: 'var(--secondary)', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                          Marcar todas leídas
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Body */}
+                    {notifsLoading ? (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '28px', display: 'block', marginBottom: '0.5rem', animation: 'spin 1s linear infinite' }}>progress_activity</span>
+                        <span style={{ fontSize: '0.8125rem' }}>Cargando...</span>
+                      </div>
+                    ) : notifs.length === 0 ? (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '32px', display: 'block', marginBottom: '0.5rem' }}>notifications_none</span>
+                        Estás al día
+                      </div>
+                    ) : (
+                      <div>
+                        {notifs.map((n) => (
+                          <div
+                            key={n.id}
+                            style={{
+                              padding: '0.875rem 1.25rem',
+                              borderBottom: '1px solid var(--outline-variant)',
+                              display: 'flex',
+                              gap: '0.75rem',
+                              alignItems: 'flex-start',
+                              background: n.read ? 'transparent' : 'rgba(45,188,254,0.04)',
+                              cursor: 'default',
+                            }}
+                          >
+                            <span
+                              className="material-symbols-outlined"
+                              style={{ fontSize: '18px', color: 'var(--secondary)', flexShrink: 0, marginTop: '2px' }}
+                            >
+                              {n.type === 'APPOINTMENT' ? 'event' : n.type === 'MESSAGE' ? 'chat' : 'info'}
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface)', lineHeight: 1.4, marginBottom: '0.25rem' }}>
+                                {n.message || n.title}
+                              </p>
+                              <p style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)' }}>
+                                {n.createdAt ? new Date(n.createdAt).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                              </p>
+                            </div>
+                            {!n.read && (
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--secondary)', flexShrink: 0, marginTop: '5px' }} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Footer */}
+                    {notifs.length > 0 && (
+                      <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid var(--outline-variant)', textAlign: 'center' }}>
+                        <Link
+                          to={`${dashboardPath}?tab=notifications`}
+                          onClick={() => setNotifOpen(false)}
+                          style={{ fontSize: '0.8125rem', color: 'var(--secondary)', fontWeight: 600, textDecoration: 'none' }}
+                        >
+                          Ver todas las notificaciones
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 )}
-              </Link>
+              </div>
 
               {/* Avatar con dropdown de perfil (desktop) */}
               <div
@@ -245,7 +368,7 @@ export function NavbarIntecnia({ activePage }) {
 
       {/* Mobile Menu */}
       <div className={`mobile-menu ${mobileOpen ? 'open' : ''}`}>
-        <Link to="/" className="nav-link" onClick={() => setMobileOpen(false)}>Marketplace</Link>
+        <Link to="/" className="nav-link" onClick={() => setMobileOpen(false)}>Inicio</Link>
         <Link to="/directory" className="nav-link" onClick={() => setMobileOpen(false)}>Directorio</Link>
         <Link to="/categories" className="nav-link" onClick={() => setMobileOpen(false)}>Categorías</Link>
 

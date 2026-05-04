@@ -9,17 +9,9 @@ export function VisoBot() {
   const [step, setStep] = useState('greeting');
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState([]);
+  const [service, setService] = useState('');
   const messagesEndRef = useRef(null);
-
-  const [data, setData] = useState({
-    service: '',
-    location: '',
-    date: '',
-    time: '',
-    provider: null
-  });
-
-  const [professionals, setProfessionals] = useState([]);
+  const messagesContainerRef = useRef(null);
 
   const addBotMessage = (text, options = null) => {
     setIsTyping(true);
@@ -33,147 +25,55 @@ export function VisoBot() {
     setMessages(prev => [...prev, { id: Date.now(), sender: 'user', text }]);
   };
 
+  // Auto-scroll al contenedor, NO a window
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      addBotMessage(
-        "👋 Hola, soy Viso.\nTe ayudo a encontrar y agendar con un profesional en minutos.\n¿Qué necesitas hoy?"
-      );
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
 
+  // Paso 1: Saludo al abrir
+  useEffect(() => {
+    if (isOpen && messages.length === 0) {
+      addBotMessage(
+        '👋 Hola, soy Viso.\nTe ayudo a agendar con un profesional en minutos.\n¿Qué servicio estás buscando?'
+      );
+      setStep('service');
+    }
+  }, [isOpen]);
+
+  // Paso 2: el usuario escribe qué busca
   const handleInputSubmit = (text) => {
     if (!text.trim()) return;
     addUserMessage(text);
-    
-    if (step === 'greeting') {
-      setData(prev => ({ ...prev, service: text }));
-      setStep('location');
-      addBotMessage("Perfecto 👍\n¿En qué zona te encuentras?");
-    } else if (step === 'location') {
-      setData(prev => ({ ...prev, location: text }));
-      setStep('date');
-      addBotMessage("📅 ¿Para qué día necesitas la cita?", [
-        { label: 'Hoy', value: 'Hoy' },
-        { label: 'Mañana', value: 'Mañana' },
-        { label: 'Elegir fecha', value: 'Otra fecha' }
-      ]);
+    if (step === 'service') {
+      setService(text);
+      setStep('availability');
+      addBotMessage(
+        `🔍 Buscaré a los mejores en "${text}" para ti.`,
+        [
+          { label: 'Ver disponibilidad en el directorio', value: 'directory' },
+          { label: user ? 'Ver mis citas' : 'Crear cuenta gratis', value: user ? 'dashboard' : 'register' },
+        ]
+      );
     }
   };
 
-  const handleOptionSelect = async (option) => {
+  // Paso 3 y 4: navegación por opciones del bot
+  const handleOptionSelect = (option) => {
     addUserMessage(option.label);
-
-    if (step === 'date') {
-      setData(prev => ({ ...prev, date: option.value }));
-      setStep('time');
-      addBotMessage("⏰ ¿A qué hora te gustaría?", [
-        { label: '10:00 am', value: '10:00' },
-        { label: '12:00 pm', value: '12:00' },
-        { label: '4:00 pm', value: '16:00' }
-      ]);
-    } else if (step === 'time') {
-      setData(prev => ({ ...prev, time: option.value }));
-      setStep('provider');
-      addBotMessage("Buscando opciones... ⏳");
-      
-      try {
-        // Fetch real professionals
-        const res = await fetch(`/api/professionals?limit=3&q=${encodeURIComponent(data.service)}`);
-        let profs = await res.json();
-        if (!Array.isArray(profs) || profs.length === 0) {
-            // fallback if no real search matches
-            const fallbackRes = await fetch(`/api/professionals?limit=3`);
-            profs = await fallbackRes.json();
-        }
-
-        if (Array.isArray(profs) && profs.length > 0) {
-            const topProfs = profs.slice(0, 3);
-            setProfessionals(topProfs);
-            
-            // La API de /api/professionals devuelve { id, name, title, rating, ... }
-            // NO tiene objeto .user anidado — es una respuesta formateada
-            const options = topProfs.map(p => ({
-                label: `Elegir a ${p.name || 'Profesional'}`,
-                value: p
-            }));
-
-            let text = "Encontré estas opciones disponibles 👇\n\n";
-            topProfs.forEach(p => {
-                text += `${p.name || 'Profesional'} ⭐ ${p.rating || '5.0'} - Disponible hoy\n`;
-            });
-
-            addBotMessage(text, options);
-        } else {
-            addBotMessage("Lo siento, no encontré profesionales disponibles en este momento.");
-        }
-      } catch (err) {
-        addBotMessage("Hubo un error buscando profesionales.");
-      }
-    } else if (step === 'provider') {
-      setData(prev => ({ ...prev, provider: option.value }));
-      setStep('confirm');
-      addBotMessage(`Perfecto 👍\nAgendamos con **${option.value.name || 'el profesional'}** el **${data.date}** a las **${data.time}**`, [
-        { label: 'Confirmar cita', value: 'confirm' },
-        { label: 'Cambiar horario', value: 'change' }
-      ]);
-    } else if (step === 'confirm') {
-      if (option.value === 'change') {
-        setStep('date');
-        addBotMessage("📅 ¿Para qué día necesitas la cita?", [
-          { label: 'Hoy', value: 'Hoy' },
-          { label: 'Mañana', value: 'Mañana' },
-          { label: 'Elegir fecha', value: 'Otra fecha' }
-        ]);
-        return;
-      }
-
-      // Save appointment
-      setStep('done');
-      addBotMessage("Guardando cita... ⏳");
-      
-      try {
-        let guestId = localStorage.getItem('guest_id');
-        if (!user && !guestId) {
-            guestId = `guest_${Date.now()}`;
-            localStorage.setItem('guest_id', guestId);
-        }
-
-        await fetch("/api/appointments", {
-          method: "POST",
-          credentials: 'include',
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            client_id: user?.id || guestId,
-            professionalId: data.provider.id,
-            service: data.service,
-            date: data.date,
-            time: data.time
-          })
-        });
-
-        if (!user) {
-            addBotMessage("🔒 Para confirmar tu cita, crea tu cuenta en segundos.", [
-                { label: 'Crear cuenta', value: 'register', action: () => navigate('/register') }
-            ]);
-        } else {
-            addBotMessage("✅ Tu cita ha sido agendada.\nLa verás en tu dashboard.", [
-                { label: 'Ir al dashboard', value: 'dashboard', action: () => navigate('/dashboard') }
-            ]);
-        }
-      } catch (err) {
-        addBotMessage("Error al guardar la cita. Intenta de nuevo.");
-      }
-    } else if (step === 'done') {
-        if (option.action) {
-            option.action();
-            setIsOpen(false);
-        }
+    if (option.value === 'directory') {
+      addBotMessage('👍 Te llevo ahora. ¡Hasta pronto!');
+      setTimeout(() => {
+        navigate(`/directory?q=${encodeURIComponent(service)}`);
+        setIsOpen(false);
+      }, 700);
+    } else if (option.value === 'dashboard') {
+      navigate(user?.role === 'PROFESSIONAL' ? '/dashboard' : '/mis-solicitudes');
+      setIsOpen(false);
+    } else if (option.value === 'register') {
+      navigate('/register');
+      setIsOpen(false);
     }
   };
 
@@ -296,7 +196,10 @@ export function VisoBot() {
           </div>
 
           {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: 'var(--surface-container-lowest)' }}>
+          <div
+            ref={messagesContainerRef}
+            style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: 'var(--surface-container-lowest)' }}
+          >
             {messages.map(renderBubble)}
             
             {isTyping && (

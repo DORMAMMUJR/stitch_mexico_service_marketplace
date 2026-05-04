@@ -11,7 +11,7 @@ export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
 
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -62,9 +62,9 @@ export function LoginPage() {
 
       login(null, data.user); // El token viene en la cookie HttpOnly, no en el body de la respuesta
 
-      const returnUrl = localStorage.getItem('returnUrl');
+      const returnUrl = sessionStorage.getItem('returnUrl');
       if (returnUrl) {
-        localStorage.removeItem('returnUrl');
+        sessionStorage.removeItem('returnUrl');
         navigate(returnUrl, { replace: true });
         return;
       }
@@ -113,7 +113,7 @@ export function LoginPage() {
         <div style={{ position: 'absolute', top: '10%', left: '20%', width: '300px', height: '300px', background: 'var(--secondary)', filter: 'blur(120px)', opacity: 0.1, borderRadius: '50%' }}></div>
         <div style={{ position: 'absolute', bottom: '10%', right: '20%', width: '300px', height: '300px', background: 'var(--primary-fixed)', filter: 'blur(120px)', opacity: 0.1, borderRadius: '50%' }}></div>
 
-        <div className="card animate-in stagger-1" style={{ width: '100%', maxWidth: '440px', padding: '2.5rem', position: 'relative', zIndex: 1, backdropFilter: 'blur(16px)', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+        <div className="card animate-in stagger-1" style={{ width: '100%', maxWidth: '420px', padding: 'clamp(1.5rem, 5vw, 2.5rem)', position: 'relative', zIndex: 1, backdropFilter: 'blur(16px)', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <h1 style={{ fontFamily: 'Manrope', fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Bienvenido de nuevo</h1>
             <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem' }}>Ingresa tus credenciales para continuar</p>
@@ -175,32 +175,16 @@ export function LoginPage() {
               )}
             </button>
 
-            {/* Demo Mode divider */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.25rem 0' }}>
-              <div style={{ flex: 1, height: '1px', background: 'var(--outline-variant)' }} />
-              <span style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', whiteSpace: 'nowrap' }}>o accede sin cuenta</span>
-              <div style={{ flex: 1, height: '1px', background: 'var(--outline-variant)' }} />
+            <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={handleDemoLogin}
+                disabled={isDemo}
+                style={{ background: 'none', border: 'none', color: 'var(--on-surface-variant)', fontSize: '0.75rem', textDecoration: 'underline', cursor: 'pointer', opacity: 0.6, padding: 0 }}
+              >
+                {isDemo ? 'Iniciando demo...' : 'Entrar en Modo Explorador (sin cuenta)'}
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={handleDemoLogin}
-              disabled={isDemo}
-              className="btn"
-              style={{ width: '100%', justifyContent: 'center', padding: '0.875rem', fontSize: '0.9375rem', border: '1.5px solid var(--secondary)', color: 'var(--secondary)', background: 'rgba(45,188,254,0.04)', borderRadius: 'var(--radius-lg)', transition: 'all 0.2s' }}
-            >
-              {isDemo ? (
-                <>
-                  <span className="material-symbols-outlined" style={{ animation: 'spin 1s linear infinite', fontSize: '18px' }}>progress_activity</span>
-                  Preparando demo...
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>science</span>
-                  Entrar en Modo Demostración
-                </>
-              )}
-            </button>
           </form>
 
           <div style={{ textAlign: 'center', marginTop: '2rem' }}>

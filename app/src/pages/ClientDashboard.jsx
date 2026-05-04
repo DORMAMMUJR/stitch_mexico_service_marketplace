@@ -69,22 +69,22 @@ export function ClientDashboard() {
 
   const handleCancelAppointment = async (appointmentId) => {
     if (!window.confirm('¿Estás seguro de que deseas cancelar esta cita?')) return;
-
+    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: true } : a));
     try {
       const res = await fetch(`/api/appointments/${appointmentId}/cancel`, {
         method: 'PATCH',
         credentials: 'include',
       });
       const data = await res.json();
-
       if (res.ok) {
         showToast('Cita cancelada con éxito', 'success');
-        setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: 'CANCELLED' } : a));
+        setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: 'CANCELLED', _cancelling: false } : a));
       } else {
+        setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: false } : a));
         showToast(data.error || 'Error al cancelar la cita', 'error');
       }
     } catch (err) {
-      console.error(err);
+      setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: false } : a));
       showToast('Error de conexión', 'error');
     }
   };
@@ -200,13 +200,16 @@ export function ClientDashboard() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <span className={`badge ${app.status === 'SCHEDULED' ? 'badge-blue' : ''}`}>{app.status}</span>
                     {app.status === 'SCHEDULED' && (
-                      <button 
+                      <button
                         onClick={() => handleCancelAppointment(app.id)}
+                        disabled={app._cancelling}
                         className="btn btn-outline"
-                        style={{ borderColor: 'var(--error)', color: 'var(--error)', fontSize: '0.75rem', padding: '0.5rem 0.75rem' }}
+                        style={{ borderColor: 'var(--error)', color: 'var(--error)', fontSize: '0.75rem', padding: '0.5rem 0.75rem', opacity: app._cancelling ? 0.5 : 1 }}
                       >
-                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>cancel</span>
-                        Cancelar
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                          {app._cancelling ? 'progress_activity' : 'cancel'}
+                        </span>
+                        {app._cancelling ? 'Cancelando...' : 'Cancelar'}
                       </button>
                     )}
                   </div>

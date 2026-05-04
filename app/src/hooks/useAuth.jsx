@@ -40,10 +40,19 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback((token, userData) => {
-    // Guardar datos del usuario en localStorage como caché
     localStorage.setItem('user', JSON.stringify(userData));
-    // El sistema usa exclusivamente la cookie HttpOnly configurada por el backend.
     setUser(userData);
+  }, []);
+
+  // Actualiza campos parciales del usuario (ej. avatarUrl tras subir foto)
+  // Uso: updateUser({ avatarUrl: 'https://...' })
+  const updateUser = useCallback((partialUpdate) => {
+    setUser(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...partialUpdate };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
   }, []);
 
   const logout = useCallback(async () => {
@@ -66,7 +75,7 @@ export function AuthProvider({ children }) {
   const isAuthenticated = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser, isAuthenticated, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

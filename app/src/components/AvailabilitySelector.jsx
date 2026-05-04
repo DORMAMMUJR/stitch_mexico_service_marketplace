@@ -19,6 +19,7 @@ export function AvailabilitySelector({ professionalId }) {
   const [selectedSlot, setSelectedSlot]   = useState(null); // ISO string completo
   const [isLoading, setIsLoading]         = useState(false);
   const [message, setMessage]             = useState(null);
+  const [bookedSlots, setBookedSlots]     = useState(new Set()); // Slots ya agendados en esta sesión
 
   const { isAuthenticated } = useAuth();
   const navigate            = useNavigate();
@@ -109,12 +110,14 @@ export function AvailabilitySelector({ professionalId }) {
         notes: 'Cita agendada desde el perfil profesional.',
       });
 
-      setMessage({ type: 'success', text: '¡Cita agendada con éxito!' });
+      // Marcar el slot como ocupado localmente para que desaparezca del grid
+      // sin necesidad de recargar la página ni llamar al backend de nuevo
+      setBookedSlots(prev => new Set([...prev, selectedSlot]));
+      setMessage({ type: 'success', text: '¡Cita agendada con éxito! Revisa Mis Citas.' });
       setSelectedSlot(null);
-      setSelectedDate(null);
+      // No reseteamos selectedDate para que el usuario vea el día actualizado
+      // (el slot desaparece del grid porque ya está en bookedSlots)
     } catch (err) {
-      // api.post ya maneja el 401 redirigiendo a /login automáticamente.
-      // Aquí solo llegamos con errores de negocio (409, 400, etc.)
       setMessage({ type: 'error', text: err.message });
     } finally {
       setIsLoading(false);
@@ -247,28 +250,38 @@ export function AvailabilitySelector({ professionalId }) {
                   marginBottom:        '2rem',
                 }}
               >
-                {slotsForSelectedDate.map(slot => {
-                  const isSelected = selectedSlot === slot.iso;
-                  return (
-                    <button
-                      key={slot.iso}
-                      onClick={() => setSelectedSlot(slot.iso)}
-                      style={{
-                        padding:      '0.5rem',
-                        borderRadius: 'var(--radius-md)',
-                        border:       isSelected ? 'none' : '1px solid var(--outline-variant)',
-                        background:   isSelected ? 'var(--primary)' : 'transparent',
-                        color:        isSelected ? 'var(--on-primary)' : 'var(--primary)',
-                        fontSize:     '0.875rem',
-                        fontWeight:   600,
-                        cursor:       'pointer',
-                        transition:   'all 0.2s',
-                      }}
-                    >
-                      {slot.label}
-                    </button>
-                  );
-                })}
+                {slotsForSelectedDate
+                  .filter(slot => !bookedSlots.has(slot.iso)) // Ocultar slots ya agendados en esta sesión
+                  .map(slot => {
+                    const isSelected = selectedSlot === slot.iso;
+                    return (
+                      <button
+                        key={slot.iso}
+                        onClick={() => setSelectedSlot(slot.iso)}
+                        style={{
+                          padding:      '0.5rem',
+                          borderRadius: 'var(--radius-md)',
+                          border:       isSelected ? 'none' : '1px solid var(--outline-variant)',
+                          background:   isSelected ? 'var(--primary)' : 'transparent',
+                          color:        isSelected ? 'var(--on-primary)' : 'var(--primary)',
+                          fontSize:     '0.875rem',
+                          fontWeight:   600,
+                          cursor:       'pointer',
+                          transition:   'all 0.2s',
+                        }}
+                      >
+                        {slot.label}
+                      </button>
+                    );
+                  })
+                }
+                {/* Si todos los slots del día fueron agendados en esta sesión */}
+                {slotsForSelectedDate.length > 0 &&
+                  slotsForSelectedDate.every(slot => bookedSlots.has(slot.iso)) && (
+                  <p style={{ gridColumn: '1 / -1', fontSize: '0.8125rem', color: 'var(--on-surface-variant)', textAlign: 'center', padding: '0.75rem 0' }}>
+                    Todos los horarios de este día han sido agendados.
+                  </p>
+                )}
               </div>
             </>
           )}

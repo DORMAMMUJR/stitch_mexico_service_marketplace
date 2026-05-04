@@ -386,7 +386,7 @@ export function DashboardPage() {
 
           <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <Link to="/" className="sidebar-link" style={{ marginBottom: '1rem', textDecoration: 'none', background: 'var(--primary-container)', color: 'var(--on-primary-container)', borderRadius: 'var(--radius-lg)' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>storefront</span> Ver Marketplace
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>home</span> Inicio
             </Link>
             
             <button onClick={() => setActiveTab('overview')} className={`sidebar-link ${activeTab === 'overview' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
@@ -409,29 +409,24 @@ export function DashboardPage() {
             </button>
           </nav>
 
-        <div style={{ marginTop: 'auto' }}>
-          <div style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-xl)', padding: '1.25rem', textAlign: 'center', marginBottom: '1rem' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '24px', color: 'var(--tertiary-container)', marginBottom: '0.5rem', display: 'block' }}>workspace_premium</span>
-            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>Desbloquea estadísticas avanzadas.</p>
-            <button onClick={(e) => { e.preventDefault(); showToast('Funcionalidad Premium en desarrollo', 'info'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem' }}>Hacerse Premium</button>
+          {/* Botones de acción inferiores del sidebar */}
+          <div style={{ marginTop: 'auto' }}>
+            <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <Link to="/support" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>help</span> Centro de Ayuda</Link>
+              <button onClick={handleLogout} className="sidebar-link" style={{ fontSize: '0.8125rem', border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span> Cerrar Sesión</button>
+            </div>
           </div>
-          <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <Link to="/support" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>help</span> Centro de Ayuda</Link>
-            <button onClick={handleLogout} className="sidebar-link" style={{ fontSize: '0.8125rem', border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span> Cerrar Sesión</button>
-          </div>
-        </div>
       </aside>
 
       {/* Main Content */}
       <main className="dashboard-main">
-        {/* Header */}
-        <header className="flex-between" style={{ marginBottom: '3rem' }}>
-          <div>
-            <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN</p>
-            <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Rendimiento</h1>
-          </div>
-          <div className="dashboard-header-actions hide-mobile">
-            {/* Indicador de estado Stripe compacto — el botón de configuración vive en la pestaña Finanzas */}
+          {/* Header del tablero: solo título + indicador de Stripe compacto */}
+          <header className="flex-between" style={{ marginBottom: '3rem' }}>
+            <div>
+              <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN</p>
+              <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Rendimiento</h1>
+            </div>
+            {/* Indicador de estado Stripe compacto — solo si hay datos */}
             {stripeStatus && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.875rem', background: stripeStatus.connected && stripeStatus.payoutsEnabled ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)', borderRadius: 'var(--radius-full)', border: `1px solid ${stripeStatus.connected && stripeStatus.payoutsEnabled ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)'}` }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '14px', color: stripeStatus.connected && stripeStatus.payoutsEnabled ? '#16a34a' : '#dc2626' }}>
@@ -442,8 +437,7 @@ export function DashboardPage() {
                 </span>
               </div>
             )}
-          </div>
-        </header>
+          </header>
 
         {/* Banner de verificación IN_REVIEW */}
         {data.verificationStatus === 'IN_REVIEW' && (
@@ -493,26 +487,7 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* Indicador Stripe Connect — la configuración completa vive en la pestaña Finanzas */}
-        {stripeStatus && !stripeStatus.connected && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            padding: '1rem 1.5rem',
-            background: 'var(--surface-container)',
-            borderRadius: 'var(--radius-xl)',
-            border: '1px solid var(--outline-variant)',
-            marginBottom: '2rem',
-          }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#6366f1' }}>payments</span>
-            <p style={{ flex: 1, fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-              Configura tus pagos en{' '}
-              <button onClick={() => setActiveTab('finance')} style={{ background: 'none', border: 'none', color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}>Finanzas</button>
-              {' '}para recibir cobros.
-            </p>
-          </div>
-        )}
+        {/* Stripe: info movida a la pestaña Finanzas. Solo mostramos el indicador en el header. */}
 
         {activeTab === 'overview' && (
           <div className="layout-bento">
@@ -554,34 +529,35 @@ export function DashboardPage() {
               </div>
             </div>
 
-            {/* AI Assistant Card */}
-            <div style={{ gridColumn: 'span 2', background: 'var(--primary)', borderRadius: 'var(--radius-2xl)', padding: '2.5rem', position: 'relative', overflow: 'hidden', display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'center' }}>
-              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at top right,var(--primary-container),var(--primary))', opacity: 0.9 }}></div>
+            {/* AI Assistant Card — texto en blanco para contraste correcto sobre fondo oscuro */}
+            <div style={{ gridColumn: 'span 2', background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)', borderRadius: 'var(--radius-2xl)', padding: '2.5rem', position: 'relative', overflow: 'hidden', display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'center' }}>
+              {/* Orbe decorativo */}
+              <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '260px', height: '260px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,188,254,0.18) 0%, transparent 70%)' }} />
               <div style={{ position: 'relative', zIndex: 1, flex: 1, minWidth: '280px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                  <div style={{ width: '2.5rem', height: '2.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <span className="material-symbols-outlined" style={{ color: 'var(--secondary-container)', fontSize: '20px' }}>smart_toy</span>
+                  <div style={{ width: '2.5rem', height: '2.5rem', background: 'rgba(45,188,254,0.15)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(45,188,254,0.3)' }}>
+                    <span className="material-symbols-outlined" style={{ color: '#7dd3fc', fontSize: '20px' }}>smart_toy</span>
                   </div>
-                  <h2 style={{ fontFamily: 'Manrope', fontSize: '1.5rem', fontWeight: 700, color: 'var(--on-primary)', letterSpacing: '-0.01em' }}>Asistencia IA</h2>
+                  <h2 style={{ fontFamily: 'Manrope', fontSize: '1.5rem', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.01em' }}>Asistencia IA</h2>
                 </div>
-                <p style={{ color: 'var(--primary-fixed-dim)', lineHeight: 1.6, maxWidth: '450px', marginBottom: '1rem' }}>
+                <p style={{ color: '#cbd5e1', lineHeight: 1.6, maxWidth: '450px', marginBottom: '1rem' }}>
                   Tu asistente inteligente está gestionando activamente consultas iniciales, calificando prospectos y agendando consultas mientras tú te enfocas en el trabajo.
                 </p>
-                <a href="#" onClick={(e) => { e.preventDefault(); showToast('Configuración del bot en desarrollo', 'info'); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--secondary-container)', textDecoration: 'none' }}>
+                <a href="#" onClick={(e) => { e.preventDefault(); showToast('Configuración del bot en desarrollo', 'info'); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', fontWeight: 600, color: '#7dd3fc', textDecoration: 'none' }}>
                   Configurar Parámetros del Bot <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_forward</span>
                 </a>
               </div>
               <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-2xl)', padding: '1.5rem', minWidth: '160px', textAlign: 'center' }}>
-                  <p style={{ fontFamily: 'Manrope', fontSize: '2.5rem', fontWeight: 700, color: 'var(--on-primary)', letterSpacing: '-0.02em' }}>{data.automatedMessages}</p>
-                  <p style={{ fontSize: '0.8125rem', color: 'var(--primary-fixed-dim)' }}>Mensajes automatizados</p>
+                <div style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 'var(--radius-2xl)', padding: '1.5rem', minWidth: '160px', textAlign: 'center' }}>
+                  <p style={{ fontFamily: 'Manrope', fontSize: '2.5rem', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>{data.automatedMessages}</p>
+                  <p style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>Mensajes automatizados</p>
                 </div>
-                <div style={{ background: 'rgba(45,188,254,0.1)', backdropFilter: 'blur(16px)', border: '1px solid rgba(45,188,254,0.2)', borderRadius: 'var(--radius-2xl)', padding: '1.5rem', minWidth: '160px', textAlign: 'center' }}>
+                <div style={{ background: 'rgba(45,188,254,0.12)', backdropFilter: 'blur(16px)', border: '1px solid rgba(45,188,254,0.25)', borderRadius: 'var(--radius-2xl)', padding: '1.5rem', minWidth: '160px', textAlign: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary-container)' }}>event_available</span>
-                    <p style={{ fontFamily: 'Manrope', fontSize: '2.5rem', fontWeight: 700, color: 'var(--secondary-container)', letterSpacing: '-0.02em' }}>{data.appointmentsScheduled}</p>
+                    <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#7dd3fc' }}>event_available</span>
+                    <p style={{ fontFamily: 'Manrope', fontSize: '2.5rem', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>{data.appointmentsScheduled}</p>
                   </div>
-                  <p style={{ fontSize: '0.8125rem', color: 'var(--primary-fixed-dim)' }}>Citas agendadas</p>
+                  <p style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>Citas agendadas</p>
                 </div>
               </div>
             </div>

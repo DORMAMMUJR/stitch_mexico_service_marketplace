@@ -36,6 +36,12 @@ const PLACEHOLDER_PROFESSIONALS = [
     title: 'Psicóloga Clínica',
     category: 'HEALTH_WELLNESS',
     rating: 4.9,
+    reviews: 38,
+    price: 350,
+    responseTime: '< 5 min',
+    specialties: ['Terapia de pareja', 'Ansiedad', 'Depresión'],
+    initials: 'SR',
+    avatarBg: '#7c3aed',
   },
   {
     id: 'placeholder-2',
@@ -44,6 +50,12 @@ const PLACEHOLDER_PROFESSIONALS = [
     title: 'Abogado Corporativo',
     category: 'LEGAL',
     rating: 4.8,
+    reviews: 21,
+    price: 600,
+    responseTime: '< 10 min',
+    specialties: ['Contratos', 'Litigios', 'Derecho laboral'],
+    initials: 'CM',
+    avatarBg: '#0284c7',
   },
 ];
 
@@ -162,7 +174,7 @@ export function HomePage() {
           <span style={{ color: '#fbbf24' }}>(sin riesgos ni fraudes)</span>
         </h1>
 
-        <p className="animate-in stagger-3" style={{ fontSize: '1.125rem', color: 'var(--primary-fixed-dim)', maxWidth: '560px', margin: '0 auto 2.5rem', lineHeight: 1.7 }}>
+        <p className="animate-in stagger-3" style={{ fontSize: '1.125rem', color: '#e2e8f0', maxWidth: '560px', margin: '0 auto 2.5rem', lineHeight: 1.7 }}>
           Agenda hoy mismo con especialistas verificados en tu zona. Precios claros, identidades reales y trato directo.
         </p>
 
@@ -377,24 +389,55 @@ export function HomePage() {
                   🚀 Estamos creciendo — estos son ejemplos de lo que encontrarás aquí
                 </p>
               </div>
-              {/* Placeholder cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
+              {/* Placeholder cards enriquecidas con señales de confianza */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
                 {PLACEHOLDER_PROFESSIONALS.map(pro => (
-                  <div key={pro.id} className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px dashed var(--outline-variant)', opacity: 0.85 }}>
+                  <div key={pro.id} className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--outline-variant)', transition: 'transform 0.2s, box-shadow 0.2s' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.09)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                  >
+                    {/* Header tarjeta */}
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: 'var(--secondary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: '28px' }}>person</span>
+                      <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: pro.avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'white', fontFamily: 'Manrope', fontWeight: 800, fontSize: '1.125rem' }}>
+                        {pro.initials}
                       </div>
-                      <div>
-                        <p style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '1rem', color: 'var(--primary)' }}>
-                          {pro.user.name}
-                          <span style={{ fontSize: '0.625rem', fontWeight: 600, background: 'var(--tertiary-container)', color: 'var(--on-tertiary-container)', padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)', marginLeft: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ejemplo</span>
-                        </p>
-                        <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', fontWeight: 600 }}>{pro.title}</p>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' }}>
+                          <p style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '1rem', color: 'var(--primary)', margin: 0 }}>{pro.user.name}</p>
+                          <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#10b981' }} title="Verificado">verified</span>
+                          <span style={{ fontSize: '0.6rem', fontWeight: 700, background: '#fef3c7', color: '#92400e', padding: '0.1rem 0.4rem', borderRadius: 'var(--radius-full)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Demo</span>
+                        </div>
+                        <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', fontWeight: 600, marginTop: '0.125rem' }}>{pro.title}</p>
                       </div>
                     </div>
-                    <Link to="/register" className="btn btn-primary" style={{ fontSize: '0.875rem', textAlign: 'center', justifyContent: 'center', padding: '0.75rem' }}>
-                      Únete y encuentra profesionales reales
+
+                    {/* Especialidades */}
+                    <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+                      {pro.specialties.map(s => (
+                        <span key={s} style={{ fontSize: '0.6875rem', fontWeight: 600, background: 'var(--surface-container-low)', color: 'var(--on-surface-variant)', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--outline-variant)' }}>{s}</span>
+                      ))}
+                    </div>
+
+                    {/* Señales de confianza */}
+                    <div style={{ background: '#f0fdf4', borderRadius: 'var(--radius-lg)', padding: '0.875rem', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                          <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#f59e0b' }}>star</span>
+                          <span style={{ fontWeight: 800, fontSize: '0.9375rem', color: '#0f172a' }}>{pro.rating}</span>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>({pro.reviews} reseñas)</span>
+                        </div>
+                        <span style={{ fontSize: '0.875rem', fontWeight: 800, color: '#0f172a' }}>Desde ${pro.price} MXN</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#15803d', fontWeight: 600 }}>
+                        <span style={{ width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%', display: 'inline-block', boxShadow: '0 0 0 2px #dcfce7' }}></span>
+                        Responde en {pro.responseTime} · Verificado con INE y SAT
+                      </div>
+                    </div>
+
+                    {/* CTA */}
+                    <Link to="/register" className="btn btn-primary" style={{ fontSize: '0.875rem', textAlign: 'center', justifyContent: 'center', padding: '0.75rem', fontWeight: 800 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>calendar_add_on</span>
+                      Crear cuenta y agendar
                     </Link>
                   </div>
                 ))}
@@ -495,16 +538,21 @@ export function HomePage() {
             Miles de profesionales verificados listos para trabajar. Sin pagos por adelantado, sin comisiones ocultas, sin fraudes.
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
-            <button onClick={() => { const botBtn = document.querySelector('[data-viso-trigger]'); if (botBtn) botBtn.click(); else navigate('/directory'); }} className="btn btn-primary" style={{ padding: '1rem 2.5rem', fontSize: '1.0625rem', fontWeight: 800, background: '#ea580c', borderColor: '#ea580c', boxShadow: '0 8px 24px rgba(234, 88, 12, 0.4)' }}>
+            <button
+              onClick={() => { const botBtn = document.querySelector('[data-viso-trigger]'); if (botBtn) botBtn.click(); else navigate('/directory'); }}
+              className="btn btn-primary"
+              style={{ padding: '1rem 2.5rem', fontSize: '1.0625rem', fontWeight: 800, background: '#ea580c', borderColor: '#ea580c', boxShadow: '0 8px 24px rgba(234, 88, 12, 0.4)' }}
+            >
               <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>rocket_launch</span>
               Conseguir especialista ahora
             </button>
+            {/* 'Publicar mi servicio' siempre redirige al registro de profesional */}
             <Link
-              to={isAuthenticated ? '/verification' : '/register?role=professional'}
+              to="/register?role=professional"
               className="btn"
               style={{ background: 'transparent', color: 'white', border: '2px solid #334155', padding: '1rem 2.5rem', fontSize: '1.0625rem', fontWeight: 700 }}
             >
-              {isAuthenticated ? 'Ofrecer mis servicios' : 'Soy profesional (Únete gratis)'}
+              Publicar mi servicio (Gratis)
             </Link>
           </div>
           {/* Señales de confianza finales */}

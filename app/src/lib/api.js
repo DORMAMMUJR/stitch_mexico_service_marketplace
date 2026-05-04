@@ -30,12 +30,12 @@ export async function apiFetch(endpoint, options = {}) {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
 
-    // Redirigir al login si no estamos ya ahí
-    if (!window.location.pathname.includes('/login')) {
+    // Redirigir al login si no estamos ya ahí, Y no es una verificación silenciosa
+    if (!window.location.pathname.includes('/login') && !endpoint.includes('/auth/me')) {
       window.location.href = '/login';
     }
 
-    throw new Error('Sesión expirada. Por favor, inicia sesión de nuevo.');
+    throw new Error('Sesión expirada o no autenticada.');
   }
 
   if (!response.ok) {

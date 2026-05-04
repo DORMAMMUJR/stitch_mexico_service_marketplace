@@ -96,14 +96,16 @@ export function VisoBot() {
             const topProfs = profs.slice(0, 3);
             setProfessionals(topProfs);
             
+            // La API de /api/professionals devuelve { id, name, title, rating, ... }
+            // NO tiene objeto .user anidado — es una respuesta formateada
             const options = topProfs.map(p => ({
-                label: `Elegir ${p.user?.name || 'Profesional'}`,
+                label: `Elegir a ${p.name || 'Profesional'}`,
                 value: p
             }));
 
             let text = "Encontré estas opciones disponibles 👇\n\n";
             topProfs.forEach(p => {
-                text += `${p.user?.name || 'Profesional'} ⭐ ${p.rating > 0 ? Number(p.rating).toFixed(1) : '4.8'} - Disponible hoy\n`;
+                text += `${p.name || 'Profesional'} ⭐ ${p.rating || '5.0'} - Disponible hoy\n`;
             });
 
             addBotMessage(text, options);
@@ -116,7 +118,7 @@ export function VisoBot() {
     } else if (step === 'provider') {
       setData(prev => ({ ...prev, provider: option.value }));
       setStep('confirm');
-      addBotMessage(`Perfecto 👍\nAgendamos con **${option.value.user?.name || 'el profesional'}** el **${data.date}** a las **${data.time}**`, [
+      addBotMessage(`Perfecto 👍\nAgendamos con **${option.value.name || 'el profesional'}** el **${data.date}** a las **${data.time}**`, [
         { label: 'Confirmar cita', value: 'confirm' },
         { label: 'Cambiar horario', value: 'change' }
       ]);

@@ -122,7 +122,7 @@ import { professionalsRouter } from './routes/professionals';
 import { ordersRouter } from './routes/orders';
 import { messagesRouter } from './routes/messages';
 import { adminRouter } from './routes/admin';
-import { uploadDoc } from './lib/upload';
+import { verificationRouter } from './routes/verification';
 
 // ─── Servir archivos subidos localmente ──────────────────────────────────────
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -138,7 +138,7 @@ app.use('/api/professionals', professionalsRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/admin', adminRouter);
-app.use('/api/verification', adminRouter); // Para el upload de docs
+app.use('/api/verification', verificationRouter);
 
 // ─── Servir el build del frontend React ──────────────────────────────────────
 const frontendDist = path.join(__dirname, '../public');

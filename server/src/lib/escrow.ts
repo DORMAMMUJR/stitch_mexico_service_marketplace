@@ -106,17 +106,22 @@ export class EscrowStateMachine {
 
     try {
       // Crear la transferencia a la cuenta conectada del profesional
-      const transfer = await stripe.transfers.create({
-        amount: transferAmountCents,
-        currency,
-        destination: order.professional.stripeAccountId,
-        metadata: {
-          orderId: order.id,
-          professionalId: order.professionalId,
-          platformFeeCents: String(platformFeeCents),
-          releaseReason: 'AUTO_RELEASE_72H',
+      const transfer = await stripe.transfers.create(
+        {
+          amount: transferAmountCents,
+          currency,
+          destination: order.professional.stripeAccountId,
+          metadata: {
+            orderId: order.id,
+            professionalId: order.professionalId,
+            platformFeeCents: String(platformFeeCents),
+            releaseReason: 'AUTO_RELEASE_72H',
+          },
         },
-      });
+        {
+          idempotencyKey: `payout-${orderId}`, // ← CRÍTICO: evita doble pago si el cron se ejecuta dos veces
+        }
+      );
 
       console.log(`✅ Payout exitoso para orden ${orderId}: transfer ${transfer.id} | $${(transferAmountCents / 100).toFixed(2)} ${currency.toUpperCase()} → profesional`);
 
@@ -172,7 +177,30 @@ export class EscrowStateMachine {
         // Paso 2: Ejecutar la transferencia real a Stripe Connect
         await this.executePayout(order.id);
       } catch (error: any) {
-        console.error(`   ❌ Error procesando orden ${order.id}:`, error.message);
+        // Si la transición falla con "Invalid transition", la orden ya estaba en PAYOUT_INICIADO
+        // (race condition con otra instancia del servidor). No es un error real.
+        if (error.message?.includes('Invalid transition')) {
+          console.log(`   ⚠️ Orden ${order.id} ya fue procesada por otra instancia.`);
+        } else {
+          console.error(`   ❌ Error procesando orden ${order.id}:`, error.message);
+        }
+      }
+    }
+
+    // Reintentar órdenes con PAYOUT_FALLIDO (las que fallaron en ejecuciones anteriores)
+    const failedOrders = await prisma.order.findMany({
+      where: { status: 'PAYOUT_FALLIDO' }
+    });
+
+    if (failedOrders.length > 0) {
+      console.log(`   🔁 Reintentando ${failedOrders.length} pago(s) fallidos...`);
+      for (const order of failedOrders) {
+        try {
+          await this.transition(order.id, 'PAYOUT_INICIADO', { reason: 'RETRY' });
+          await this.executePayout(order.id);
+        } catch (e: any) {
+          console.error(`   ❌ Retry fallido para orden ${order.id}:`, e.message);
+        }
       }
     }
   }

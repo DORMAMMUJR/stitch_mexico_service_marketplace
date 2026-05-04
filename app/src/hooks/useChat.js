@@ -1,89 +1,115 @@
-import { useState, useCallback, useMemo } from 'react';
-import { getGreeting, getLocalResponse } from '../lib/professionalKnowledge';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from './useAuth';
+import { apiFetch } from '../lib/api';
 
 /**
- * Hook de chat con sistema de 2 niveles:
- * 1. OpenAI API     → Vía backend seguro (/api/chat)
- * 2. Mensaje simple → Si el backend falla, respuesta local
+ * Hook de chat conectado a la API real de messages (/api/messages).
+ * Carga el historial existente y envía mensajes que se persisten en la BD.
+ * Fallback: si el usuario no está autenticado, muestra mensaje de login.
  */
-export function useChat(professionalName, professionalId) {
+export function useChat(professionalName, receiverId) {
   const { user } = useAuth();
-  const clientId = useMemo(() => user?.id || `guest_${Date.now()}`, [user?.id]);
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'bot',
-      text: getGreeting(professionalName),
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+
+  // Construir conversationId determinista (mismo algoritmo que el backend)
+  const conversationId = useMemo(() => {
+    if (!user?.id || !receiverId) return null;
+    return [user.id, receiverId].sort().join('_');
+  }, [user?.id, receiverId]);
+
+  // Cargar historial al abrir el chat (solo si está autenticado)
+  useEffect(() => {
+    if (!conversationId || hasFetched) return;
+
+    const loadHistory = async () => {
+      try {
+        setIsTyping(true);
+        const data = await apiFetch(`/messages/${conversationId}`);
+        if (Array.isArray(data) && data.length > 0) {
+          const formatted = data.map(m => ({
+            id: m.id,
+            sender: m.senderId === user.id ? 'user' : 'bot',
+            text: m.content,
+            timestamp: new Date(m.createdAt),
+          }));
+          setMessages(formatted);
+        } else {
+          // Saludo inicial si no hay historial
+          setMessages([{
+            id: 'greeting',
+            sender: 'bot',
+            text: `¡Hola! Soy el asistente de ${professionalName || 'este profesional'}. ¿En qué te puedo ayudar?`,
+            timestamp: new Date(),
+          }]);
+        }
+      } catch {
+        setMessages([{
+          id: 'greeting',
+          sender: 'bot',
+          text: `¡Hola! ¿En qué puedo ayudarte hoy?`,
+          timestamp: new Date(),
+        }]);
+      } finally {
+        setIsTyping(false);
+        setHasFetched(true);
+      }
+    };
+
+    loadHistory();
+  }, [conversationId, hasFetched, professionalName, user?.id]);
 
   const sendMessage = useCallback(async (text) => {
     if (!text.trim()) return;
 
-    const userMsg = {
-      id: Date.now(),
+    // Si no está autenticado, mostrar mensaje orientador
+    if (!user) {
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        sender: 'bot',
+        text: 'Para enviar mensajes necesitas iniciar sesión. ¡Es rápido y gratis!',
+        timestamp: new Date(),
+        actionUrl: '/login',
+      }]);
+      return;
+    }
+
+    // Agregar el mensaje del usuario optimistamente
+    const optimisticMsg = {
+      id: `temp-${Date.now()}`,
       sender: 'user',
       text,
       timestamp: new Date(),
     };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages(prev => [...prev, optimisticMsg]);
     setIsTyping(true);
 
     try {
-      let reply = null;
+      // Enviar al backend real — se persiste en la BD
+      const saved = await apiFetch('/messages', {
+        method: 'POST',
+        body: JSON.stringify({ receiverId, content: text }),
+      });
 
-      // ─── Nivel 1: OpenAI via backend ───────────────────────────────────
-      try {
-        const history = messages.slice(-6).map(m => ({ sender: m.sender, text: m.text }));
-        history.push({ sender: 'user', text });
-
-        const res = await fetch(`/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: text,
-            professional: professionalName,
-            professionalId,
-            clientId,
-            history,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          reply = data.output || data.message;
-        }
-      } catch (e) {
-        console.warn("Backend AI falló:", e);
-      }
-
-      // ─── Nivel 2: Respuesta local de último recurso ────────────────────
-      if (!reply) {
-        reply = getLocalResponse(professionalName, text);
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now() + 1, sender: 'bot', text: reply, timestamp: new Date() },
-      ]);
-
+      // Reemplazar el mensaje optimista por el persistido (con ID real)
+      setMessages(prev => prev.map(m =>
+        m.id === optimisticMsg.id
+          ? { ...m, id: saved.id }
+          : m
+      ));
     } catch (err) {
-      console.error('Chat error:', err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: 'bot',
-          text: 'Lo siento, tuve un problema al conectarme. Por favor intenta de nuevo en unos momentos.',
-          timestamp: new Date(),
-        },
-      ]);
+      // Marcar mensaje como fallido
+      setMessages(prev => prev.map(m =>
+        m.id === optimisticMsg.id
+          ? { ...m, failed: true }
+          : m
+      ));
     } finally {
       setIsTyping(false);
     }
-  }, [professionalName, messages]);
+  }, [user, receiverId]);
 
   return { messages, sendMessage, isTyping };
 }
+

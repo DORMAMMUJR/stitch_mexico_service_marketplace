@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../lib/db';
-import { uploadImage } from '../lib/upload';
+import { uploadPublicImage } from '../lib/upload';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
 // Endpoint: POST /api/users/avatar
 // Solo usuarios autenticados pueden subir su propio avatar
-router.post('/avatar', authenticate, uploadImage.single('avatar'), async (req: any, res: any) => {
+router.post('/avatar', authenticate, uploadPublicImage.single('avatar'), async (req: any, res: any) => {
   try {
     const userId = req.user?.userId;
     const file = req.file as any;

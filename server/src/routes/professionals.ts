@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
-import { uploadImage } from '../lib/upload';
+import { uploadPublicImage } from '../lib/upload';
 import { CRITICAL_FIELDS } from '../constants/verificationFields';
 
 const router = Router();
@@ -265,7 +265,7 @@ router.post('/me/submit-review', authenticate, async (req: any, res: any) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // POST /api/professionals/me/portfolio (Subir imagen)
-router.post('/me/portfolio', authenticate, uploadImage.single('image'), async (req: any, res: any) => {
+router.post('/me/portfolio', authenticate, uploadPublicImage.single('image'), async (req: any, res: any) => {
   try {
     const userId = req.user.userId;
     const file = req.file as any;

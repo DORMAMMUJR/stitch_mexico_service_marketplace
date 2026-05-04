@@ -67,10 +67,20 @@ router.post('/register', registerLimiter, async (req, res, next) => {
     }
 
     if (guest_id) {
-      await prisma.appointment.updateMany({
-        where: { guestId: guest_id },
-        data: { clientId: user.id }
-      });
+      // Validar formato para evitar asociación maliciosa
+      const guestIdRegex = /^guest_\d+$/;
+      if (guestIdRegex.test(guest_id)) {
+        // Solo asociar citas que realmente sean de este guest y no tengan dueño
+        await prisma.appointment.updateMany({
+          where: {
+            guestId:  guest_id,
+            clientId: null,       // Solo citas sin dueño asignado
+          },
+          data: { clientId: user.id },
+        });
+      }
+      // Si el formato no es válido, continuar sin error —
+      // el registro del usuario ya se completó correctamente
     }
 
     sendEmail({

@@ -35,7 +35,7 @@ function getJwtAlgorithm(key: string): 'RS256' | 'HS256' {
 }
 
 // ─── POST /api/auth/register ─────────────────────────────────────────────────
-router.post('/register', registerLimiter, async (req, res) => {
+router.post('/register', registerLimiter, async (req, res, next) => {
   try {
     const { email, password, name, role, guest_id } = req.body;
 
@@ -80,14 +80,13 @@ router.post('/register', registerLimiter, async (req, res) => {
     }).catch(console.error);
 
     res.status(201).json({ message: 'Usuario creado exitosamente', userId: user.id });
-  } catch (error: any) {
-    console.error('Error in /register:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+  } catch (error) {
+    next(error);
   }
 });
 
 // ─── POST /api/auth/login ─────────────────────────────────────────────────────
-router.post('/login', loginLimiter, async (req, res) => {
+router.post('/login', loginLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
@@ -141,9 +140,8 @@ router.post('/login', loginLimiter, async (req, res) => {
         avatarUrl: user.avatarUrl,
       }
     });
-  } catch (error: any) {
-    console.error('Error in /login:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -159,7 +157,7 @@ router.post('/logout', (req, res) => {
 });
 
 // ─── GET /api/auth/me ─────────────────────────────────────────────────────────
-router.get('/me', (req, res) => {
+router.get('/me', (req, res, next) => {
   const token = req.cookies?.access_token || req.headers.authorization?.split(' ')[1];
 
   if (!token) {
@@ -221,14 +219,14 @@ router.get('/me', (req, res) => {
           },
         });
       })
-      .catch(() => res.status(500).json({ error: 'Error interno' }));
+      .catch(next);
   } catch (err) {
     res.status(401).json({ error: 'Token inválido o expirado' });
   }
 });
 
 // ─── POST /api/auth/reset-password-request ────────────────────────────────────
-router.post('/reset-password-request', async (req, res) => {
+router.post('/reset-password-request', async (req, res, next) => {
   try {
     const { email } = req.body;
     if (!email) {
@@ -263,14 +261,13 @@ router.post('/reset-password-request', async (req, res) => {
     });
 
     res.json({ message: 'Si el correo existe, se enviará un enlace de recuperación.' });
-  } catch (error: any) {
-    console.error('Error in /reset-password-request:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+  } catch (error) {
+    next(error);
   }
 });
 
 // ─── POST /api/auth/reset-password ───────────────────────────────────────────
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', async (req, res, next) => {
   try {
     const { token, newPassword } = req.body;
 
@@ -310,9 +307,8 @@ router.post('/reset-password', async (req, res) => {
     });
 
     res.json({ message: 'Contraseña actualizada exitosamente. Ya puedes iniciar sesión.' });
-  } catch (error: any) {
-    console.error('Error in /reset-password:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+  } catch (error) {
+    next(error);
   }
 });
 

@@ -16,7 +16,7 @@ router.use(authenticate, (req: any, res: any, next: any) => {
 });
 
 // GET /api/admin/verifications/pending
-router.get('/verifications/pending', async (req, res) => {
+router.get('/verifications/pending', async (req, res, next) => {
   try {
     const pendingDocs = await prisma.verificationDocument.findMany({
       where: { status: 'PENDING' },
@@ -30,13 +30,12 @@ router.get('/verifications/pending', async (req, res) => {
 
     res.json(pendingDocs);
   } catch (error) {
-    console.error('Error fetching pending verifications:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 
 // PATCH /api/admin/verifications/:id/approve
-router.patch('/verifications/:id/approve', async (req: any, res) => {
+router.patch('/verifications/:id/approve', async (req: any, res: any, next: any) => {
   try {
     const { id } = req.params;
     const adminId = req.user.userId;
@@ -69,12 +68,12 @@ router.patch('/verifications/:id/approve', async (req: any, res) => {
 
     res.json({ message: 'Documento aprobado exitosamente', document: result });
   } catch (error) {
-    res.status(500).json({ error: 'Error interno al aprobar documento' });
+    next(error);
   }
 });
 
 // PATCH /api/admin/verifications/:id/reject
-router.patch('/verifications/:id/reject', async (req: any, res) => {
+router.patch('/verifications/:id/reject', async (req: any, res: any, next: any) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -106,8 +105,7 @@ router.patch('/verifications/:id/reject', async (req: any, res) => {
 
     res.json({ message: 'Documento rechazado. Se notificara al profesional.', document: doc });
   } catch (error) {
-    console.error('Error rejecting document:', error);
-    res.status(500).json({ error: 'Error interno al rechazar documento' });
+    next(error);
   }
 });
 

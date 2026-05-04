@@ -7,7 +7,7 @@ const router = Router();
 
 // Endpoint: POST /api/users/avatar
 // Solo usuarios autenticados pueden subir su propio avatar
-router.post('/avatar', authenticate, uploadPublicImage.single('avatar'), async (req: any, res: any) => {
+router.post('/avatar', authenticate, uploadPublicImage.single('avatar'), async (req: any, res: any, next: any) => {
   try {
     const userId = req.user?.userId;
     const file = req.file as any;
@@ -32,15 +32,14 @@ router.post('/avatar', authenticate, uploadPublicImage.single('avatar'), async (
       message: 'Avatar actualizado exitosamente',
       avatarUrl: user.avatarUrl,
     });
-  } catch (error: any) {
-    console.error('Error in /avatar:', error);
-    res.status(500).json({ error: 'Error interno del servidor al actualizar avatar' });
+  } catch (error) {
+    next(error);
   }
 });
 
 // Endpoint: GET /api/users/me/notifications
 // Obtener notificaciones del usuario autenticado
-router.get('/me/notifications', authenticate, async (req: any, res: any) => {
+router.get('/me/notifications', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -54,9 +53,8 @@ router.get('/me/notifications', authenticate, async (req: any, res: any) => {
     });
 
     res.json(notifications);
-  } catch (error: any) {
-    console.error('Error fetching notifications:', error);
-    res.status(500).json({ error: 'Error al obtener notificaciones' });
+  } catch (error) {
+    next(error);
   }
 });
 

@@ -11,7 +11,7 @@ const router = Router();
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // GET /api/professionals/me/dashboard
-router.get('/me/dashboard', authenticate, async (req: any, res: any) => {
+router.get('/me/dashboard', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ error: 'No autenticado' });
@@ -78,13 +78,12 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching dashboard data:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 
 // GET /api/professionals/me (Perfil editable del profesional autenticado)
-router.get('/me', authenticate, async (req: any, res: any) => {
+router.get('/me', authenticate, async (req: any, res: any, next: any) => {
   try {
     const professional = await prisma.professional.findUnique({
       where: { userId: req.user.userId },
@@ -114,13 +113,13 @@ router.get('/me', authenticate, async (req: any, res: any) => {
     }
     res.json(professional);
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener perfil' });
+    next(error);
   }
 });
 
 // POST /api/professionals/me/ensure (Inicializar perfil profesional si no existe)
 // Llamado por VerificationPage cuando un CLIENT quiere convertirse en PROFESSIONAL
-router.post('/me/ensure', authenticate, async (req: any, res: any) => {
+router.post('/me/ensure', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user.userId;
 
@@ -148,13 +147,12 @@ router.post('/me/ensure', authenticate, async (req: any, res: any) => {
 
     res.status(201).json({ message: 'Perfil profesional creado', professional, created: true });
   } catch (error) {
-    console.error('Error en /me/ensure:', error);
-    res.status(500).json({ error: 'Error al inicializar perfil profesional' });
+    next(error);
   }
 });
 
 // PUT /api/professionals/me (Actualizar o crear perfil — upsert)
-router.put('/me', authenticate, async (req: any, res) => {
+router.put('/me', authenticate, async (req: any, res, next) => {
   try {
     const { title, category, bio, hourlyRate } = req.body;
     const userId = req.user.userId;
@@ -228,13 +226,12 @@ router.put('/me', authenticate, async (req: any, res) => {
       requiresReview: criticalChanged && professional.isVerified,
     });
   } catch (error) {
-    console.error('Error actualizando perfil:', error);
-    res.status(500).json({ error: 'Error interno al actualizar el perfil' });
+    next(error);
   }
 });
 
 // POST /api/professionals/me/submit-review (Enviar perfil a revisión)
-router.post('/me/submit-review', authenticate, async (req: any, res: any) => {
+router.post('/me/submit-review', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user.userId;
 
@@ -255,8 +252,7 @@ router.post('/me/submit-review', authenticate, async (req: any, res: any) => {
 
     res.json({ message: 'Perfil enviado a revisión', profile: updatedProfile });
   } catch (error) {
-    console.error('Error submitting review:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 
@@ -265,7 +261,7 @@ router.post('/me/submit-review', authenticate, async (req: any, res: any) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // POST /api/professionals/me/portfolio (Subir imagen)
-router.post('/me/portfolio', authenticate, uploadPublicImage.single('image'), async (req: any, res: any) => {
+router.post('/me/portfolio', authenticate, uploadPublicImage.single('image'), async (req: any, res: any, next: any) => {
   try {
     const userId = req.user.userId;
     const file = req.file as any;
@@ -286,13 +282,12 @@ router.post('/me/portfolio', authenticate, uploadPublicImage.single('image'), as
 
     res.status(201).json({ message: 'Imagen subida al portafolio', portfolioItem });
   } catch (error) {
-    console.error('Error uploading portfolio item:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 
 // DELETE /api/professionals/me/portfolio/:itemId (Eliminar imagen)
-router.delete('/me/portfolio/:itemId', authenticate, async (req: any, res: any) => {
+router.delete('/me/portfolio/:itemId', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user.userId;
     const { itemId } = req.params;
@@ -308,13 +303,12 @@ router.delete('/me/portfolio/:itemId', authenticate, async (req: any, res: any) 
 
     res.json({ message: 'Imagen eliminada del portafolio' });
   } catch (error) {
-    console.error('Error deleting portfolio item:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 
 // GET /api/professionals/me/availability (Obtener horarios)
-router.get('/me/availability', authenticate, async (req: any, res: any) => {
+router.get('/me/availability', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user.userId;
     const professional = await prisma.professional.findUnique({ where: { userId } });
@@ -328,13 +322,12 @@ router.get('/me/availability', authenticate, async (req: any, res: any) => {
 
     res.json(availabilities);
   } catch (error) {
-    console.error('Error fetching availability:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 
 // PUT /api/professionals/me/availability (Actualizar horarios)
-router.put('/me/availability', authenticate, async (req: any, res: any) => {
+router.put('/me/availability', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user.userId;
     const availabilities = req.body.availabilities; // Array de objetos { dayOfWeek, startTime, endTime }
@@ -363,8 +356,7 @@ router.put('/me/availability', authenticate, async (req: any, res: any) => {
 
     res.json({ message: 'Horarios actualizados exitosamente' });
   } catch (error) {
-    console.error('Error updating availability:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 
@@ -374,7 +366,7 @@ router.put('/me/availability', authenticate, async (req: any, res: any) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // GET /api/professionals
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
     const { category, q, maxPrice, minRating } = req.query;
 
@@ -436,8 +428,7 @@ router.get('/', async (req, res) => {
 
     res.json(results);
   } catch (error) {
-    console.error('Error fetching directory:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 
@@ -447,7 +438,7 @@ router.get('/', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // GET /api/professionals/:id/reviews
-router.get('/:id/reviews', async (req, res) => {
+router.get('/:id/reviews', async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -473,13 +464,12 @@ router.get('/:id/reviews', async (req, res) => {
 
     res.json(formatted);
   } catch (error) {
-    console.error('Error fetching reviews:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 
 // GET /api/professionals/:id (Perfil Público)
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const clientId = req.query.clientId as string | undefined;
@@ -562,8 +552,7 @@ router.get('/:id', async (req, res) => {
       portfolioItems: professional.portfolioItems,
     });
   } catch (error) {
-    console.error('Error fetching professional:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 

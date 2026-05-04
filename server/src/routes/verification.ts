@@ -6,7 +6,7 @@ import { uploadPrivateDoc } from '../lib/upload';
 const router = Router();
 
 // POST /api/verification/upload
-router.post('/upload', authenticate, uploadPrivateDoc.single('constancia'), async (req: any, res) => {
+router.post('/upload', authenticate, uploadPrivateDoc.single('constancia'), async (req: any, res, next) => {
   try {
     const { professionalId, docType } = req.body;
     const file = req.file;
@@ -42,8 +42,7 @@ router.post('/upload', authenticate, uploadPrivateDoc.single('constancia'), asyn
       message: 'Documento subido exitosamente. Pendiente de revisión.',
     });
   } catch (error) {
-    console.error('Error uploading document:', error);
-    res.status(500).json({ error: 'Error al subir el documento' });
+    next(error);
   }
 });
 

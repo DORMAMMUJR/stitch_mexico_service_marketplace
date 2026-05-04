@@ -17,7 +17,7 @@ function buildConversationId(id1: string, id2: string): string {
 
 // ─── GET /api/messages/conversations ────────────────────────────────────────
 // Devuelve la lista de chats activos con el último mensaje y datos del interlocutor.
-router.get('/conversations', async (req, res) => {
+router.get('/conversations', async (req, res, next) => {
   const me = (req as any).user;
   const myId = me.userId;
 
@@ -80,15 +80,14 @@ router.get('/conversations', async (req, res) => {
 
     res.json(Array.from(conversationsMap.values()));
   } catch (err) {
-    console.error('Error fetching conversations:', err);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(err);
   }
 });
 
 // ─── GET /api/messages/:conversationId ──────────────────────────────────────
 // Devuelve el historial de mensajes de una conversación.
 // También marca como leídos todos los mensajes recibidos.
-router.get('/:conversationId', async (req, res) => {
+router.get('/:conversationId', async (req, res, next) => {
   const me = (req as any).user;
   const myId = me.userId;
   const { conversationId } = req.params;
@@ -117,14 +116,13 @@ router.get('/:conversationId', async (req, res) => {
 
     res.json(messages);
   } catch (err) {
-    console.error('Error fetching messages:', err);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(err);
   }
 });
 
 // ─── POST /api/messages ─────────────────────────────────────────────────────
 // Crea un nuevo mensaje en una conversación.
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
   const me = (req as any).user;
   const myId = me.userId;
   const { receiverId, content } = req.body;
@@ -160,8 +158,7 @@ router.post('/', async (req, res) => {
 
     res.status(201).json(message);
   } catch (err) {
-    console.error('Error sending message:', err);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(err);
   }
 });
 

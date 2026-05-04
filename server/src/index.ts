@@ -191,7 +191,7 @@ const chatLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Demasiados mensajes enviados. Por favor espera un momento antes de continuar.' },
 });
-app.post('/api/chat', chatLimiter, async (req, res) => {
+app.post('/api/chat', chatLimiter, async (req, res, next) => {
   try {
     const { message, professional, history = [], clientId, professionalId } = req.body;
 
@@ -292,8 +292,7 @@ Mantén respuestas cortas.`;
     res.json({ output: reply || 'En este momento no puedo responder. Por favor intenta de nuevo.' });
 
   } catch (error) {
-    console.error('Chat error:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 

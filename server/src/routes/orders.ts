@@ -31,7 +31,7 @@ const checkoutLimiter = rateLimit({
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /api/orders — Crear una Orden (DRAFT)
 // ═══════════════════════════════════════════════════════════════════════════════
-router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), async (req: any, res: any) => {
+router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), async (req: any, res: any, next: any) => {
   try {
     const clientId = req.user.userId;
     const { professionalId, description, agreedPrice, currency } = req.body;
@@ -94,15 +94,14 @@ router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), 
 
     res.status(201).json({ message: 'Orden creada exitosamente', order });
   } catch (error) {
-    console.error('Error creating order:', error);
-    res.status(500).json({ error: 'Error interno al crear la orden' });
+    next(error);
   }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /api/orders/:id/checkout — Generar PaymentIntent de Stripe
 // ═══════════════════════════════════════════════════════════════════════════════
-router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res: any) => {
+router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res: any, next: any) => {
   try {
     // FIX: getStripe() aquí es correcto — si no hay key, el checkout no puede proceder
     // y el error se propaga al catch con mensaje claro
@@ -158,7 +157,6 @@ router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res
       currency: order.currency,
     });
   } catch (error: any) {
-    console.error('Error in checkout:', error);
     if (error.type === 'StripeCardError') {
       return res.status(400).json({ error: error.message });
     }
@@ -166,14 +164,14 @@ router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res
     if (error.message?.includes('STRIPE_SECRET_KEY')) {
       return res.status(503).json({ error: 'Pagos no disponibles en este momento. Contacta al administrador.' });
     }
-    res.status(500).json({ error: 'Error interno al procesar el pago' });
+    next(error);
   }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GET /api/orders/my — Mis Ordenes (como cliente o profesional)
 // ═══════════════════════════════════════════════════════════════════════════════
-router.get('/my', authenticate, async (req: any, res: any) => {
+router.get('/my', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user.userId;
     const role = req.user.role;
@@ -230,15 +228,14 @@ router.get('/my', authenticate, async (req: any, res: any) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
-    console.error('Error fetching orders:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    next(error);
   }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PATCH /api/orders/:id/complete
 // ═══════════════════════════════════════════════════════════════════════════════
-router.patch('/:id/complete', authenticate, async (req: any, res: any) => {
+router.patch('/:id/complete', authenticate, async (req: any, res: any, next: any) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
@@ -265,15 +262,14 @@ router.patch('/:id/complete', authenticate, async (req: any, res: any) => {
       order: updated,
     });
   } catch (error: any) {
-    console.error('Error completing order:', error);
-    res.status(500).json({ error: error.message || 'Error interno del servidor' });
+    next(error);
   }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PATCH /api/orders/:id/start
 // ═══════════════════════════════════════════════════════════════════════════════
-router.patch('/:id/start', authenticate, async (req: any, res: any) => {
+router.patch('/:id/start', authenticate, async (req: any, res: any, next: any) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
@@ -304,15 +300,14 @@ router.patch('/:id/start', authenticate, async (req: any, res: any) => {
       order: updated,
     });
   } catch (error: any) {
-    console.error('Error starting order:', error);
-    res.status(500).json({ error: error.message || 'Error interno del servidor' });
+    next(error);
   }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PATCH /api/orders/:id/cancel
 // ═══════════════════════════════════════════════════════════════════════════════
-router.patch('/:id/cancel', authenticate, async (req: any, res: any) => {
+router.patch('/:id/cancel', authenticate, async (req: any, res: any, next: any) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
@@ -341,15 +336,14 @@ router.patch('/:id/cancel', authenticate, async (req: any, res: any) => {
       order: updated,
     });
   } catch (error: any) {
-    console.error('Error cancelling order:', error);
-    res.status(500).json({ error: error.message || 'Error interno del servidor' });
+    next(error);
   }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PATCH /api/orders/:id/dispute
 // ═══════════════════════════════════════════════════════════════════════════════
-router.patch('/:id/dispute', authenticate, validate(disputeOrderSchema), async (req: any, res: any) => {
+router.patch('/:id/dispute', authenticate, validate(disputeOrderSchema), async (req: any, res: any, next: any) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
@@ -386,8 +380,7 @@ router.patch('/:id/dispute', authenticate, validate(disputeOrderSchema), async (
       order: updated,
     });
   } catch (error: any) {
-    console.error('Error opening dispute:', error);
-    res.status(500).json({ error: error.message || 'Error interno del servidor' });
+    next(error);
   }
 });
 
@@ -395,7 +388,7 @@ router.patch('/:id/dispute', authenticate, validate(disputeOrderSchema), async (
 // PATCH /api/orders/:id/resolve — Admin resuelve una disputa
 // FIX: Ahora pasa por EscrowStateMachine para mantener consistencia de estados
 // ═══════════════════════════════════════════════════════════════════════════════
-router.patch('/:id/resolve', authenticate, async (req: any, res: any) => {
+router.patch('/:id/resolve', authenticate, async (req: any, res: any, next: any) => {
   try {
     const user = req.user;
     if (user.role !== 'ADMIN') {
@@ -449,8 +442,7 @@ router.patch('/:id/resolve', authenticate, async (req: any, res: any) => {
 
     res.json({ message: `Disputa resuelta: ${resolution}`, order: updated });
   } catch (error: any) {
-    console.error('Error resolving dispute:', error);
-    res.status(500).json({ error: error.message || 'Error interno' });
+    next(error);
   }
 });
 
@@ -458,7 +450,7 @@ router.patch('/:id/resolve', authenticate, async (req: any, res: any) => {
 // POST /api/orders/stripe-connect/onboarding
 // FIX: Guard contra Stripe no configurado
 // ═══════════════════════════════════════════════════════════════════════════════
-router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: any) => {
+router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: any, next: any) => {
   try {
     // FIX: Guard explícito antes de intentar usar Stripe
     let stripe;
@@ -501,8 +493,7 @@ router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: an
 
     res.json({ url: accountLink.url });
   } catch (error: any) {
-    console.error('Error creating Stripe Connect onboarding:', error);
-    res.status(500).json({ error: 'Error al generar enlace de Stripe Connect' });
+    next(error);
   }
 });
 
@@ -511,7 +502,7 @@ router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: an
 // FIX CRÍTICO: era el bug activo en producción (500 por getStripe() sin catch)
 // Ahora responde { connected: false } limpiamente si Stripe no está configurado
 // ═══════════════════════════════════════════════════════════════════════════════
-router.get('/stripe-connect/status', authenticate, async (req: any, res: any) => {
+router.get('/stripe-connect/status', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user.userId;
     const professional = await prisma.professional.findUnique({ where: { userId } });
@@ -553,15 +544,14 @@ router.get('/stripe-connect/status', authenticate, async (req: any, res: any) =>
       detailsSubmitted: account.details_submitted || false,
     });
   } catch (error: any) {
-    console.error('Error checking Stripe Connect status:', error);
-    res.status(500).json({ error: 'Error al verificar estado de Stripe' });
+    next(error);
   }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GET /api/orders/admin/disputes
 // ═══════════════════════════════════════════════════════════════════════════════
-router.get('/admin/disputes', authenticate, async (req: any, res: any) => {
+router.get('/admin/disputes', authenticate, async (req: any, res: any, next: any) => {
   try {
     if (req.user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Acceso denegado' });
@@ -581,8 +571,7 @@ router.get('/admin/disputes', authenticate, async (req: any, res: any) => {
 
     res.json(disputes);
   } catch (error) {
-    console.error('Error fetching disputes:', error);
-    res.status(500).json({ error: 'Error interno' });
+    next(error);
   }
 });
 

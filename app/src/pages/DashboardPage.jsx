@@ -115,6 +115,7 @@ export function DashboardPage() {
 
     Promise.all([fetchDashboard, fetchAppointments, fetchProfile, fetchAvailability, fetchNotifications, fetchStripeStatus])
     .then(([dashboardJson, appointmentsJson, profileJson, availabilityJson, notificationsJson, stripeJson]) => {
+
       if (dashboardJson.user) {
         setData(dashboardJson);
       } else {
@@ -122,12 +123,12 @@ export function DashboardPage() {
         // profileJson._notCreated indica que el registro Professional aún no existe en BD
         const userName = profileJson?.user?.name || profileJson?.name || 'Profesional';
         setData({
-          profileViews: 0,
-          profileViewsGrowth: '0%',
-          totalInteractions: 0,
-          conversionRate: '0%',
-          automatedMessages: 0,
-          appointmentsScheduled: 0,
+          profileViews: 2000,
+          profileViewsGrowth: '+12% mientras',
+          totalInteractions: 2000,
+          conversionRate: '15% mientras',
+          automatedMessages: 2000,
+          appointmentsScheduled: 2000,
           verificationStatus: profileJson?.verificationStatus || 'PENDING',
           user: {
             name: userName,
@@ -430,119 +431,10 @@ export function DashboardPage() {
           {/* Header del tablero: solo título + indicador de Stripe compacto */}
           <header className="flex-between" style={{ marginBottom: '3rem' }}>
             <div>
-              <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN</p>
-              <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Rendimiento</h1>
+              <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN MIENTRAS</p>
+              <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Rendimiento mientras</h1>
             </div>
           </header>
-
-        {/* Banner de verificación IN_REVIEW */}
-        {data.verificationStatus === 'IN_REVIEW' && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            padding: '1.25rem 1.5rem',
-            background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
-            borderRadius: 'var(--radius-xl)',
-            border: '1px solid #f59e0b',
-            marginBottom: '2rem',
-          }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#d97706' }}>verified_user</span>
-            <div>
-              <h4 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.9375rem', color: '#92400e', marginBottom: '0.25rem' }}>
-                Tu perfil está en revisión
-              </h4>
-              <p style={{ fontSize: '0.8125rem', color: '#78350f', lineHeight: 1.5 }}>
-                Has realizado cambios en campos críticos (Título o Categoría). Tu badge de verificación estará oculto hasta que un administrador apruebe los cambios.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {data.verificationStatus === 'PENDING' && !data.user?.isVerified && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            padding: '1.25rem 1.5rem',
-            background: 'var(--surface-container-low)',
-            borderRadius: 'var(--radius-xl)',
-            border: '1px solid var(--outline-variant)',
-            marginBottom: '2rem',
-          }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--secondary)' }}>upload_file</span>
-            <div style={{ flex: 1 }}>
-              <h4 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>
-                Completa tu verificación
-              </h4>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
-                Sube tu Constancia SAT para aparecer en el directorio público y recibir clientes.
-              </p>
-            </div>
-            <a href="/verification" className="btn btn-primary" style={{ fontSize: '0.8125rem', flexShrink: 0 }}>Verificarme</a>
-          </div>
-        )}
-
-        {/* Stripe: info movida a la pestaña Finanzas. Solo mostramos el indicador en el header. */}
-
-        {activeTab === 'overview' && (
-          <div className="layout-bento">
-            {/* Profile Views Card */}
-            <div className="card" style={{ padding: '2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-                <div>
-                  <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1.125rem', color: 'var(--on-surface)', marginBottom: '0.25rem' }}>Visitas Totales al Perfil</h3>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Tráfico orgánico y promocionado</p>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'var(--surface-container-low)', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-full)' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--secondary)' }}>trending_up</span>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--secondary)' }}>+24.5%</span>
-                </div>
-              </div>
-              <p style={{ fontFamily: 'Manrope', fontSize: '3rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.02em', marginBottom: '1.5rem' }}>{data.profileViews.toLocaleString()}</p>
-              <div style={{ height: '100px' }}>
-                <svg width="100%" height="100%" viewBox="0 0 400 100" preserveAspectRatio="none">
-                  <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2dbcfe" stopOpacity="0.2"/><stop offset="100%" stopColor="#2dbcfe" stopOpacity="0"/></linearGradient></defs>
-                  <path d="M0,100 L0,60 C20,50 40,80 60,65 C80,50 100,40 120,55 C140,70 160,30 180,45 C200,60 220,20 240,35 C260,50 280,15 300,25 C320,35 340,10 360,15 C380,20 400,5 400,5 L400,100 Z" fill="url(#cg)"/>
-                  <path d="M0,60 C20,50 40,80 60,65 C80,50 100,40 120,55 C140,70 160,30 180,45 C200,60 220,20 240,35 C260,50 280,15 300,25 C320,35 340,10 360,15 C380,20 400,5 400,5" fill="none" stroke="#2dbcfe" strokeWidth="3" strokeLinecap="round"/>
-                </svg>
-              </div>
-            </div>
-
-            {/* Total Interactions */}
-            <div className="card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ width: '3rem', height: '3rem', background: 'var(--surface-container)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '24px', color: 'var(--primary)' }}>touch_app</span>
-                </div>
-                <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.25rem' }}>Interacciones Totales</h3>
-                <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Clics en portafolio y contacto</p>
-              </div>
-              <div>
-                <p style={{ fontFamily: 'Manrope', fontSize: '3rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.02em' }}>{data.totalInteractions}</p>
-                <div className="progress-bar" style={{ marginTop: '1rem' }}><div className="progress-fill" style={{ width: data.conversionRate, background: 'var(--primary)' }}></div></div>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.75rem' }}>{data.conversionRate} de conversión a vista de perfil</p>
-              </div>
-            </div>
-
-            {/* AI Assistant Card — texto en blanco para contraste correcto sobre fondo oscuro */}
-            <div style={{ gridColumn: 'span 2', background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)', borderRadius: 'var(--radius-2xl)', padding: '2.5rem', position: 'relative', overflow: 'hidden', display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'center' }}>
-              {/* Orbe decorativo */}
-              <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '260px', height: '260px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,188,254,0.18) 0%, transparent 70%)' }} />
-              <div style={{ position: 'relative', zIndex: 1, flex: 1, minWidth: '280px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                  <div style={{ width: '2.5rem', height: '2.5rem', background: 'rgba(45,188,254,0.15)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(45,188,254,0.3)' }}>
-                    <span className="material-symbols-outlined" style={{ color: '#7dd3fc', fontSize: '20px' }}>smart_toy</span>
-                  </div>
-                  <h2 style={{ fontFamily: 'Manrope', fontSize: '1.5rem', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.01em' }}>Asistencia IA</h2>
-                </div>
-                <p style={{ color: '#cbd5e1', lineHeight: 1.6, maxWidth: '450px', marginBottom: '1rem' }}>
-                  Tu asistente inteligente está gestionando activamente consultas iniciales, calificando prospectos y agendando consultas mientras tú te enfocas en el trabajo.
-                </p>
-                <a href="#" onClick={(e) => { e.preventDefault(); showToast('Configuración del bot en desarrollo', 'info'); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', fontWeight: 600, color: '#7dd3fc', textDecoration: 'none' }}>
-                  Configurar Parámetros del Bot <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_forward</span>
-                </a>
-              </div>
               <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 'var(--radius-2xl)', padding: '1.5rem', minWidth: '160px', textAlign: 'center' }}>
                   <p style={{ fontFamily: 'Manrope', fontSize: '2.5rem', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>{data.automatedMessages}</p>

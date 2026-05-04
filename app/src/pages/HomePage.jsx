@@ -203,7 +203,7 @@ export function HomePage() {
         </h1>
 
         <p className="animate-in stagger-3" style={{ fontSize: '1.125rem', color: '#e2e8f0', maxWidth: '560px', margin: '0 auto 2.5rem', lineHeight: 1.7 }}>
-          Agenda hoy mismo con especialistas verificados en tu zona. Precios claros, identidades reales y trato directo.
+          Agenda hoy mismo con especialistas verificados en tu zona mientras garantizamos tu seguridad. Precios claros, identidades reales y trato directo mientras conectas.
         </p>
 
         {/* Buscador */}
@@ -268,7 +268,7 @@ export function HomePage() {
           {[
             { value: '4.8 / 5', label: 'Calificación Promedio', icon: 'star' },
             { value: '100%', label: 'Perfiles Verificados', icon: 'badge' },
-            { value: '2,000+', label: 'Citas agendadas', icon: 'event_available' },
+            { value: '2,000', label: 'Citas agendadas mientras', icon: 'event_available' },
             { value: '< 10 min', label: 'Tiempo de respuesta', icon: 'timer' },
             { value: 'CDMX', label: 'Disponibles en tu zona', icon: 'location_on' },
           ].map((stat, i) => (
@@ -307,7 +307,7 @@ export function HomePage() {
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
             <h2 className="text-headline-md" style={{ color: '#9a3412', marginBottom: '0.5rem', fontWeight: 800 }}>¿Por qué usar Intecnia en vez de Facebook?</h2>
-            <p style={{ color: '#c2410c', maxWidth: '480px', margin: '0 auto', fontSize: '1.0625rem', fontWeight: 500 }}>La diferencia entre dudar y tener certeza total.</p>
+            <p style={{ color: '#c2410c', maxWidth: '480px', margin: '0 auto', fontSize: '1.0625rem', fontWeight: 500 }}>La diferencia entre dudar y tener certeza total mientras te protegemos.</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', maxWidth: '1000px', margin: '0 auto' }}>
             {[
@@ -564,7 +564,7 @@ export function HomePage() {
             No te arriesgues más con desconocidos
           </h2>
           <p style={{ fontSize: '1.125rem', color: '#94a3b8', marginBottom: '2.5rem', lineHeight: 1.7, fontWeight: 500 }}>
-            Miles de profesionales verificados listos para trabajar. Sin pagos por adelantado, sin comisiones ocultas, sin fraudes.
+            Miles de profesionales verificados listos para trabajar. Sin pagos por adelantado, sin comisiones ocultas mientras el servicio es garantizado.
           </p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
           <button

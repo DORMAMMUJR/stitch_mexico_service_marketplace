@@ -10,8 +10,8 @@ export function DashboardPage() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
-  const [availStatus, setAvailStatus] = useState(null); // Fix: variable era usada sin declarar
-  const [updateStatus, setUpdateStatus] = useState(null); // Fix: variable era usada sin declarar
+  const [availStatus, setAvailStatus] = useState(null); 
+  const [updateStatus, setUpdateStatus] = useState(null); 
   const [profileForm, setProfileForm] = useState({
     title: '', category: 'HEALTH_WELLNESS', bio: '', hourlyRate: ''
   });
@@ -19,14 +19,12 @@ export function DashboardPage() {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [portfolioItems, setPortfolioItems] = useState([]);
 
-  // useLocation para leer query params de forma reactiva (React Router)
   const routerLocation = useLocation();
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(routerLocation.search);
     return params.get('tab') || 'overview';
   });
 
-  // Sincronizar pestaña activa cuando cambia la URL (?tab=...)
   useEffect(() => {
     const params = new URLSearchParams(routerLocation.search);
     const tab = params.get('tab');
@@ -34,6 +32,7 @@ export function DashboardPage() {
       setActiveTab(tab);
     }
   }, [routerLocation.search]);
+
   const avatarInputRef = React.useRef(null);
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -46,7 +45,6 @@ export function DashboardPage() {
 
   const handleCancelAppointment = async (appointmentId) => {
     if (!window.confirm('¿Estás seguro de que deseas cancelar esta cita?')) return;
-    // Deshabilitar el botón optimistamente para evitar doble-click / congelamiento
     setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: true } : a));
     try {
       const res = await fetch(`/api/appointments/${appointmentId}/cancel`, {
@@ -58,7 +56,6 @@ export function DashboardPage() {
         showToast('Cita cancelada con éxito', 'success');
         setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: 'CANCELLED', _cancelling: false } : a));
       } else {
-        // Revertir el estado de carga si falla
         setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: false } : a));
         showToast(data.error || 'Error al cancelar la cita', 'error');
       }
@@ -78,49 +75,19 @@ export function DashboardPage() {
   }));
   const [availabilities, setAvailabilities] = useState(defaultAvailabilities);
 
-  // DEMO_DASHBOARD eliminado para forzar datos reales o ceros
   useEffect(() => {
-    // Todas las peticiones usan cookies HttpOnly (credentials: 'include')
-    // No se necesita header Authorization manual — la cookie se envía automáticamente
-
-    // Fetch Dashboard Data
-    const fetchDashboard = fetch('/api/professionals/me/dashboard', {
-      credentials: 'include',
-    }).then(res => res.json()).catch(() => ({}));
-
-    // Fetch Appointments
-    const fetchAppointments = fetch('/api/appointments/my', {
-      credentials: 'include',
-    }).then(res => res.json()).catch(() => []);
-
-    // Fetch Profile
-    const fetchProfile = fetch('/api/professionals/me', {
-      credentials: 'include',
-    }).then(res => res.json()).catch(() => ({}));
-
-    // Fetch Availability
-    const fetchAvailability = fetch('/api/professionals/me/availability', {
-      credentials: 'include',
-    }).then(res => res.json()).catch(() => []);
-
-    // Fetch Notifications
-    const fetchNotifications = fetch('/api/users/me/notifications', {
-      credentials: 'include',
-    }).then(res => res.json()).catch(() => []);
-
-    // Fetch Stripe Connect Status
-    const fetchStripeStatus = fetch('/api/orders/stripe-connect/status', {
-      credentials: 'include',
-    }).then(res => res.json()).catch(() => null);
+    const fetchDashboard = fetch('/api/professionals/me/dashboard', { credentials: 'include' }).then(res => res.json()).catch(() => ({}));
+    const fetchAppointments = fetch('/api/appointments/my', { credentials: 'include' }).then(res => res.json()).catch(() => []);
+    const fetchProfile = fetch('/api/professionals/me', { credentials: 'include' }).then(res => res.json()).catch(() => ({}));
+    const fetchAvailability = fetch('/api/professionals/me/availability', { credentials: 'include' }).then(res => res.json()).catch(() => []);
+    const fetchNotifications = fetch('/api/users/me/notifications', { credentials: 'include' }).then(res => res.json()).catch(() => []);
+    const fetchStripeStatus = fetch('/api/orders/stripe-connect/status', { credentials: 'include' }).then(res => res.json()).catch(() => null);
 
     Promise.all([fetchDashboard, fetchAppointments, fetchProfile, fetchAvailability, fetchNotifications, fetchStripeStatus])
     .then(([dashboardJson, appointmentsJson, profileJson, availabilityJson, notificationsJson, stripeJson]) => {
-
       if (dashboardJson.user) {
         setData(dashboardJson);
       } else {
-        // Fallback: mostrar en ceros si no hay datos de analíticas
-        // profileJson._notCreated indica que el registro Professional aún no existe en BD
         const userName = profileJson?.user?.name || profileJson?.name || 'Profesional';
         setData({
           profileViews: 2000,
@@ -139,14 +106,11 @@ export function DashboardPage() {
         });
       }
       if (Array.isArray(appointmentsJson)) {
-        const normalizedAppointments = [...appointmentsJson]
-          .sort((a, b) => new Date(b.scheduledAt || b.createdAt || 0) - new Date(a.scheduledAt || a.createdAt || 0))
-          .map(app => ({
-            ...app,
-            dateLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Fecha pendiente',
-            timeLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : 'hora por confirmar',
-          }));
-        setAppointments(normalizedAppointments);
+        setAppointments(appointmentsJson.map(app => ({
+          ...app,
+          dateLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleDateString('es-MX') : 'Fecha pendiente',
+          timeLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleTimeString('es-MX') : 'hora por confirmar',
+        })));
       }
       if (profileJson && profileJson.id) {
         setProfileForm({
@@ -155,36 +119,17 @@ export function DashboardPage() {
           bio: profileJson.bio || '',
           hourlyRate: profileJson.hourlyRate || ''
         });
-        if (profileJson.portfolioItems) {
-          setPortfolioItems(profileJson.portfolioItems);
-        }
-      } else {
-        // Formulario en blanco listo para ser llenado
-        setProfileForm({
-          title: '',
-          category: 'HEALTH_WELLNESS',
-          bio: '',
-          hourlyRate: ''
-        });
+        if (profileJson.portfolioItems) setPortfolioItems(profileJson.portfolioItems);
       }
       if (Array.isArray(availabilityJson) && availabilityJson.length > 0) {
         const merged = defaultAvailabilities.map(def => {
           const found = availabilityJson.find(a => a.dayOfWeek === def.dayOfWeek);
-          return found 
-            ? { ...def, active: true, startTime: found.startTime, endTime: found.endTime } 
-            : { ...def, active: false };
+          return found ? { ...def, active: true, startTime: found.startTime, endTime: found.endTime } : { ...def, active: false };
         });
         setAvailabilities(merged);
-      } else if (Array.isArray(availabilityJson) && availabilityJson.length === 0 && dashboardJson.user) {
-        const allInactive = defaultAvailabilities.map(def => ({ ...def, active: false }));
-        setAvailabilities(allInactive);
       }
-      if (Array.isArray(notificationsJson)) {
-        setNotifications(notificationsJson);
-      }
-      if (stripeJson) {
-        setStripeStatus(stripeJson);
-      }
+      if (Array.isArray(notificationsJson)) setNotifications(notificationsJson);
+      if (stripeJson) setStripeStatus(stripeJson);
     })
     .catch(console.error)
     .finally(() => setLoading(false));
@@ -193,101 +138,47 @@ export function DashboardPage() {
   const handleAvatarChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    // Validar tamaño en cliente antes de subir
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('La imagen no puede superar 5 MB', 'error');
-      return;
-    }
-
     const formData = new FormData();
     formData.append('avatar', file);
-
-    // Vista previa inmediata (optimistic UI)
-    const localUrl = URL.createObjectURL(file);
-    setAvatarPreview(localUrl);
-    showToast('Subiendo foto de perfil...', 'info');
-
     try {
-      const response = await fetch('/api/users/avatar', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData
-      });
-
+      const response = await fetch('/api/users/avatar', { method: 'POST', credentials: 'include', body: formData });
       if (response.ok) {
         const result = await response.json();
-        if (result.avatarUrl) {
-          setAvatarPreview(result.avatarUrl);
-          // Propagar el nuevo avatar al estado global (Navbar, Header, etc.) sin recarga
-          updateUser({ avatarUrl: result.avatarUrl });
-        }
+        setAvatarPreview(result.avatarUrl);
+        updateUser({ avatarUrl: result.avatarUrl });
         showToast('¡Foto de perfil actualizada!', 'success');
-      } else {
-        // Revertir vista previa si falló
-        setAvatarPreview(null);
-        showToast('Error al subir la foto. Por favor intenta de nuevo.', 'error');
       }
-    } catch (error) {
-      setAvatarPreview(null);
-      showToast('Error de conexión al subir la foto', 'error');
-    }
+    } catch (error) { console.error(error); }
   };
 
   const handlePortfolioUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    showToast('Subiendo imagen al portafolio...', 'info');
-    
     try {
       const formData = new FormData();
       formData.append('image', file);
-
-      const res = await fetch('/api/professionals/me/portfolio', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
-
+      const res = await fetch('/api/professionals/me/portfolio', { method: 'POST', credentials: 'include', body: formData });
       if (res.ok) {
         const result = await res.json();
         setPortfolioItems([result.portfolioItem, ...portfolioItems]);
         showToast('¡Imagen subida correctamente!', 'success');
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        showToast(errorData.error || 'Error al subir imagen', 'error');
       }
-    } catch (err) {
-      console.error(err);
-      showToast('Error de conexión', 'error');
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleDeletePortfolioItem = async (itemId) => {
     if (!confirm('¿Seguro que quieres eliminar esta imagen?')) return;
-
     try {
-      const res = await fetch(`/api/professionals/me/portfolio/${itemId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
+      const res = await fetch(`/api/professionals/me/portfolio/${itemId}`, { method: 'DELETE', credentials: 'include' });
       if (res.ok) {
         setPortfolioItems(portfolioItems.filter(item => item.id !== itemId));
         showToast('Imagen eliminada', 'success');
-      } else {
-        showToast('Error al eliminar', 'error');
       }
-    } catch (err) {
-      showToast('Error de conexión', 'error');
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    showToast('Guardando perfil...', 'info');
-    
     try {
       const res = await fetch('/api/professionals/me', {
         method: 'PUT',
@@ -295,25 +186,12 @@ export function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profileForm)
       });
-
-      if (res.ok) {
-        showToast('¡Perfil público actualizado con éxito!', 'success');
-      } else {
-        showToast('Error al guardar los cambios. Intenta de nuevo.', 'error');
-      }
-    } catch (error) {
-      showToast('Error de conexión con el servidor.', 'error');
-    }
+      if (res.ok) showToast('¡Perfil actualizado!', 'success');
+    } catch (error) { console.error(error); }
   };
 
   const handleUpdateAvailability = async () => {
-    showToast('Guardando horarios...', 'info');
-    const toSave = availabilities.filter(a => a.active).map(a => ({
-      dayOfWeek: a.dayOfWeek,
-      startTime: a.startTime,
-      endTime: a.endTime
-    }));
-
+    const toSave = availabilities.filter(a => a.active).map(a => ({ dayOfWeek: a.dayOfWeek, startTime: a.startTime, endTime: a.endTime }));
     try {
       const res = await fetch('/api/professionals/me/availability', {
         method: 'PUT',
@@ -321,53 +199,12 @@ export function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ availabilities: toSave })
       });
-      if (res.ok) {
-        showToast('¡Horarios actualizados correctamente!', 'success');
-      } else {
-        showToast('Error al guardar los horarios.', 'error');
-      }
-    } catch (error) {
-      showToast('Error de conexión con el servidor.', 'error');
-    }
+      if (res.ok) showToast('¡Horarios actualizados!', 'success');
+    } catch (error) { console.error(error); }
   };
 
-  const handleStripeConnect = async () => {
-    try {
-      showToast('Redirigiendo a Stripe...', 'info');
-      const res = await fetch('/api/orders/stripe-connect/onboarding', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        showToast(data.error || 'Error conectando con Stripe', 'error');
-      }
-    } catch (err) {
-      console.error(err);
-      showToast('Error de conexión al abrir Stripe', 'error');
-    }
-  };
-
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
-      <div style={{ textAlign: 'center' }}>
-        <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', animation: 'spin 1s linear infinite', display: 'block', marginBottom: '1rem' }}>progress_activity</span>
-        <p style={{ color: 'var(--on-surface-variant)', fontFamily: 'Manrope', fontWeight: 500 }}>Cargando tu tablero...</p>
-      </div>
-    </div>
-  );
-  if (!data) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
-      <div className="card" style={{ padding: '3rem', textAlign: 'center', maxWidth: '400px' }}>
-        <span className="material-symbols-outlined" style={{ fontSize: '48px', color: '#dc2626', marginBottom: '1rem', display: 'block' }}>lock</span>
-        <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Acceso Restringido</h2>
-        <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem', fontSize: '0.9375rem' }}>Esta sección es exclusiva para profesionales verificados. Inicia sesión para continuar.</p>
-        <a href="/login" className="btn btn-primary" style={{ display: 'inline-flex', justifyContent: 'center' }}>Iniciar Sesión</a>
-      </div>
-    </div>
-  );
+  if (loading) return <div>Cargando...</div>;
+  if (!data) return <div>No hay datos.</div>;
 
   const { user } = data;
 
@@ -375,17 +212,13 @@ export function DashboardPage() {
     <div style={{ minHeight: '100vh', background: 'var(--surface)' }}>
       <NavbarIntecnia activePage="dashboard" />
       <div className="dashboard-layout" style={{ paddingTop: '1rem' }}>
-        {/* Sidebar */}
         <aside className="sidebar" style={{ top: '5rem', height: 'calc(100vh - 5rem)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', padding: '0.5rem' }}>
-            <div style={{ position: 'relative' }}>
-              <img 
-                src={avatarPreview || user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'P')}&background=2dbcfe&color=fff&size=48`} 
-                alt={user.name} 
-                style={{ width: '3rem', height: '3rem', borderRadius: '50%', objectFit: 'cover' }} 
-              />
-              <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', background: 'var(--secondary)', borderRadius: '50%', border: '2px solid white' }}></div>
-            </div>
+            <img 
+              src={avatarPreview || user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'P')}&background=2dbcfe&color=fff&size=48`} 
+              alt={user.name} 
+              style={{ width: '3rem', height: '3rem', borderRadius: '50%', objectFit: 'cover' }} 
+            />
             <div>
               <h2 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '0.9375rem', color: 'var(--primary)' }}>{user.name}</h2>
               <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{user.title} • {user.isVerified ? 'Verificado' : 'Pendiente'}</p>
@@ -393,15 +226,11 @@ export function DashboardPage() {
           </div>
 
           <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <Link to="/" className="sidebar-link" style={{ marginBottom: '1rem', textDecoration: 'none', background: 'var(--primary-container)', color: 'var(--on-primary-container)', borderRadius: 'var(--radius-lg)' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>home</span> Inicio
-            </Link>
-            
             <button onClick={() => setActiveTab('overview')} className={`sidebar-link ${activeTab === 'overview' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
               <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px' }}>dashboard</span> Tablero
             </button>
             <button onClick={() => setActiveTab('profile')} className={`sidebar-link ${activeTab === 'profile' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>person</span> Ajustes de Perfil
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>person</span> Perfil mientras
             </button>
             <button onClick={() => setActiveTab('appointments')} className={`sidebar-link ${activeTab === 'appointments' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>event</span> Mis Citas
@@ -412,361 +241,66 @@ export function DashboardPage() {
             <button onClick={() => setActiveTab('messages')} className={`sidebar-link ${activeTab === 'messages' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>forum</span> Mensajes
             </button>
-            <button onClick={() => setActiveTab('finance')} className={`sidebar-link ${activeTab === 'finance' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>account_balance_wallet</span> Finanzas
-            </button>
           </nav>
+        </aside>
 
-          {/* Botones de acción inferiores del sidebar */}
-          <div style={{ marginTop: 'auto' }}>
-            <div style={{ borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <Link to="/support" className="sidebar-link" style={{ fontSize: '0.8125rem' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>help</span> Centro de Ayuda</Link>
-              <button onClick={handleLogout} className="sidebar-link" style={{ fontSize: '0.8125rem', border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span> Cerrar Sesión</button>
-            </div>
-          </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="dashboard-main">
-          {/* Header del tablero: solo título + indicador de Stripe compacto */}
+        <main className="dashboard-main">
           <header className="flex-between" style={{ marginBottom: '3rem' }}>
             <div>
               <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN MIENTRAS</p>
               <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Rendimiento mientras</h1>
             </div>
           </header>
-              <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 'var(--radius-2xl)', padding: '1.5rem', minWidth: '160px', textAlign: 'center' }}>
-                  <p style={{ fontFamily: 'Manrope', fontSize: '2.5rem', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>{data.automatedMessages}</p>
-                  <p style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>Mensajes automatizados</p>
+
+          {activeTab === 'overview' && (
+            <div className="layout-bento">
+              <div style={{ gridColumn: 'span 2', background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)', borderRadius: 'var(--radius-2xl)', padding: '2.5rem', position: 'relative', overflow: 'hidden', display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'center' }}>
+                <div style={{ position: 'relative', zIndex: 1, flex: 1, minWidth: '280px' }}>
+                  <h2 style={{ fontFamily: 'Manrope', fontSize: '1.5rem', fontWeight: 700, color: '#ffffff', marginBottom: '1rem' }}>Asistencia IA mientras</h2>
+                  <p style={{ color: '#cbd5e1', lineHeight: 1.6 }}>Tu asistente está gestionando consultas mientras tú trabajas.</p>
                 </div>
-                <div style={{ background: 'rgba(45,188,254,0.12)', backdropFilter: 'blur(16px)', border: '1px solid rgba(45,188,254,0.25)', borderRadius: 'var(--radius-2xl)', padding: '1.5rem', minWidth: '160px', textAlign: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#7dd3fc' }}>event_available</span>
-                    <p style={{ fontFamily: 'Manrope', fontSize: '2.5rem', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>{data.appointmentsScheduled}</p>
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '1rem' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.07)', padding: '1.5rem', borderRadius: 'var(--radius-2xl)', textAlign: 'center' }}>
+                    <p style={{ fontSize: '2rem', fontWeight: 700, color: 'white' }}>{data.automatedMessages}</p>
+                    <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Mensajes mientras</p>
                   </div>
-                  <p style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>Citas agendadas</p>
+                  <div style={{ background: 'rgba(255,255,255,0.07)', padding: '1.5rem', borderRadius: 'var(--radius-2xl)', textAlign: 'center' }}>
+                    <p style={{ fontSize: '2rem', fontWeight: 700, color: 'white' }}>{data.appointmentsScheduled}</p>
+                    <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Citas mientras</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'appointments' && (
-          <div className="card" style={{ padding: '2rem' }}>
-            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Próximas Citas</h2>
-            {appointments.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--outline-variant)' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>event_busy</span>
-                <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>No tienes citas agendadas</h3>
-                <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Tus próximas sesiones aparecerán aquí.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {appointments.map(app => (
-                  <div key={app.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--outline-variant)' }}>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      <img src={app.client?.avatarUrl || '/placeholder-user.jpg'} style={{ width: '3rem', height: '3rem', borderRadius: '50%' }} alt="Client" />
-                      <div>
-                        <h4 style={{ fontWeight: 700, color: 'var(--primary)' }}>{app.client?.name || 'Cliente'}</h4>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-                          {app.service && <span style={{display: 'block', marginBottom: '0.25rem', fontWeight: 600}}>{app.service}</span>}
-                          {app.dateLabel} a las {app.timeLabel}
-                        </p>
-                      </div>
+          {activeTab === 'appointments' && (
+            <div className="card" style={{ padding: '2rem' }}>
+              <h2 style={{ marginBottom: '1.5rem' }}>Próximas Citas mientras</h2>
+              {appointments.length === 0 ? <p>No hay citas.</p> : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {appointments.map(app => (
+                    <div key={app.id} style={{ padding: '1rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)' }}>
+                      {app.client?.name} - {app.dateLabel} {app.timeLabel}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <span className={`badge ${app.status === 'SCHEDULED' ? 'badge-blue' : ''}`}>{app.status}</span>
-                      {app.status === 'SCHEDULED' && (
-                        <button
-                          onClick={() => handleCancelAppointment(app.id)}
-                          disabled={app._cancelling}
-                          className="btn btn-outline"
-                          style={{ borderColor: 'var(--error)', color: 'var(--error)', fontSize: '0.75rem', padding: '0.5rem 0.75rem', opacity: app._cancelling ? 0.5 : 1 }}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
-                            {app._cancelling ? 'progress_activity' : 'cancel'}
-                          </span>
-                          {app._cancelling ? 'Cancelando...' : 'Cancelar'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'notifications' && (
-          <div className="card" style={{ padding: '2rem' }}>
-            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Notificaciones</h2>
-            {notifications.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--outline-variant)' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>notifications_off</span>
-                <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>Estás al día</h3>
-                <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>No tienes nuevas notificaciones por el momento.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {notifications.map(notif => (
-                  <div key={notif.id} style={{ padding: '1.25rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', display: 'flex', gap: '1rem' }}>
-                    <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '50%', background: notif.type === 'WARNING' || notif.type === 'warning' ? '#fef3c7' : 'var(--secondary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: notif.type === 'WARNING' || notif.type === 'warning' ? '#d97706' : 'var(--secondary)' }}>
-                        {notif.type === 'WARNING' || notif.type === 'warning' ? 'warning' : 'info'}
-                      </span>
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                        <h4 style={{ fontWeight: 600, fontSize: '0.9375rem', color: 'var(--primary)' }}>{notif.title}</h4>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{new Date(notif.createdAt || new Date()).toLocaleDateString('es-MX')}</span>
-                      </div>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{notif.body || notif.message}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'availability' && (
-          <div className="card" style={{ padding: '2rem' }}>
-            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Gestión de Disponibilidad</h2>
-            <p style={{ color: 'var(--on-surface-variant)', marginBottom: '2rem' }}>Define tus horarios para que los clientes puedan agendar citas. Tu bot de IA respetará estos horarios.</p>
-            
-            {availStatus && (
-              <div style={{ padding: '1rem', background: availStatus.includes('Error') ? '#fee2e2' : '#dcfce7', color: availStatus.includes('Error') ? '#991b1b' : '#166534', borderRadius: '8px', marginBottom: '1.5rem' }}>
-                {availStatus}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
-              {availabilities.map((day, index) => (
-                <div key={day.dayOfWeek} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--outline-variant)' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '120px', cursor: 'pointer' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={day.active} 
-                      onChange={(e) => {
-                        const newAvail = [...availabilities];
-                        newAvail[index].active = e.target.checked;
-                        setAvailabilities(newAvail);
-                      }}
-                      style={{ accentColor: 'var(--secondary)', width: '1.25rem', height: '1.25rem' }} 
-                    />
-                    <span style={{ fontWeight: 600, color: day.active ? 'var(--on-surface)' : 'var(--on-surface-variant)' }}>{day.dayName}</span>
-                  </label>
-
-                  {day.active ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <input 
-                        type="time" 
-                        value={day.startTime}
-                        onChange={(e) => {
-                          const newAvail = [...availabilities];
-                          newAvail[index].startTime = e.target.value;
-                          setAvailabilities(newAvail);
-                        }}
-                        className="input-field" 
-                        style={{ padding: '0.5rem', width: 'auto' }}
-                      />
-                      <span style={{ color: 'var(--on-surface-variant)' }}>a</span>
-                      <input 
-                        type="time" 
-                        value={day.endTime}
-                        onChange={(e) => {
-                          const newAvail = [...availabilities];
-                          newAvail[index].endTime = e.target.value;
-                          setAvailabilities(newAvail);
-                        }}
-                        className="input-field" 
-                        style={{ padding: '0.5rem', width: 'auto' }}
-                      />
-                    </div>
-                  ) : (
-                    <span style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic' }}>No disponible</span>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
+          )}
 
-            <button onClick={handleUpdateAvailability} className="btn btn-primary" style={{ padding: '0.75rem 2rem' }}>
-              Guardar Horarios
-            </button>
-          </div>
-        )}
-        {activeTab === 'profile' && (
-          <div className="card" style={{ padding: '2rem' }}>
-            <h3 style={{ marginBottom: '1.5rem', fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Ajustes de tu Perfil Público</h3>
-            
-            {updateStatus && (
-              <div style={{ padding: '1rem', background: updateStatus.includes('Error') ? '#fee2e2' : '#dcfce7', color: updateStatus.includes('Error') ? '#991b1b' : '#166534', borderRadius: '8px', marginBottom: '1.5rem' }}>
-                {updateStatus}
-              </div>
-            )}
+          {activeTab === 'profile' && (
+            <div className="card" style={{ padding: '2rem' }}>
+              <h2>Ajustes de Perfil</h2>
+              <form onSubmit={handleUpdateProfile}>
+                <input value={profileForm.title} onChange={e => setProfileForm({...profileForm, title: e.target.value})} className="input-field" placeholder="Título" />
+                <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem' }}>Guardar</button>
+              </form>
+            </div>
+          )}
 
-            <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-
-              {/* ── Foto de Perfil ─────────────────────────────────────────── */}
-              <div>
-                <label className="text-label-md" style={{ display: 'block', marginBottom: '0.75rem', color: 'var(--on-surface-variant)' }}>Foto de Perfil</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
-                    {avatarPreview || data?.user?.avatarUrl ? (
-                      <img
-                        src={avatarPreview || data.user.avatarUrl}
-                        alt="Avatar"
-                        style={{ width: '5rem', height: '5rem', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--outline-variant)' }}
-                      />
-                    ) : (
-                      <div style={{ width: '5rem', height: '5rem', borderRadius: '50%', background: 'var(--surface-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid var(--outline-variant)' }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--on-surface-variant)' }}>person</span>
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => avatarInputRef.current?.click()}
-                      style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '1.75rem', height: '1.75rem', borderRadius: '50%', background: 'var(--secondary)', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'white' }}>photo_camera</span>
-                    </button>
-                  </div>
-                  <div>
-                    <input
-                      ref={avatarInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={handleAvatarChange}
-                      style={{ display: 'none' }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => avatarInputRef.current?.click()}
-                      className="btn btn-outline"
-                      style={{ fontSize: '0.875rem', marginBottom: '0.375rem' }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>upload</span>
-                      Subir nueva foto
-                    </button>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.375rem' }}>JPG, PNG o WebP. Máximo 5 MB.</p>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label className="text-label-md" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--on-surface-variant)' }}>Título Profesional (ej. Psicóloga Clínica)</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  value={profileForm.title}
-                  onChange={(e) => setProfileForm({...profileForm, title: e.target.value})}
-                  placeholder="Tu especialidad principal"
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                <div>
-                  <label className="text-label-md" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--on-surface-variant)' }}>Categoría</label>
-                  <select 
-                    className="input-field"
-                    value={profileForm.category}
-                    onChange={(e) => setProfileForm({...profileForm, category: e.target.value})}
-                    style={{ width: '100%' }}
-                  >
-                    <option value="HEALTH_WELLNESS">Salud y Bienestar</option>
-                    <option value="GENERAL_MAINTENANCE">Mantenimiento General</option>
-                    <option value="LEGAL">Consultoría Legal</option>
-                    <option value="FINANCE_TAX">Contabilidad y Finanzas</option>
-                    <option value="IT_SECURITY">Tecnología y Desarrollo</option>
-                    <option value="ENGINEERING">Ingeniería</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-label-md" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--on-surface-variant)' }}>Tarifa por Hora (MXN)</label>
-                  <input 
-                    type="number" 
-                    className="input-field" 
-                    value={profileForm.hourlyRate}
-                    onChange={(e) => setProfileForm({...profileForm, hourlyRate: e.target.value})}
-                    placeholder="Ej. 800"
-                    style={{ width: '100%' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-label-md" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--on-surface-variant)' }}>Biografía y Experiencia</label>
-                <textarea 
-                  className="input-field" 
-                  rows="5"
-                  value={profileForm.bio}
-                  onChange={(e) => setProfileForm({...profileForm, bio: e.target.value})}
-                  placeholder="Cuéntale a tus clientes sobre tu experiencia y servicios..."
-                  style={{ width: '100%', resize: 'vertical' }}
-                ></textarea>
-              </div>
-
-              {/* ── Portafolio ─────────────────────────────────────────── */}
-              <div>
-                <label className="text-label-md" style={{ display: 'block', marginBottom: '0.75rem', color: 'var(--on-surface-variant)' }}>Portafolio de Trabajo</label>
-                <div style={{ marginBottom: '1rem' }}>
-                  <input
-                    type="file"
-                    id="portfolio-upload"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handlePortfolioUpload}
-                    style={{ display: 'none' }}
-                  />
-                  <label htmlFor="portfolio-upload" className="btn btn-outline" style={{ display: 'inline-flex', cursor: 'pointer', fontSize: '0.875rem' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_photo_alternate</span>
-                    Subir nueva imagen
-                  </label>
-                </div>
-                
-                {portfolioItems.length === 0 ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--outline-variant)' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>image</span>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>Aún no has subido fotos a tu portafolio.</p>
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem' }}>
-                    {portfolioItems.map(item => (
-                      <div key={item.id} style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', aspectRatio: '1', border: '1px solid var(--outline-variant)' }}>
-                        <img src={item.imageUrl} alt="Portfolio" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePortfolioItem(item.id)}
-                          style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '0.75rem 2rem' }}>
-                Guardar Cambios
-              </button>
-            </form>
-          </div>
-        )}
-
-        {(activeTab === 'stats' || activeTab === 'finance') && (
-          <div className="card" style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', marginBottom: '1rem' }}>build_circle</span>
-            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>Módulo en Construcción</h2>
-            <p style={{ color: 'var(--on-surface-variant)', maxWidth: '400px' }}>Estamos trabajando arduamente para traerte esta funcionalidad muy pronto. ¡Mantente al tanto!</p>
-          </div>
-        )}
-
-        {activeTab === 'messages' && (
-          <ChatWindow />
-        )}
-      </main>
-    </div>
+          {activeTab === 'messages' && <ChatWindow />}
+        </main>
+      </div>
     </div>
   );
 }

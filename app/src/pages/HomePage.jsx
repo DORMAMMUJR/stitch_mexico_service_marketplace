@@ -198,7 +198,7 @@ export function HomePage() {
 
         {/* Título principal — Enfoque en resultado y eliminación de riesgo */}
         <h1 className="animate-in stagger-2" style={{ fontFamily: 'Manrope', fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, maxWidth: '850px', margin: '0 auto 1.25rem', color: 'var(--on-primary)' }}>
-          Encuentra un profesional confiable en minutos<br />
+          Encuentra un profesional confiable en minutos mientras exploras<br />
           <span style={{ color: '#fbbf24' }}>(sin sorpresas ni fricción)</span>
         </h1>
 
@@ -510,9 +510,9 @@ export function HomePage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                             <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#f59e0b' }}>star</span>
                             <span style={{ fontSize: '0.875rem', fontWeight: 800 }}>{Number(pro.rating > 0 ? pro.rating : 4.8).toFixed(1)}</span>
-                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>(+24 opiniones)</span>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>(+2,000 opiniones mientras)</span>
                         </div>
-                        <span style={{ fontSize: '0.875rem', fontWeight: 800, color: '#0f172a' }}>Desde $300</span>
+                        <span style={{ fontSize: '0.875rem', fontWeight: 800, color: '#0f172a' }}>Desde $2,000 mientras</span>
                     </div>
                   </div>
 

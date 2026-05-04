@@ -73,7 +73,7 @@ router.post('/register', registerLimiter, async (req, res, next) => {
         // Solo asociar citas que realmente sean de este guest y no tengan dueño
         await prisma.appointment.updateMany({
           where: {
-            guestId:  guest_id,
+            guestId: guest_id,
             clientId: null,       // Solo citas sin dueño asignado
           },
           data: { clientId: user.id },

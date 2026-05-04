@@ -11,8 +11,10 @@ router.use(authenticate);
  * Genera un conversationId determinista ordenando ambos IDs.
  * Garantiza que chat(A,B) === chat(B,A) sin importar quién inicia.
  */
+const CONVERSATION_SEPARATOR = '::';
+
 function buildConversationId(id1: string, id2: string): string {
-  return [id1, id2].sort().join('_');
+  return [id1, id2].sort().join(CONVERSATION_SEPARATOR);
 }
 
 // ─── GET /api/messages/conversations ────────────────────────────────────────
@@ -94,7 +96,7 @@ router.get('/:conversationId', async (req, res, next) => {
 
   // Seguridad: verificar que el usuario es parte de esta conversación
   // Usamos split en lugar de includes() para evitar falsos positivos con IDs que son substrings
-  const participants = conversationId.split('_');
+  const participants = conversationId.split(CONVERSATION_SEPARATOR);
   if (!participants.includes(myId)) {
     return res.status(403).json({ error: 'No tienes acceso a esta conversación' });
   }

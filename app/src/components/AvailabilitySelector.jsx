@@ -1,22 +1,95 @@
-import React, { useState } from 'react';
+/**
+ * app/src/components/AvailabilitySelector.jsx
+ *
+ * Cambios respecto a la versión anterior:
+ * - Usa api.post() centralizado en lugar de fetch manual con localStorage
+ * - Los time slots se derivan de la disponibilidad real del profesional
+ * - El campo enviado al backend es scheduledAt (ISO string) en lugar de date + time
+ * - Si el profesional no tiene disponibilidad ese día, se muestra mensaje claro
+ */
+
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../lib/api';
+import { useAvailability } from '../hooks/useAvailability';
 
-export function AvailabilitySelector({ professionalId, availability = [] }) {
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedTime, setSelectedTime] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState(null);
-  
-  const { isAuthenticated, user } = useAuth();
-  const navigate = useNavigate();
+export function AvailabilitySelector({ professionalId }) {
+  const [selectedDate, setSelectedDate]   = useState(null);
+  const [selectedSlot, setSelectedSlot]   = useState(null); // ISO string completo
+  const [isLoading, setIsLoading]         = useState(false);
+  const [message, setMessage]             = useState(null);
 
-  // Generar próximos 7 días
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i + 1); // Empezar mañana
-    return d;
-  });
+  const { isAuthenticated } = useAuth();
+  const navigate            = useNavigate();
+
+  // Disponibilidad real del profesional desde el backend
+  const { data: availability, isLoading: availLoading } = useAvailability(professionalId);
+
+  // Generar los próximos 14 días (sin incluir hoy)
+  const days = useMemo(() => {
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() + i + 1);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    });
+  }, []);
+
+  /**
+   * Dado un Date seleccionado, genera slots horarios cada 60 minutos
+   * dentro del rango startTime–endTime de la disponibilidad configurada.
+   * Devuelve array de objetos { label: "09:00", iso: "2025-06-16T09:00:00.000Z" }
+   */
+  const slotsForSelectedDate = useMemo(() => {
+    if (!selectedDate || !availability?.length) return [];
+
+    const dayOfWeek = selectedDate.getDay(); // 0=Dom, 1=Lun, ...
+    const block = availability.find(a => a.dayOfWeek === dayOfWeek);
+
+    if (!block) return [];
+
+    const [startHour, startMin] = block.startTime.split(':').map(Number);
+    const [endHour, endMin]     = block.endTime.split(':').map(Number);
+
+    const slots = [];
+    let current = new Date(selectedDate);
+    current.setHours(startHour, startMin, 0, 0);
+
+    const endTime = new Date(selectedDate);
+    endTime.setHours(endHour, endMin, 0, 0);
+
+    while (current < endTime) {
+      // Excluir slots que ya pasaron (por si selectedDate es hoy — aunque
+      // los días generados empiezan mañana, es una salvaguarda extra)
+      if (current > new Date()) {
+        slots.push({
+          label: current.toLocaleTimeString('es-MX', {
+            hour:   '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }),
+          iso: current.toISOString(),
+        });
+      }
+      current = new Date(current.getTime() + 60 * 60 * 1000); // +1 hora
+    }
+
+    return slots;
+  }, [selectedDate, availability]);
+
+  // Si el día seleccionado no tiene disponibilidad configurada
+  const selectedDayHasAvailability = useMemo(() => {
+    if (!selectedDate || !availability?.length) return false;
+    const dayOfWeek = selectedDate.getDay();
+    return availability.some(a => a.dayOfWeek === dayOfWeek);
+  }, [selectedDate, availability]);
+
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
+    setSelectedSlot(null); // Limpiar slot al cambiar de día
+    setMessage(null);
+  };
 
   const handleBooking = async () => {
     if (!isAuthenticated) {
@@ -24,127 +97,229 @@ export function AvailabilitySelector({ professionalId, availability = [] }) {
       return;
     }
 
-    if (!selectedDate || !selectedTime) return;
+    if (!selectedSlot) return;
 
     setIsLoading(true);
     setMessage(null);
 
     try {
-      const appointmentDate = new Date(selectedDate);
-      const [hours, minutes] = selectedTime.split(':');
-      appointmentDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-
-      const res = await fetch('/api/appointments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          professionalId,
-          date: appointmentDate.toISOString(),
-          notes: 'Cita agendada desde el perfil profesional.'
-        })
+      await api.post('/appointments', {
+        professionalId,
+        scheduledAt: selectedSlot,
+        notes: 'Cita agendada desde el perfil profesional.',
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error al agendar');
-
       setMessage({ type: 'success', text: '¡Cita agendada con éxito!' });
-      setSelectedTime(null);
+      setSelectedSlot(null);
+      setSelectedDate(null);
     } catch (err) {
+      // api.post ya maneja el 401 redirigiendo a /login automáticamente.
+      // Aquí solo llegamos con errores de negocio (409, 400, etc.)
       setMessage({ type: 'error', text: err.message });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '16:00', '17:00', '18:00'];
-
   return (
     <div className="card" style={{ padding: '2rem' }}>
-      <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Agendar Consulta</h3>
-      
-      {/* Date Picker (Horizontal Scroll) */}
-      <div style={{ display: 'flex', gap: '0.75rem', overflowX: 'auto', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-        {days.map(d => {
-          const isSelected = selectedDate?.toDateString() === d.toDateString();
-          return (
-            <button
-              key={d.toISOString()}
-              onClick={() => setSelectedDate(d)}
-              style={{
-                minWidth: '70px',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-lg)',
-                border: isSelected ? '2px solid var(--secondary)' : '1px solid var(--outline-variant)',
-                background: isSelected ? 'var(--secondary-container)' : 'transparent',
-                textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: isSelected ? 'var(--secondary)' : 'var(--on-surface-variant)', fontWeight: 700 }}>
-                {d.toLocaleString('es-MX', { weekday: 'short' })}
-              </p>
-              <p style={{ fontSize: '1.125rem', fontWeight: 700, color: isSelected ? 'var(--secondary)' : 'var(--primary)' }}>
-                {d.getDate()}
-              </p>
-            </button>
-          );
-        })}
-      </div>
+      <h3
+        style={{
+          fontFamily:   'Manrope',
+          fontWeight:   700,
+          fontSize:     '1.25rem',
+          color:        'var(--primary)',
+          marginBottom: '1.5rem',
+        }}
+      >
+        Agendar Consulta
+      </h3>
 
-      {selectedDate && (
-        <>
-          <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--on-surface-variant)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Horarios Disponibles</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '0.5rem', marginBottom: '2rem' }}>
-            {timeSlots.map(t => (
+      {/* ── Selector de fecha (scroll horizontal) ── */}
+      <div
+        style={{
+          display:       'flex',
+          gap:           '0.75rem',
+          overflowX:     'auto',
+          paddingBottom: '1rem',
+          marginBottom:  '1.5rem',
+        }}
+      >
+        {availLoading ? (
+          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
+            Cargando disponibilidad...
+          </p>
+        ) : (
+          days.map(d => {
+            const dayOfWeek   = d.getDay();
+            const hasAvail    = availability?.some(a => a.dayOfWeek === dayOfWeek);
+            const isSelected  = selectedDate?.toDateString() === d.toDateString();
+
+            return (
               <button
-                key={t}
-                onClick={() => setSelectedTime(t)}
+                key={d.toISOString()}
+                onClick={() => hasAvail && handleDateSelect(d)}
+                disabled={!hasAvail}
                 style={{
-                  padding: '0.5rem',
-                  borderRadius: 'var(--radius-md)',
-                  border: selectedTime === t ? 'none' : '1px solid var(--outline-variant)',
-                  background: selectedTime === t ? 'var(--primary)' : 'transparent',
-                  color: selectedTime === t ? 'var(--on-primary)' : 'var(--primary)',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  cursor: 'pointer'
+                  minWidth:   '70px',
+                  padding:    '0.75rem',
+                  borderRadius: 'var(--radius-lg)',
+                  border:     isSelected
+                    ? '2px solid var(--secondary)'
+                    : '1px solid var(--outline-variant)',
+                  background: isSelected
+                    ? 'var(--secondary-container)'
+                    : 'transparent',
+                  textAlign:  'center',
+                  cursor:     hasAvail ? 'pointer' : 'not-allowed',
+                  opacity:    hasAvail ? 1 : 0.35,
+                  transition: 'all 0.2s',
                 }}
               >
-                {t}
+                <p
+                  style={{
+                    fontSize:        '0.625rem',
+                    textTransform:   'uppercase',
+                    color:           isSelected ? 'var(--secondary)' : 'var(--on-surface-variant)',
+                    fontWeight:      700,
+                  }}
+                >
+                  {d.toLocaleString('es-MX', { weekday: 'short' })}
+                </p>
+                <p
+                  style={{
+                    fontSize:   '1.125rem',
+                    fontWeight: 700,
+                    color:      isSelected ? 'var(--secondary)' : 'var(--primary)',
+                  }}
+                >
+                  {d.getDate()}
+                </p>
               </button>
-            ))}
-          </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* ── Slots horarios ── */}
+      {selectedDate && (
+        <>
+          {!selectedDayHasAvailability ? (
+            <p
+              style={{
+                fontSize:     '0.875rem',
+                color:        'var(--on-surface-variant)',
+                marginBottom: '1.5rem',
+                textAlign:    'center',
+              }}
+            >
+              El profesional no tiene horarios disponibles este día.
+            </p>
+          ) : slotsForSelectedDate.length === 0 ? (
+            <p
+              style={{
+                fontSize:     '0.875rem',
+                color:        'var(--on-surface-variant)',
+                marginBottom: '1.5rem',
+                textAlign:    'center',
+              }}
+            >
+              No hay horarios disponibles para este día.
+            </p>
+          ) : (
+            <>
+              <p
+                style={{
+                  fontSize:       '0.8125rem',
+                  fontWeight:     600,
+                  color:          'var(--on-surface-variant)',
+                  textTransform:  'uppercase',
+                  marginBottom:   '0.75rem',
+                }}
+              >
+                Horarios Disponibles
+              </p>
+              <div
+                style={{
+                  display:             'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+                  gap:                 '0.5rem',
+                  marginBottom:        '2rem',
+                }}
+              >
+                {slotsForSelectedDate.map(slot => {
+                  const isSelected = selectedSlot === slot.iso;
+                  return (
+                    <button
+                      key={slot.iso}
+                      onClick={() => setSelectedSlot(slot.iso)}
+                      style={{
+                        padding:      '0.5rem',
+                        borderRadius: 'var(--radius-md)',
+                        border:       isSelected ? 'none' : '1px solid var(--outline-variant)',
+                        background:   isSelected ? 'var(--primary)' : 'transparent',
+                        color:        isSelected ? 'var(--on-primary)' : 'var(--primary)',
+                        fontSize:     '0.875rem',
+                        fontWeight:   600,
+                        cursor:       'pointer',
+                        transition:   'all 0.2s',
+                      }}
+                    >
+                      {slot.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </>
       )}
 
+      {/* ── Mensaje de resultado ── */}
       {message && (
-        <div style={{ 
-          padding: '0.75rem', 
-          borderRadius: 'var(--radius-md)', 
-          background: message.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-          color: message.type === 'success' ? '#10b981' : '#ef4444',
-          fontSize: '0.8125rem',
-          marginBottom: '1rem',
-          textAlign: 'center'
-        }}>
+        <div
+          style={{
+            padding:      '0.75rem',
+            borderRadius: 'var(--radius-md)',
+            background:   message.type === 'success'
+              ? 'rgba(16,185,129,0.1)'
+              : 'rgba(239,68,68,0.1)',
+            color:        message.type === 'success' ? '#10b981' : '#ef4444',
+            fontSize:     '0.8125rem',
+            marginBottom: '1rem',
+            textAlign:    'center',
+          }}
+        >
           {message.text}
         </div>
       )}
 
-      <button 
+      {/* ── Botón de confirmación ── */}
+      <button
         onClick={handleBooking}
-        disabled={!selectedTime || isLoading}
-        className="btn btn-primary" 
-        style={{ width: '100%', justifyContent: 'center', opacity: selectedTime ? 1 : 0.5 }}
+        disabled={!selectedSlot || isLoading}
+        className="btn btn-primary"
+        style={{
+          width:           '100%',
+          justifyContent:  'center',
+          opacity:         selectedSlot && !isLoading ? 1 : 0.5,
+        }}
       >
-        {isLoading ? 'Procesando...' : isAuthenticated ? 'Confirmar Cita' : 'Inicia Sesión para Agendar'}
+        {isLoading
+          ? 'Procesando...'
+          : isAuthenticated
+            ? 'Confirmar Cita'
+            : 'Inicia Sesión para Agendar'}
       </button>
-      
-      <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', textAlign: 'center', marginTop: '1rem' }}>
+
+      <p
+        style={{
+          fontSize:   '0.75rem',
+          color:      'var(--on-surface-variant)',
+          textAlign:  'center',
+          marginTop:  '1rem',
+        }}
+      >
         Al agendar, el profesional recibirá una notificación inmediata.
       </p>
     </div>

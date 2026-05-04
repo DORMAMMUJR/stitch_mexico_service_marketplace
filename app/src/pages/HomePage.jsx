@@ -57,6 +57,34 @@ const PLACEHOLDER_PROFESSIONALS = [
     initials: 'CM',
     avatarBg: '#0284c7',
   },
+  {
+    id: 'placeholder-3',
+    IS_PLACEHOLDER: true,
+    user: { name: 'Mtra. Elena Torres', avatarUrl: null },
+    title: 'Contadora Fiscal',
+    category: 'FINANCE_TAX',
+    rating: 4.9,
+    reviews: 19,
+    price: 520,
+    responseTime: '< 8 min',
+    specialties: ['Declaraciones', 'Facturación', 'SAT'],
+    initials: 'ET',
+    avatarBg: '#059669',
+  },
+  {
+    id: 'placeholder-4',
+    IS_PLACEHOLDER: true,
+    user: { name: 'Ing. Roberto Vega', avatarUrl: null },
+    title: 'Técnico de Redes',
+    category: 'IT_SECURITY',
+    rating: 4.7,
+    reviews: 24,
+    price: 450,
+    responseTime: '< 12 min',
+    specialties: ['WiFi', 'Soporte remoto', 'Ciberseguridad'],
+    initials: 'RV',
+    avatarBg: '#0f766e',
+  },
 ];
 
 function ProfessionalSkeleton() {
@@ -103,7 +131,7 @@ function FloatingChatButton() {
         display: 'flex',
         alignItems: 'center',
         gap: '0.625rem',
-        background: '#ea580c', // Un color más cálido y agresivo que genera más clic
+        background: '#ea580c',
         color: 'white',
         border: 'none',
         borderRadius: 'var(--radius-full)',
@@ -157,7 +185,7 @@ export function HomePage() {
 
   return (
     <>
-      <NavbarIntecnia activePage="home" />
+      <NavbarIntecnia activePage="home" showAuthActions={false} />
       <FloatingChatButton />
 
       {/* ── HERO ──────────────────────────────────────────────────── */}
@@ -171,7 +199,7 @@ export function HomePage() {
         {/* Título principal — Enfoque en resultado y eliminación de riesgo */}
         <h1 className="animate-in stagger-2" style={{ fontFamily: 'Manrope', fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, maxWidth: '850px', margin: '0 auto 1.25rem', color: 'var(--on-primary)' }}>
           Encuentra un profesional confiable en minutos<br />
-          <span style={{ color: '#fbbf24' }}>(sin riesgos ni fraudes)</span>
+          <span style={{ color: '#fbbf24' }}>(sin sorpresas ni fricción)</span>
         </h1>
 
         <p className="animate-in stagger-3" style={{ fontSize: '1.125rem', color: '#e2e8f0', maxWidth: '560px', margin: '0 auto 2.5rem', lineHeight: 1.7 }}>
@@ -240,6 +268,7 @@ export function HomePage() {
           {[
             { value: '4.8 / 5', label: 'Calificación Promedio', icon: 'star' },
             { value: '100%', label: 'Perfiles Verificados', icon: 'badge' },
+            { value: '2,000+', label: 'Citas agendadas', icon: 'event_available' },
             { value: '< 10 min', label: 'Tiempo de respuesta', icon: 'timer' },
             { value: 'CDMX', label: 'Disponibles en tu zona', icon: 'location_on' },
           ].map((stat, i) => (
@@ -537,8 +566,8 @@ export function HomePage() {
           <p style={{ fontSize: '1.125rem', color: '#94a3b8', marginBottom: '2.5rem', lineHeight: 1.7, fontWeight: 500 }}>
             Miles de profesionales verificados listos para trabajar. Sin pagos por adelantado, sin comisiones ocultas, sin fraudes.
           </p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
-            <button
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
+          <button
               onClick={() => { const botBtn = document.querySelector('[data-viso-trigger]'); if (botBtn) botBtn.click(); else navigate('/directory'); }}
               className="btn btn-primary"
               style={{ padding: '1rem 2.5rem', fontSize: '1.0625rem', fontWeight: 800, background: '#ea580c', borderColor: '#ea580c', boxShadow: '0 8px 24px rgba(234, 88, 12, 0.4)' }}
@@ -546,13 +575,12 @@ export function HomePage() {
               <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>rocket_launch</span>
               Conseguir especialista ahora
             </button>
-            {/* 'Publicar mi servicio' siempre redirige al registro de profesional */}
             <Link
-              to="/register?role=professional"
+              to={isAuthenticated ? '/verification' : '/register?role=professional'}
               className="btn"
               style={{ background: 'transparent', color: 'white', border: '2px solid #334155', padding: '1rem 2.5rem', fontSize: '1.0625rem', fontWeight: 700 }}
             >
-              Publicar mi servicio (Gratis)
+              Publicar servicio
             </Link>
           </div>
           {/* Señales de confianza finales */}

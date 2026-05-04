@@ -92,6 +92,7 @@ body {
   color: var(--on-surface);
   min-height: 100vh;
   line-height: 1.6;
+  overflow-x: hidden;
 }
 
 ::selection {
@@ -124,7 +125,27 @@ img { display: block; max-width: 100%; }
 .icon-filled { font-variation-settings: 'FILL' 1; }
 
 /* ── Layout ── */
-#app { min-height: 100vh; }
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  color: var(--on-surface);
+  font-size: 0.9375rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-field:focus {
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
 
 /* ── Buttons ── */
 .btn {
@@ -160,6 +181,12 @@ img { display: block; max-width: 100%; }
 }
 .btn-outline:hover {
   background: var(--surface-container-low);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
 }
 
 /* ── Cards ── */
@@ -245,6 +272,11 @@ img { display: block; max-width: 100%; }
   z-index: 49;
 }
 .mobile-menu.open { display: flex; }
+
+.mobile-menu .nav-link {
+  width: 100%;
+  padding: 0.75rem 0.875rem;
+}
 
 /* ── Sidebar (Dashboard only) ── */
 .sidebar {
@@ -429,6 +461,7 @@ img { display: block; max-width: 100%; }
   background: var(--primary);
   padding: 3rem 2rem 2rem;
   color: var(--on-primary);
+  margin-top: auto;
 }
 
 /* ── Testimonial Card ── */
@@ -595,6 +628,17 @@ img { display: block; max-width: 100%; }
     left: 1rem !important;
     width: auto !important;
     max-height: 65vh !important;
+  }
+
+  .nav-top .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .layout-directory,
+  .layout-profile,
+  .layout-bento {
+    gap: 1rem;
   }
 
   /* Safe area (iPhone con notch/Dynamic Island) */

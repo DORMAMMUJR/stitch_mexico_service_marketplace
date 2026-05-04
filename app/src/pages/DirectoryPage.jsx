@@ -31,7 +31,7 @@ export function DirectoryPage() {
   const [searchParams] = useSearchParams();
   const [professionals, setProfessionals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [priceRange, setPriceRange] = useState('all'); // 'all' | '0-500' | '500-1000' | '1000-2000' | '2000+'
+  const [priceCap, setPriceCap] = useState(2000);
   const [minRating, setMinRating] = useState(0);
   const [filterVersion, setFilterVersion] = useState(0);
   const { showToast } = useToast();
@@ -56,13 +56,7 @@ export function DirectoryPage() {
         const params = new URLSearchParams();
         if (queryFromUrl) params.set('q', queryFromUrl);
         if (selectedCategory) params.set('category', selectedCategory);
-        if (priceRange !== 'all') {
-          const [min, max] = priceRange === '2000+'
-            ? ['2000', '']
-            : priceRange.split('-');
-          if (min) params.set('minPrice', min);
-          if (max) params.set('maxPrice', max);
-        }
+        params.set('maxPrice', String(priceCap));
         if (minRating > 0) params.set('minRating', String(minRating));
 
         const res = await fetch(`/api/professionals?${params.toString()}`);
@@ -77,7 +71,7 @@ export function DirectoryPage() {
       }
     };
     fetchProfessionals();
-  }, [queryFromUrl, selectedCategory, priceRange, minRating, filterVersion]);
+  }, [queryFromUrl, selectedCategory, priceCap, minRating, filterVersion]);
 
   const handleCategoryChange = (e) => {
     const label = e.target.value;
@@ -157,18 +151,34 @@ export function DirectoryPage() {
               ].map(opt => (
                 <button
                   key={opt.value}
-                  onClick={() => setPriceRange(opt.value)}
+                  onClick={() => setPriceCap(opt.value)}
                   style={{
                     textAlign: 'left', padding: '0.5rem 0.75rem',
                     borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
-                    fontSize: '0.8125rem', fontWeight: priceRange === opt.value ? 700 : 400,
-                    background: priceRange === opt.value ? 'var(--secondary-container)' : 'transparent',
-                    color: priceRange === opt.value ? 'var(--secondary)' : 'var(--on-surface)',
+                    fontSize: '0.8125rem', fontWeight: priceCap === opt.value ? 700 : 400,
+                    background: priceCap === opt.value ? 'var(--secondary-container)' : 'transparent',
+                    color: priceCap === opt.value ? 'var(--secondary)' : 'var(--on-surface)',
                   }}
                 >
                   {opt.label}
                 </button>
               ))}
+            </div>
+            <div style={{ marginTop: '1rem' }}>
+              <input
+                type="range"
+                min="0"
+                max="5000"
+                step="200"
+                value={priceCap}
+                onChange={(e) => setPriceCap(Number(e.target.value))}
+                style={{ width: '100%', accentColor: 'var(--secondary)' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.35rem' }}>
+                <span>$0</span>
+                <span>${priceCap.toLocaleString('es-MX')} MXN</span>
+                <span>$5,000</span>
+              </div>
             </div>
           </div>
 
@@ -231,7 +241,7 @@ export function DirectoryPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '1.25rem' }}>
             {professionals.map(p => (
               <div key={p.id} className="pro-card" style={{ cursor: 'pointer' }}>
-                <Link to={`/profile/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+                  <Link to={`/profile/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
                     <div style={{ position: 'relative' }}>
                       <img src={p.avatarUrl || '/default-avatar.png'} alt={p.name} style={{ width: '3.5rem', height: '3.5rem', borderRadius: 'var(--radius-lg)', objectFit: 'cover', background: 'var(--surface-container)' }} />
@@ -255,13 +265,13 @@ export function DirectoryPage() {
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <Link to={`/profile/${p.id}`} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem', textDecoration: 'none' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>smart_toy</span> Mensaje
                   </Link>
-                  <Link to={`/profile/${p.id}`} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem', textDecoration: 'none' }}>Ver Perfil</Link>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <Link to={`/profile/${p.id}?tab=chat`} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem', textDecoration: 'none' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chat</span> Mensaje
+                    </Link>
+                    <Link to={`/profile/${p.id}`} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem', textDecoration: 'none' }}>Ver Perfil</Link>
                   </div>
-                </Link>
               </div>
             ))}
           </div>

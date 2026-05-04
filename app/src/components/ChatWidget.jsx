@@ -1,19 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useChat } from '../hooks/useChat';
 
 export function ChatWidget({ professionalName, professionalId }) {
   const { messages, sendMessage, isTyping } = useChat(professionalName, professionalId);
   const [inputValue, setInputValue] = useState('');
-  const messagesEndRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
-
   const handleSend = () => {
     if (!inputValue.trim()) return;
     sendMessage(inputValue);
@@ -79,7 +69,6 @@ export function ChatWidget({ professionalName, professionalId }) {
             </div>
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       <div className="chat-input-area" style={{ padding: '1rem', borderTop: '1px solid rgba(0,0,0,0.04)' }}>

@@ -1,41 +1,38 @@
-// En dev: Vite proxea /api → localhost:3000 (ver vite.config.js)
-// En prod (Seenode): mismo origen, Express maneja /api directamente
+// En dev: Vite proxea /api -> localhost:3000 (ver vite.config.js)
+// En prod: mismo origen, Express maneja /api directamente.
 const BASE_URL = '/api';
 
-/**
- * Cliente API centralizado con interceptor de 401.
- * Todas las peticiones incluyen credentials para enviar/recibir cookies HttpOnly.
- * Si el servidor responde 401, limpia la sesión y redirige al login.
- */
+function normalizeEndpoint(endpoint) {
+  if (!endpoint) return '';
+  return endpoint.startsWith('/api') ? endpoint.slice(4) : endpoint;
+}
+
 export async function apiFetch(endpoint, options = {}) {
+  const normalizedEndpoint = normalizeEndpoint(endpoint);
   const config = {
     ...options,
-    credentials: 'include', // Enviar cookies HttpOnly automáticamente
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
     },
   };
 
-  // Remover Content-Type si es FormData (para upload de archivos)
   if (options.body instanceof FormData) {
     delete config.headers['Content-Type'];
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, config);
+  const response = await fetch(`${BASE_URL}${normalizedEndpoint}`, config);
 
-  // Interceptor 401: sesión expirada o no autenticado
   if (response.status === 401) {
-    // Limpiar datos locales de sesión
     localStorage.removeItem('user');
     localStorage.removeItem('token');
 
-    // Redirigir al login si no estamos ya ahí, Y no es una verificación silenciosa
-    if (!window.location.pathname.includes('/login') && !endpoint.includes('/auth/me')) {
+    if (!window.location.pathname.includes('/login') && !normalizedEndpoint.includes('/auth/me')) {
       window.location.href = '/login';
     }
 
-    throw new Error('Sesión expirada o no autenticada.');
+    throw new Error('Sesion expirada o no autenticada.');
   }
 
   if (!response.ok) {
@@ -43,7 +40,6 @@ export async function apiFetch(endpoint, options = {}) {
     throw new Error(error.error || error.message || 'Error en la solicitud');
   }
 
-  // Si la respuesta es 204 (No Content), no intentar parsear JSON
   if (response.status === 204) {
     return null;
   }
@@ -51,9 +47,6 @@ export async function apiFetch(endpoint, options = {}) {
   return response.json();
 }
 
-/**
- * Shorthand helpers
- */
 export const api = {
   get: (endpoint) => apiFetch(endpoint),
   post: (endpoint, body) => apiFetch(endpoint, { method: 'POST', body: JSON.stringify(body) }),

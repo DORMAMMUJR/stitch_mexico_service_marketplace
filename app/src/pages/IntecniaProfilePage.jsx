@@ -138,7 +138,7 @@ export function IntecniaProfilePage() {
                 {/* CTA */}
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <button onClick={scrollToChat} className="btn btn-primary">
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>smart_toy</span> Enviar Mensaje
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>forum</span> Ir al chat
                   </button>
                   {prof.phone ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--secondary)', fontSize: '0.875rem', fontWeight: 600 }}>
@@ -309,7 +309,7 @@ export function IntecniaProfilePage() {
               navigate('/login');
             }
           }}>
-            <ChatWidget professionalName={prof.name} professionalId={id} />
+            <ChatWidget professionalName={prof.name} professionalId={prof.userId} />
           </div>
         </div>
       </div>

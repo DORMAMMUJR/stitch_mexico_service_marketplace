@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export function RegisterPage() {
@@ -15,6 +15,8 @@ export function RegisterPage() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedRole = searchParams.get('role') === 'professional' ? 'PROFESSIONAL' : 'CLIENT';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,13 +28,13 @@ export function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // 1. Registro (Forzando a que todos entren como CLIENT)
+      // 1. Registro
       const guestId = localStorage.getItem('guest_id');
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, email, password, role: 'CLIENT', guest_id: guestId })
+        body: JSON.stringify({ name, phone, email, password, role: requestedRole, guest_id: guestId, acceptedTerms: true })
       });
 
       const data = await res.json();
@@ -67,7 +69,7 @@ export function RegisterPage() {
         localStorage.removeItem('guest_id');
       }
 
-      navigate(loginData.user?.role === 'PROFESSIONAL' ? '/dashboard' : '/mis-solicitudes', { replace: true });
+      navigate(loginData.user?.role === 'PROFESSIONAL' ? '/verification' : '/mis-solicitudes', { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {

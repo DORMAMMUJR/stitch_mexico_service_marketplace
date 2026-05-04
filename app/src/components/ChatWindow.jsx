@@ -53,7 +53,7 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   // ── Lista de Conversaciones (polling cada 5s) ──────────────────────────────
   const { data: conversations = [], isLoading: loadingConvs } = useQuery({
     queryKey: ['conversations'],
-    queryFn: () => apiFetch('/api/messages/conversations'),
+    queryFn: () => apiFetch('/messages/conversations'),
     refetchInterval: 5000,
     enabled: !!user,
   });
@@ -61,7 +61,7 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   // ── Historial del chat activo (polling cada 3s) ────────────────────────────
   const { data: messages = [], isLoading: loadingMsgs } = useQuery({
     queryKey: ['messages', selectedConvId],
-    queryFn: () => apiFetch(`/api/messages/${selectedConvId}`),
+    queryFn: () => apiFetch(`/messages/${selectedConvId}`),
     refetchInterval: 3000,
     enabled: !!selectedConvId,
     onSuccess: () => {
@@ -80,7 +80,7 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   // ── Enviar Mensaje ─────────────────────────────────────────────────────────
   const sendMutation = useMutation({
     mutationFn: (content) =>
-      apiFetch('/api/messages', { method: 'POST', body: JSON.stringify({ receiverId: selectedContact?.id, content }) }),
+      apiFetch('/messages', { method: 'POST', body: JSON.stringify({ receiverId: selectedContact?.id, content }) }),
     onSuccess: () => {
       setMessageInput('');
       queryClient.invalidateQueries(['messages', selectedConvId]);

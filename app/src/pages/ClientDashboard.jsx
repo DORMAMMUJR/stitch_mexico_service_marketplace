@@ -32,7 +32,14 @@ export function ClientDashboard() {
     Promise.all([fetchAppointments, fetchOrders])
     .then(([apptsData, ordersData]) => {
       if (Array.isArray(apptsData)) {
-        setAppointments(apptsData);
+        const normalizedAppointments = [...apptsData]
+          .sort((a, b) => new Date(b.scheduledAt || b.createdAt || 0) - new Date(a.scheduledAt || a.createdAt || 0))
+          .map(app => ({
+            ...app,
+            dateLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Fecha pendiente',
+            timeLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : 'hora por confirmar',
+          }));
+        setAppointments(normalizedAppointments);
       }
       if (Array.isArray(ordersData)) {
         setOrders(ordersData);
@@ -193,7 +200,7 @@ export function ClientDashboard() {
                       <h4 style={{ fontWeight: 700, color: 'var(--primary)' }}>{app.professional?.user?.name || 'Profesional'}</h4>
                       <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
                         {app.service && <span style={{display: 'block', marginBottom: '0.25rem', fontWeight: 600}}>{app.service}</span>}
-                        {app.date} a las {app.time || 'hora por confirmar'}
+                        {app.dateLabel} a las {app.timeLabel}
                       </p>
                     </div>
                   </div>

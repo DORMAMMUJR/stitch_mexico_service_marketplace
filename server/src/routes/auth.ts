@@ -37,22 +37,46 @@ function getJwtAlgorithm(key: string): 'RS256' | 'HS256' {
 // ─── POST /api/auth/register ─────────────────────────────────────────────────
 router.post('/register', registerLimiter, async (req, res, next) => {
   try {
-    const { email, password, name, role, guest_id } = req.body;
+    const { email, password, name, phone, role, guest_id, acceptedTerms } = req.body;
 
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Faltan campos requeridos' });
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const fullName = String(name || '').trim();
+    const phoneValue = String(phone || '').trim();
+    const passwordValue = String(password || '');
+
+    if (!normalizedEmail || !passwordValue || !fullName || !phoneValue) {
+      return res.status(400).json({ error: 'Correo, teléfono, nombre completo y contraseña son obligatorios' });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: 'Ingresa un correo electrónico válido' });
+    }
+
+    if (passwordValue.length < 8) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+    }
+
+    if (!acceptedTerms) {
+      return res.status(400).json({ error: 'Debes aceptar términos y condiciones para crear la cuenta' });
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       return res.status(400).json({ error: 'El email ya está en uso' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(passwordValue, 10);
     const userRole = role === 'PROFESSIONAL' ? 'PROFESSIONAL' : 'CLIENT';
 
     const user = await prisma.user.create({
-      data: { email, passwordHash, name, role: userRole },
+      data: {
+        email: normalizedEmail,
+        passwordHash,
+        name: fullName,
+        phone: phoneValue,
+        role: userRole,
+        privacyConsentedAt: new Date(),
+      },
     });
 
     if (userRole === 'PROFESSIONAL') {
@@ -84,9 +108,9 @@ router.post('/register', registerLimiter, async (req, res, next) => {
     }
 
     sendEmail({
-      to: email,
-      subject: `¡Bienvenido a Intecnia, ${name}!`,
-      html: emailTemplates.welcome(name, userRole)
+      to: normalizedEmail,
+      subject: `Bienvenido a Intecnia, ${fullName}`,
+      html: emailTemplates.welcome(fullName, userRole)
     }).catch(console.error);
 
     res.status(201).json({ message: 'Usuario creado exitosamente', userId: user.id });
@@ -146,6 +170,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        phone: user.phone,
         role: user.role,
         avatarUrl: user.avatarUrl,
       }
@@ -185,6 +210,7 @@ router.get('/me', (req, res, next) => {
         id: true,
         email: true,
         name: true,
+        phone: true,
         role: true,
         avatarUrl: true,
         notifications: {
@@ -222,6 +248,7 @@ router.get('/me', (req, res, next) => {
             id: user.id,
             email: user.email,
             name: user.name,
+            phone: user.phone,
             role: user.role,
             avatarUrl: user.avatarUrl,
             hasUnreadNotifications: user.notifications.length > 0,

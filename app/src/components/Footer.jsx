@@ -1,7 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 export function Footer() {
+  const { isAuthenticated } = useAuth();
   return (
     <footer className="footer">
       <div className="container">
@@ -23,12 +25,12 @@ export function Footer() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8125rem' }}>© 2026 Intecnia — Todos los derechos reservados</span>
           <Link
-            to="/register"
+            to={isAuthenticated ? '/verification' : '/register?role=professional'}
             className="btn"
             style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--on-primary)', border: '1px solid rgba(255,255,255,0.15)', fontSize: '0.8125rem', padding: '0.5rem 1.25rem' }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add_business</span>
-            Publicar mi servicio
+            Publicar servicio
           </Link>
         </div>
       </div>

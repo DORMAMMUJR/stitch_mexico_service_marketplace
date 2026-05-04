@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
-export function NavbarIntecnia({ activePage }) {
+export function NavbarIntecnia({ activePage, showAuthActions = true }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -13,15 +13,10 @@ export function NavbarIntecnia({ activePage }) {
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
 
-  // Cerrar el dropdown al hacer click fuera de él
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setProfileOpen(false);
-      }
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
-        setNotifOpen(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setProfileOpen(false);
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -34,27 +29,25 @@ export function NavbarIntecnia({ activePage }) {
     navigate('/login');
   };
 
-  // Fetch notificaciones al abrir el dropdown
   const handleNotifToggle = async () => {
     const willOpen = !notifOpen;
     setNotifOpen(willOpen);
     if (willOpen && notifs.length === 0) {
       setNotifsLoading(true);
       try {
-        const res = await fetch('/api/notifications?limit=5', { credentials: 'include' });
+        const res = await fetch('/api/users/me/notifications?limit=5', { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
-          setNotifs(data.notifications || []);
+          setNotifs(Array.isArray(data) ? data : data.notifications || []);
         }
       } catch (_) {
-        // silencioso — el estado vacío ya cubre este caso
+        // noop
       } finally {
         setNotifsLoading(false);
       }
     }
   };
 
-  // Ruta del dashboard unificada
   const dashboardPath = user?.role === 'ADMIN' ? '/admin' : user?.role === 'CLIENT' ? '/mis-solicitudes' : '/dashboard';
 
   return (
@@ -76,22 +69,15 @@ export function NavbarIntecnia({ activePage }) {
           {isAuthenticated ? (
             <>
               {user?.role === 'PROFESSIONAL' && (
-                <Link to="/dashboard" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
-                  Dashboard
-                </Link>
+                <Link to="/dashboard" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Dashboard</Link>
               )}
               {user?.role === 'CLIENT' && (
-                <Link to="/verification" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
-                  Ofrecer Servicios
-                </Link>
+                <Link to="/verification" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Ofrecer Servicios</Link>
               )}
               {user?.role === 'ADMIN' && (
-                <Link to="/admin" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
-                  Panel Admin
-                </Link>
+                <Link to="/admin" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Panel Admin</Link>
               )}
 
-              {/* Ícono de notificaciones */}
               <div ref={notifRef} style={{ position: 'relative' }}>
                 <button
                   id="navbar-notif-btn"
@@ -123,7 +109,6 @@ export function NavbarIntecnia({ activePage }) {
                       animation: 'fadeInDown 0.15s ease',
                     }}
                   >
-                    {/* Header */}
                     <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--outline-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <p style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.875rem', color: 'var(--primary)' }}>Notificaciones</p>
                       {notifs.length > 0 && (
@@ -136,7 +121,6 @@ export function NavbarIntecnia({ activePage }) {
                       )}
                     </div>
 
-                    {/* Body */}
                     {notifsLoading ? (
                       <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '28px', display: 'block', marginBottom: '0.5rem', animation: 'spin 1s linear infinite' }}>progress_activity</span>
@@ -159,18 +143,14 @@ export function NavbarIntecnia({ activePage }) {
                               gap: '0.75rem',
                               alignItems: 'flex-start',
                               background: n.read ? 'transparent' : 'rgba(45,188,254,0.04)',
-                              cursor: 'default',
                             }}
                           >
-                            <span
-                              className="material-symbols-outlined"
-                              style={{ fontSize: '18px', color: 'var(--secondary)', flexShrink: 0, marginTop: '2px' }}
-                            >
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--secondary)', flexShrink: 0, marginTop: '2px' }}>
                               {n.type === 'APPOINTMENT' ? 'event' : n.type === 'MESSAGE' ? 'chat' : 'info'}
                             </span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface)', lineHeight: 1.4, marginBottom: '0.25rem' }}>
-                                {n.message || n.title}
+                                {n.body || n.message || n.title}
                               </p>
                               <p style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)' }}>
                                 {n.createdAt ? new Date(n.createdAt).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
@@ -183,29 +163,11 @@ export function NavbarIntecnia({ activePage }) {
                         ))}
                       </div>
                     )}
-
-                    {/* Footer */}
-                    {notifs.length > 0 && (
-                      <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid var(--outline-variant)', textAlign: 'center' }}>
-                        <Link
-                          to={`${dashboardPath}?tab=notifications`}
-                          onClick={() => setNotifOpen(false)}
-                          style={{ fontSize: '0.8125rem', color: 'var(--secondary)', fontWeight: 600, textDecoration: 'none' }}
-                        >
-                          Ver todas las notificaciones
-                        </Link>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
 
-              {/* Avatar con dropdown de perfil (desktop) */}
-              <div
-                ref={dropdownRef}
-                className="hide-mobile"
-                style={{ position: 'relative', marginLeft: '0.5rem', borderLeft: '1px solid var(--outline-variant)', paddingLeft: '1rem' }}
-              >
+              <div ref={dropdownRef} className="hide-mobile" style={{ position: 'relative', marginLeft: '0.5rem', borderLeft: '1px solid var(--outline-variant)', paddingLeft: '1rem' }}>
                 <button
                   id="navbar-profile-btn"
                   onClick={() => setProfileOpen(prev => !prev)}
@@ -220,7 +182,6 @@ export function NavbarIntecnia({ activePage }) {
                     cursor: 'pointer',
                     padding: '0.25rem',
                     borderRadius: 'var(--radius-lg)',
-                    transition: 'background 0.15s ease',
                   }}
                   title="Mi cuenta"
                 >
@@ -238,19 +199,14 @@ export function NavbarIntecnia({ activePage }) {
                     overflow: 'hidden',
                     flexShrink: 0,
                     border: profileOpen ? '2px solid var(--secondary)' : '2px solid transparent',
-                    transition: 'border-color 0.15s ease',
                   }}>
                     {user?.avatarUrl
                       ? <img src={user.avatarUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : (user?.name?.charAt(0)?.toUpperCase() || 'U')
-                    }
+                      : (user?.name?.charAt(0)?.toUpperCase() || 'U')}
                   </div>
-                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--on-surface-variant)', transition: 'transform 0.2s ease', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                    expand_more
-                  </span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--on-surface-variant)', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>expand_more</span>
                 </button>
 
-                {/* Dropdown flotante */}
                 {profileOpen && (
                   <div
                     id="navbar-profile-dropdown"
@@ -268,82 +224,25 @@ export function NavbarIntecnia({ activePage }) {
                       animation: 'fadeInDown 0.15s ease',
                     }}
                   >
-                    {/* Cabecera del dropdown */}
                     <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--outline-variant)', background: 'var(--surface-container-low)' }}>
-                      <p style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.875rem', color: 'var(--primary)', marginBottom: '0.125rem' }}>
-                        {user?.name || 'Usuario'}
-                      </p>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
-                        {user?.email || ''}
-                      </p>
+                      <p style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.875rem', color: 'var(--primary)', marginBottom: '0.125rem' }}>{user?.name || 'Usuario'}</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{user?.email || ''}</p>
                     </div>
-
-                    {/* Opciones del menú */}
                     <div style={{ padding: '0.5rem' }}>
-                      <Link
-                        to={user?.role === 'PROFESSIONAL' ? '/dashboard?tab=profile' : '/verification'}
-                        onClick={() => setProfileOpen(false)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.75rem',
-                          padding: '0.625rem 0.75rem',
-                          borderRadius: 'var(--radius-md)',
-                          color: 'var(--on-surface)',
-                          textDecoration: 'none',
-                          fontSize: '0.875rem',
-                          fontWeight: 500,
-                          transition: 'background 0.1s ease',
-                        }}
-                        className="dropdown-item"
-                      >
+                      <Link to={user?.role === 'PROFESSIONAL' ? '/dashboard?tab=profile' : '/verification'} onClick={() => setProfileOpen(false)} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-md)', color: 'var(--on-surface)', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--on-surface-variant)' }}>person</span>
                         Mi Perfil
                       </Link>
-
-                      <Link
-                        to={dashboardPath}
-                        onClick={() => setProfileOpen(false)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.75rem',
-                          padding: '0.625rem 0.75rem',
-                          borderRadius: 'var(--radius-md)',
-                          color: 'var(--on-surface)',
-                          textDecoration: 'none',
-                          fontSize: '0.875rem',
-                          fontWeight: 500,
-                          transition: 'background 0.1s ease',
-                        }}
-                        className="dropdown-item"
-                      >
+                      <Link to={dashboardPath} onClick={() => setProfileOpen(false)} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-md)', color: 'var(--on-surface)', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--on-surface-variant)' }}>dashboard</span>
                         {user?.role === 'ADMIN' ? 'Panel Admin' : user?.role === 'CLIENT' ? 'Mis Citas' : 'Dashboard'}
                       </Link>
-
                       <div style={{ height: '1px', background: 'var(--outline-variant)', margin: '0.375rem 0' }} />
-
                       <button
                         id="navbar-logout-btn"
                         onClick={handleLogout}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.75rem',
-                          padding: '0.625rem 0.75rem',
-                          borderRadius: 'var(--radius-md)',
-                          color: 'var(--error)',
-                          background: 'none',
-                          border: 'none',
-                          width: '100%',
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          fontSize: '0.875rem',
-                          fontWeight: 500,
-                          transition: 'background 0.1s ease',
-                        }}
                         className="dropdown-item"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-md)', color: 'var(--error)', background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500 }}
                       >
                         <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span>
                         Cerrar Sesión
@@ -353,20 +252,22 @@ export function NavbarIntecnia({ activePage }) {
                 )}
               </div>
             </>
-          ) : (
+          ) : showAuthActions ? (
             <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Link to="/login" className="btn" style={{ fontSize: '0.8125rem', color: 'var(--on-surface)' }}>Iniciar Sesión</Link>
               <Link to="/register" className="btn btn-primary" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Regístrate</Link>
             </div>
+          ) : (
+            <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Link to="/register?role=professional" className="btn btn-primary" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Publicar servicio</Link>
+            </div>
           )}
-          {/* Hamburger */}
           <button className="hamburger-btn" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Menú">
             <span className="material-symbols-outlined" style={{ fontSize: '28px' }}>{mobileOpen ? 'close' : 'menu'}</span>
           </button>
         </div>
       </div>
 
-      {/* Mobile Menu */}
       <div className={`mobile-menu ${mobileOpen ? 'open' : ''}`}>
         <Link to="/" className="nav-link" onClick={() => setMobileOpen(false)}>Inicio</Link>
         <Link to="/directory" className="nav-link" onClick={() => setMobileOpen(false)}>Directorio</Link>
@@ -387,19 +288,15 @@ export function NavbarIntecnia({ activePage }) {
               </>
             )}
             {user?.role === 'ADMIN' && <Link to="/admin" className="nav-link" onClick={() => setMobileOpen(false)}>Panel Admin</Link>}
-            <button
-              onClick={handleLogout}
-              className="nav-link"
-              style={{ textAlign: 'left', border: 'none', background: 'none', width: '100%', color: '#dc2626', cursor: 'pointer' }}
-            >
-              Cerrar Sesión
-            </button>
+            <button onClick={handleLogout} className="nav-link" style={{ textAlign: 'left', border: 'none', background: 'none', width: '100%', color: '#dc2626', cursor: 'pointer' }}>Cerrar Sesión</button>
           </>
-        ) : (
+        ) : showAuthActions ? (
           <>
             <Link to="/login" className="nav-link" onClick={() => setMobileOpen(false)}>Iniciar Sesión</Link>
             <Link to="/register" className="nav-link" style={{ color: 'var(--secondary)' }} onClick={() => setMobileOpen(false)}>Crear Cuenta</Link>
           </>
+        ) : (
+          <Link to="/register?role=professional" className="nav-link" style={{ color: 'var(--secondary)' }} onClick={() => setMobileOpen(false)}>Publicar servicio</Link>
         )}
       </div>
     </nav>

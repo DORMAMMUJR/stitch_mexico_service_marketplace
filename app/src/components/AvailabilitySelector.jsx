@@ -65,14 +65,17 @@ export function AvailabilitySelector({ professionalId }) {
       // Excluir slots que ya pasaron (por si selectedDate es hoy — aunque
       // los días generados empiezan mañana, es una salvaguarda extra)
       if (current > new Date()) {
-        slots.push({
-          label: current.toLocaleTimeString('es-MX', {
-            hour:   '2-digit',
-            minute: '2-digit',
-            hour12: false,
-          }),
-          iso: current.toISOString(),
+        const label = current.toLocaleTimeString('es-MX', {
+          hour:   '2-digit',
+          minute: '2-digit',
+          hour12: false,
         });
+        if (!(Array.isArray(block.bookedTimes) && block.bookedTimes.includes(label))) {
+          slots.push({
+            label,
+            iso: current.toISOString(),
+          });
+        }
       }
       current = new Date(current.getTime() + 60 * 60 * 1000); // +1 hora
     }

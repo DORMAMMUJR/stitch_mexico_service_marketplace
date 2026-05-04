@@ -138,7 +138,14 @@ export function DashboardPage() {
         });
       }
       if (Array.isArray(appointmentsJson)) {
-        setAppointments(appointmentsJson);
+        const normalizedAppointments = [...appointmentsJson]
+          .sort((a, b) => new Date(b.scheduledAt || b.createdAt || 0) - new Date(a.scheduledAt || a.createdAt || 0))
+          .map(app => ({
+            ...app,
+            dateLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Fecha pendiente',
+            timeLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : 'hora por confirmar',
+          }));
+        setAppointments(normalizedAppointments);
       }
       if (profileJson && profileJson.id) {
         setProfileForm({
@@ -426,17 +433,6 @@ export function DashboardPage() {
               <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN</p>
               <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Rendimiento</h1>
             </div>
-            {/* Indicador de estado Stripe compacto — solo si hay datos */}
-            {stripeStatus && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.875rem', background: stripeStatus.connected && stripeStatus.payoutsEnabled ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)', borderRadius: 'var(--radius-full)', border: `1px solid ${stripeStatus.connected && stripeStatus.payoutsEnabled ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)'}` }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '14px', color: stripeStatus.connected && stripeStatus.payoutsEnabled ? '#16a34a' : '#dc2626' }}>
-                  {stripeStatus.connected && stripeStatus.payoutsEnabled ? 'check_circle' : 'warning'}
-                </span>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: stripeStatus.connected && stripeStatus.payoutsEnabled ? '#16a34a' : '#dc2626' }}>
-                  Pagos {stripeStatus.connected && stripeStatus.payoutsEnabled ? 'activos' : 'sin configurar'}
-                </span>
-              </div>
-            )}
           </header>
 
         {/* Banner de verificación IN_REVIEW */}
@@ -583,7 +579,7 @@ export function DashboardPage() {
                         <h4 style={{ fontWeight: 700, color: 'var(--primary)' }}>{app.client?.name || 'Cliente'}</h4>
                         <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
                           {app.service && <span style={{display: 'block', marginBottom: '0.25rem', fontWeight: 600}}>{app.service}</span>}
-                          {app.date} a las {app.time || 'hora por confirmar'}
+                          {app.dateLabel} a las {app.timeLabel}
                         </p>
                       </div>
                     </div>

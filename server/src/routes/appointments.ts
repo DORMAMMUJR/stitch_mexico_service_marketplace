@@ -44,7 +44,29 @@ router.get('/availability/:professionalId', async (req, res, next) => {
       orderBy: { dayOfWeek: 'asc' },
     });
 
-    res.json(availabilities);
+    const bookedAppointments = await prisma.appointment.findMany({
+      where: {
+        professionalId,
+        status: 'SCHEDULED',
+        scheduledAt: { gte: new Date() },
+      },
+      select: { scheduledAt: true },
+    });
+
+    const bookedTimesByDay = new Map<number, string[]>();
+    for (const appointment of bookedAppointments) {
+      if (!appointment.scheduledAt) continue;
+      const day = appointment.scheduledAt.getDay();
+      const time = appointment.scheduledAt.toTimeString().slice(0, 5);
+      const list = bookedTimesByDay.get(day) || [];
+      list.push(time);
+      bookedTimesByDay.set(day, list);
+    }
+
+    res.json(availabilities.map(block => ({
+      ...block,
+      bookedTimes: bookedTimesByDay.get(block.dayOfWeek) || [],
+    })));
   } catch (error) {
     next(error);
   }

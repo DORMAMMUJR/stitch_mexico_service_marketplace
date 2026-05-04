@@ -532,6 +532,7 @@ router.get('/:id', async (req, res, next) => {
 
     res.json({
       id: professional.id,
+      userId: professional.userId,
       name: professional.user?.name || 'Profesional Certificado',
       phone: phoneVisible,
       avatarUrl: professional.user?.avatarUrl,

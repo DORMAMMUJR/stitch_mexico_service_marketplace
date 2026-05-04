@@ -11,7 +11,7 @@ router.use(authenticate);
  * Genera un conversationId determinista ordenando ambos IDs.
  * Garantiza que chat(A,B) === chat(B,A) sin importar quién inicia.
  */
-const CONVERSATION_SEPARATOR = '::';
+const CONVERSATION_SEPARATOR = '_';
 
 function buildConversationId(id1: string, id2: string): string {
   return [id1, id2].sort().join(CONVERSATION_SEPARATOR);

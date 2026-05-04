@@ -25,7 +25,8 @@ export function AvailabilitySelector({ professionalId }) {
   const navigate            = useNavigate();
 
   // Disponibilidad real del profesional desde el backend
-  const { data: availability, isLoading: availLoading } = useAvailability(professionalId);
+  // refetch() se llama tras booking exitoso para actualizar slots sin recargar la pagina
+  const { data: availability, isLoading: availLoading, refetch: refetchAvailability } = useAvailability(professionalId);
 
   // Generar los próximos 14 días (sin incluir hoy)
   const days = useMemo(() => {
@@ -111,12 +112,15 @@ export function AvailabilitySelector({ professionalId }) {
       });
 
       // Marcar el slot como ocupado localmente para que desaparezca del grid
-      // sin necesidad de recargar la página ni llamar al backend de nuevo
+      // sin necesidad de recargar la pagina ni llamar al backend de nuevo
       setBookedSlots(prev => new Set([...prev, selectedSlot]));
       setMessage({ type: 'success', text: '¡Cita agendada con éxito! Revisa Mis Citas.' });
       setSelectedSlot(null);
-      // No reseteamos selectedDate para que el usuario vea el día actualizado
-      // (el slot desaparece del grid porque ya está en bookedSlots)
+      // Refrescar la disponibilidad desde el servidor para reflejar cambios
+      // (ej. si el profesional cerro un slot tras el booking)
+      refetchAvailability();
+      // No reseteamos selectedDate para que el usuario vea el dia actualizado
+      // (el slot desaparece del grid porque ya esta en bookedSlots)
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
     } finally {

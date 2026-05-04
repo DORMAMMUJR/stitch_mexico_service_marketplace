@@ -2,14 +2,18 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Footer } from '../components/Footer';
 import { useToast } from '../components/ToastContext';
+import { useAuth } from '../hooks/useAuth';
+import { apiFetch } from '../lib/api';
 import { CATEGORIES } from '../constants/verificationFields';
 
 export function VerificationPage() {
-  const [currentStep, setCurrentStep] = useState(0); // 0: Perfil, 1: INE, 2: SAT, 3: CONOCER
+  const [currentStep, setCurrentStep] = useState(0); // 0: Perfil, 1: INE
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [professionalId, setProfessionalId] = useState(null);
   const [profile, setProfile] = useState(null);
+  // Estado 'Pendiente' para documentos ya subidos (feedback inmediato post-upload)
+  const [docPendingStatus, setDocPendingStatus] = useState(null); // null | 'PENDING' | 'APPROVED'
 
   // Step 0: Profile Form State
   const [profileForm, setProfileForm] = useState({ title: '', category: 'GENERAL_MAINTENANCE', bio: '', hourlyRate: '' });
@@ -23,93 +27,83 @@ export function VerificationPage() {
   const initialLoadDone = useRef(false);
 
   const { showToast } = useToast();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Helper generico: avanzar al siguiente paso sin hardcodear el numero
+  // Helper genérico: avanzar al siguiente paso sin hardcodear el número
   const nextStep = useCallback(() => setCurrentStep(prev => prev + 1), []);
 
+  // Esperar a que useAuth resuelva antes de verificar sesion
   useEffect(() => {
+    if (authLoading) return; // Todavia verificando cookie con el servidor
+    if (!isAuthenticated) {
+      navigate('/login', { replace: true });
+      return;
+    }
+
     const fetchProfile = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-      
       try {
-        // CRITICAL FIX: Garantizar que existe el registro Professional antes de leer el perfil.
-        // Si el usuario era CLIENT, este endpoint lo crea y actualiza el rol a PROFESSIONAL.
-        await fetch('/api/professionals/me/ensure', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Authorization': `Bearer ${token}` }
+        // Garantizar que existe el registro Professional (crea si era CLIENT)
+        await apiFetch('/professionals/me/ensure', { method: 'POST' });
+
+        const data = await apiFetch('/professionals/me');
+
+        setProfessionalId(data.id);
+        setProfile(data);
+        setProfileForm({
+          title:      data.title       || '',
+          category:   data.category    || 'GENERAL_MAINTENANCE',
+          bio:        data.bio         || '',
+          hourlyRate: data.hourlyRate  || '',
         });
 
-        const response = await fetch('/api/professionals/me', {
-          credentials: 'include',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setProfessionalId(data.id);
-          setProfile(data);
-          setProfileForm({
-            title: data.title || '',
-            category: data.category || 'GENERAL_MAINTENANCE',
-            bio: data.bio || '',
-            hourlyRate: data.hourlyRate || ''
-          });
+        // Reflejar estado 'Pendiente' si ya subio documentos
+        const docs = Array.isArray(data.documents) ? data.documents : [];
+        if (docs.length > 0) {
+          // Usar el status del documento mas reciente como indicador
+          const latestDoc = docs[docs.length - 1];
+          setDocPendingStatus(latestDoc.status || 'PENDING');
+        }
 
-          // Determinar paso solo en la PRIMERA carga, no en navegaciones del usuario entre pasos
-          if (!initialLoadDone.current) {
-            initialLoadDone.current = true;
+        // Determinar paso solo en la PRIMERA carga
+        if (!initialLoadDone.current) {
+          initialLoadDone.current = true;
 
-            const docs = data.documents || [];
-            const hasIne = docs.some(d => d.type === 'INE' || d.type === 'PASSPORT');
-            const hasSat = docs.some(d => d.type === 'SAT_CONSTANCIA');
+          const hasIne = docs.some(d => d.type === 'INE' || d.type === 'PASSPORT');
 
-            // hourlyRate puede ser 0 (tarifa gratuita, valido), por eso != null && !== '' en lugar de truthy
-            const hasProfile =
-              data.title &&
-              data.bio &&
-              data.hourlyRate != null &&
-              data.hourlyRate !== '';
+          // hourlyRate puede ser 0 (tarifa gratuita, valido)
+          const hasProfile =
+            data.title &&
+            data.bio &&
+            data.hourlyRate != null &&
+            data.hourlyRate !== '';
 
-            if (hasProfile) {
-              setCurrentStep(1); // Mover al paso opcional si ya tiene perfil
-            }
-            // else: quedarse en paso 0
+          if (hasProfile) {
+            setCurrentStep(1);
           }
+          // else: quedarse en paso 0
         }
       } catch (err) {
-        console.error("Error cargando perfil:", err);
+        console.error('Error cargando perfil de verificacion:', err);
+        // Si el error es 401, apiFetch ya redirige al login automaticamente
       } finally {
         setLoading(false);
       }
     };
+
     fetchProfile();
-  }, [navigate]);
+  }, [authLoading, isAuthenticated, navigate]);
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/professionals/me', {
+      await apiFetch('/professionals/me', {
         method: 'PUT',
-        credentials: 'include',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(profileForm)
+        body: JSON.stringify(profileForm),
       });
-      
-      if (!response.ok) throw new Error('Error guardando el perfil');
-      
       showToast('Perfil guardado exitosamente', 'success');
-      nextStep(); // Avanzar al siguiente paso (generico, sin hardcodear numero)
+      nextStep();
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -144,24 +138,14 @@ export function VerificationPage() {
       formData.append('professionalId', professionalId);
       formData.append('docType', docType);
 
-      const token = localStorage.getItem('token');
+      // apiFetch detecta FormData y omite Content-Type automaticamente
+      await apiFetch('/verification/upload', { method: 'POST', body: formData });
 
-      const response = await fetch('/api/verification/upload', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData,
-      });
+      // Reflejar estado 'Pendiente' inmediatamente (sin esperar recarga)
+      setDocPendingStatus('PENDING');
+      showToast('Documento subido. Estado: Pendiente de revision', 'success');
+      setFile(null);
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({ error: 'Error de red' }));
-        throw new Error(errData.error || 'Error al subir el documento');
-      }
-
-      showToast('Documento subido exitosamente', 'success');
-      setFile(null); // Limpiar para el siguiente paso
-      
-      // Ya no hay más pasos obligatorios. Terminamos la verificación.
       await finishVerification();
     } catch (err) {
       setUploadError(err.message || 'Error al subir el documento. Intente de nuevo.');
@@ -173,20 +157,9 @@ export function VerificationPage() {
   const finishVerification = async () => {
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/professionals/me/submit-review', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Error al enviar perfil a revisión');
-      }
-
-      showToast('Perfil enviado a revisión', 'success');
-      // Forzar recarga completa para que el AuthProvider actualice el rol de CLIENT a PROFESSIONAL
+      await apiFetch('/professionals/me/submit-review', { method: 'POST' });
+      showToast('Perfil enviado a revisión. ¡Te notificaremos pronto!', 'success');
+      // Forzar recarga para que AuthProvider actualice el rol a PROFESSIONAL
       window.location.href = '/dashboard';
     } catch (err) {
       showToast(err.message, 'error');
@@ -195,7 +168,8 @@ export function VerificationPage() {
     }
   };
 
-  if (loading) {
+  // Skeleton mientras useAuth verifica la cookie o la pagina carga datos
+  if (authLoading || loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
         <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', animation: 'spin 1s linear infinite' }}>progress_activity</span>
@@ -293,6 +267,30 @@ export function VerificationPage() {
                 <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Verificación Opcional para Mayor Confianza</h2>
               </div>
               <p style={{ color: 'var(--on-surface-variant)' }}>Subir tu identificación oficial (INE o Pasaporte) aumentará la confianza de los clientes en tu perfil. Puedes omitir este paso y hacerlo después.</p>
+
+              {/* Indicador de estado 'Pendiente' si ya subió un doc en esta sesión o en sesiones anteriores */}
+              {docPendingStatus && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.875rem 1rem', borderRadius: 'var(--radius-lg)',
+                  background: docPendingStatus === 'APPROVED' ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)',
+                  border: `1px solid ${docPendingStatus === 'APPROVED' ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                }}>
+                  <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px', color: docPendingStatus === 'APPROVED' ? '#10b981' : '#f59e0b' }}>
+                    {docPendingStatus === 'APPROVED' ? 'verified' : 'pending'}
+                  </span>
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: '0.875rem', color: docPendingStatus === 'APPROVED' ? '#10b981' : '#f59e0b', marginBottom: '0.125rem' }}>
+                      {docPendingStatus === 'APPROVED' ? 'Documento Aprobado' : 'Documento en Revisión'}
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
+                      {docPendingStatus === 'APPROVED'
+                        ? 'Tu identidad ha sido verificada correctamente.'
+                        : 'El equipo de Intecnia revisará tu documento en las próximas 24–48 h.'}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div style={{ background: file ? 'rgba(45,188,254,0.03)' : 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '3rem 2rem', textAlign: 'center', border: file ? '2px dashed var(--secondary)' : '2px dashed transparent' }}>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".pdf,image/jpeg,image/png,image/webp" />

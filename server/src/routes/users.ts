@@ -59,6 +59,30 @@ router.get('/me/notifications', authenticate, async (req: any, res: any, next: a
   }
 });
 
+router.put('/me', authenticate, async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: 'No autenticado' });
+
+    const name = String(req.body?.name || '').trim();
+    const phone = String(req.body?.phone || '').trim();
+
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'Nombre completo y teléfono son obligatorios' });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { name, phone },
+      select: { id: true, name: true, phone: true, email: true, role: true, avatarUrl: true },
+    });
+
+    res.json({ user: updated, message: 'Perfil actualizado' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.patch('/me/notifications/read-all', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user?.userId;

@@ -13,10 +13,11 @@ import { useNavigate } from 'react-router-dom';
 
 export function IntecniaProfilePage() {
   const { id } = useParams();
-  const { data: profile, isLoading, error } = useProfile(id);
+  const { user, isAuthenticated } = useAuth();
+  const guestId = localStorage.getItem('guest_id') || undefined;
+  const { data: profile, isLoading, error } = useProfile(id, user?.id, guestId);
   const { data: dbReviews } = useReviews(id);
   const { data: availability } = useAvailability(id);
-  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const chatRef = useRef(null);
 

@@ -61,7 +61,6 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
           <div style={{ display: 'flex', gap: '0.25rem' }} className="hide-mobile">
             <Link to="/" className={`nav-link ${activePage === 'home' ? 'active' : ''}`}>Inicio</Link>
             <Link to="/directory" className={`nav-link ${activePage === 'directory' ? 'active' : ''}`}>Directorio</Link>
-            <Link to="/categories" className={`nav-link ${activePage === 'categories' ? 'active' : ''}`}>Categorías</Link>
           </div>
         </div>
 
@@ -274,7 +273,6 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
       <div className={`mobile-menu ${mobileOpen ? 'open' : ''}`}>
         <Link to="/" className="nav-link" onClick={() => setMobileOpen(false)}>Inicio</Link>
         <Link to="/directory" className="nav-link" onClick={() => setMobileOpen(false)}>Directorio</Link>
-        <Link to="/categories" className="nav-link" onClick={() => setMobileOpen(false)}>Categorías</Link>
 
         {isAuthenticated ? (
           <>

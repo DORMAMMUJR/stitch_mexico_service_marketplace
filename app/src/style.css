@@ -642,6 +642,10 @@ img { display: block; max-width: 100%; }
     gap: 1rem;
   }
 
+  .availability-row {
+    grid-template-columns: 1fr !important;
+  }
+
   .nav-link,
   .btn,
   button {

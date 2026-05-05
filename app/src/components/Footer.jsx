@@ -15,7 +15,6 @@ export function Footer() {
           </div>
           <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8125rem', flexWrap: 'wrap' }}>
             <Link to="/directory" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Directorio</Link>
-            <Link to="/categories" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Categorías</Link>
             <Link to="/privacy" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Privacidad</Link>
             <Link to="/terms" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Términos</Link>
             <Link to="/support" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Soporte</Link>

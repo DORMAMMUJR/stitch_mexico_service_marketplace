@@ -54,9 +54,32 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any, next: any) 
       },
     });
 
-    // Métricas reales calculadas
-    // Vista de perfil podría requerir una tabla PageViews, mientras usamos un valor conservador:
-    const profileViews = Math.round(completedOrders.length * 2.5) + totalNonDraftOrders;
+    const now = new Date();
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const startCurrent = new Date(now.getTime() - THIRTY_DAYS_MS);
+    const startPrevious = new Date(now.getTime() - 2 * THIRTY_DAYS_MS);
+
+    const [currentViews, previousViews] = await Promise.all([
+      prisma.profileView.count({
+        where: {
+          professionalId: professional.id,
+          createdAt: { gte: startCurrent },
+        },
+      }),
+      prisma.profileView.count({
+        where: {
+          professionalId: professional.id,
+          createdAt: { gte: startPrevious, lt: startCurrent },
+        },
+      }),
+    ]);
+
+    const profileViews = currentViews;
+    const growthPercent = previousViews > 0
+      ? Math.round(((currentViews - previousViews) / previousViews) * 100)
+      : currentViews > 0
+        ? 100
+        : 0;
 
     // Total de interacciones = mensajes (citas agendadas) + disputas o resoluciones
     const totalInteractions = professional.appointments.length + professional.orders.length;
@@ -68,7 +91,7 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any, next: any) 
 
     res.json({
       profileViews: profileViews,
-      profileViewsGrowth: null, // Se implementará con tabla PageViews en iteración futura
+      profileViewsGrowth: `${growthPercent >= 0 ? '+' : ''}${growthPercent}%`,
       totalInteractions: totalInteractions,
       conversionRate: conversionRateStr,
       automatedMessages: totalMessages,
@@ -514,6 +537,16 @@ router.get('/:id', async (req, res, next) => {
     if (!professional.isVerified && !isOwner) {
       return res.status(404).json({ message: 'Profesional no encontrado' });
     }
+
+    const viewerUserId = clientId || null;
+    const viewerGuestId = typeof req.query.guestId === 'string' ? req.query.guestId : null;
+    await prisma.profileView.create({
+      data: {
+        professionalId: id,
+        viewerUserId: viewerUserId || undefined,
+        viewerGuestId: viewerGuestId || undefined,
+      },
+    }).catch(() => null);
 
     const completedOrders = professional.orders.filter((o: any) => o.status === 'COMPLETADO');
     const totalNonDraftOrders = professional.orders.filter(

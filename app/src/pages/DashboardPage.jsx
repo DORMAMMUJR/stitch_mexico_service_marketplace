@@ -90,12 +90,12 @@ export function DashboardPage() {
       } else {
         const userName = profileJson?.user?.name || profileJson?.name || 'Profesional';
         setData({
-          profileViews: 2000,
-          profileViewsGrowth: '+12% mientras',
-          totalInteractions: 2000,
-          conversionRate: '15% mientras',
-          automatedMessages: 2000,
-          appointmentsScheduled: 2000,
+          profileViews: 0,
+          profileViewsGrowth: '0%',
+          totalInteractions: 0,
+          conversionRate: '0%',
+          automatedMessages: 0,
+          appointmentsScheduled: 0,
           verificationStatus: profileJson?.verificationStatus || 'PENDING',
           user: {
             name: userName,
@@ -231,7 +231,7 @@ export function DashboardPage() {
               <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px' }}>dashboard</span> Tablero
             </button>
             <button onClick={() => setActiveTab('profile')} className={`sidebar-link ${activeTab === 'profile' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>person</span> Perfil mientras
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>person</span> Perfil
             </button>
             <button onClick={() => setActiveTab('appointments')} className={`sidebar-link ${activeTab === 'appointments' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>event</span> Mis Citas
@@ -248,28 +248,33 @@ export function DashboardPage() {
         <main className="dashboard-main">
           <header className="flex-between" style={{ marginBottom: '3rem' }}>
             <div>
-              <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN MIENTRAS</p>
-              <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Rendimiento mientras</h1>
+              <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN</p>
+              <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Panel profesional</h1>
             </div>
           </header>
 
           {activeTab === 'overview' && (
-            <div className="layout-bento">
-              <div style={{ gridColumn: 'span 2', background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)', borderRadius: 'var(--radius-2xl)', padding: '2.5rem', position: 'relative', overflow: 'hidden', display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'center' }}>
-                <div style={{ position: 'relative', zIndex: 1, flex: 1, minWidth: '280px' }}>
-                  <h2 style={{ fontFamily: 'Manrope', fontSize: '1.5rem', fontWeight: 700, color: '#ffffff', marginBottom: '1rem' }}>Asistencia IA mientras</h2>
-                  <p style={{ color: '#cbd5e1', lineHeight: 1.6 }}>Tu asistente está gestionando consultas mientras tú trabajas.</p>
-                </div>
-                <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '1rem' }}>
-                  <div style={{ background: 'rgba(255,255,255,0.07)', padding: '1.5rem', borderRadius: 'var(--radius-2xl)', textAlign: 'center' }}>
-                    <p style={{ fontSize: '2rem', fontWeight: 700, color: 'white' }}>{data.automatedMessages}</p>
-                    <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Mensajes mientras</p>
-                  </div>
-                  <div style={{ background: 'rgba(255,255,255,0.07)', padding: '1.5rem', borderRadius: 'var(--radius-2xl)', textAlign: 'center' }}>
-                    <p style={{ fontSize: '2rem', fontWeight: 700, color: 'white' }}>{data.appointmentsScheduled}</p>
-                    <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Citas mientras</p>
-                  </div>
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+              <div className="card" style={{ padding: '1rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Vistas de perfil (30 días)</p>
+                <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{data.profileViews}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>{data.profileViewsGrowth || '0%'}</p>
+              </div>
+              <div className="card" style={{ padding: '1rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Interacciones totales</p>
+                <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{data.totalInteractions}</p>
+              </div>
+              <div className="card" style={{ padding: '1rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Conversión</p>
+                <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{data.conversionRate}</p>
+              </div>
+              <div className="card" style={{ padding: '1rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Mensajes (cliente a cliente)</p>
+                <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{data.automatedMessages}</p>
+              </div>
+              <div className="card" style={{ padding: '1rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas agendadas</p>
+                <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{data.appointmentsScheduled}</p>
               </div>
             </div>
           )}
@@ -286,6 +291,9 @@ export function DashboardPage() {
                         <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} {app.timeLabel}</p>
                         <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
                           {app.client?.email ? `Contacto: ${app.client.email}` : 'Sin correo visible'}
+                        </p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
+                          {app.client?.isVerified ? 'Cliente verificado' : 'Cliente no verificado'} · {app.client?.isNew ? 'Cliente nuevo' : 'Cliente recurrente'}
                         </p>
                         <p style={{ fontSize: '0.75rem', color: app.status === 'SCHEDULED' ? 'var(--secondary)' : 'var(--on-surface-variant)', fontWeight: 700 }}>{app.status}</p>
                       </div>
@@ -311,6 +319,40 @@ export function DashboardPage() {
               </form>
             </div>
           )}
+          {activeTab === 'availability' && (
+            <div className="card" style={{ padding: '2rem' }}>
+              <h2 style={{ marginBottom: '1rem' }}>Disponibilidad semanal</h2>
+              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                Define tus horarios para que el calendario y el bot muestren slots reales.
+              </p>
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                {availabilities.map((slot, idx) => (
+                  <div
+                    key={slot.dayOfWeek}
+                    className="availability-row"
+                    style={{
+                      border: '1px solid var(--outline-variant)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '0.75rem',
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto auto auto',
+                      gap: '0.75rem',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, color: 'var(--primary)' }}>
+                      <input type="checkbox" checked={slot.active} onChange={(e) => setAvailabilities((prev) => prev.map((it, i) => i === idx ? { ...it, active: e.target.checked } : it))} />
+                      {slot.dayName}
+                    </label>
+                    <input type="time" value={slot.startTime} disabled={!slot.active} onChange={(e) => setAvailabilities((prev) => prev.map((it, i) => i === idx ? { ...it, startTime: e.target.value } : it))} className="input-field" style={{ minWidth: '120px', padding: '0.5rem 0.625rem' }} />
+                    <input type="time" value={slot.endTime} disabled={!slot.active} onChange={(e) => setAvailabilities((prev) => prev.map((it, i) => i === idx ? { ...it, endTime: e.target.value } : it))} className="input-field" style={{ minWidth: '120px', padding: '0.5rem 0.625rem' }} />
+                    <span style={{ fontSize: '0.75rem', color: slot.active ? 'var(--secondary)' : 'var(--on-surface-variant)', fontWeight: 700 }}>{slot.active ? 'Activo' : 'Inactivo'}</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={handleUpdateAvailability} className="btn btn-primary" style={{ marginTop: '1rem' }}>Guardar disponibilidad</button>
+            </div>
+          )}
 
           {activeTab === 'messages' && <ChatWindow />}
         </main>
@@ -318,3 +360,6 @@ export function DashboardPage() {
     </div>
   );
 }
+
+
+

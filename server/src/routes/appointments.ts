@@ -153,7 +153,7 @@ router.get('/my', authenticate, async (req: any, res: any, next: any) => {
       appointments = await prisma.appointment.findMany({
         where: { professionalId: prof.id },
         include: {
-          client: { select: { name: true, email: true, avatarUrl: true } },
+          client: { select: { id: true, name: true, email: true, avatarUrl: true, createdAt: true, emailVerified: true } },
         },
         orderBy: { scheduledAt: 'desc' },
       });
@@ -169,7 +169,21 @@ router.get('/my', authenticate, async (req: any, res: any, next: any) => {
       });
     }
 
-    res.json(appointments);
+    const enhancedAppointments = appointments.map((app: any) => {
+      if (!app.client) return app;
+      const createdAt = app.client.createdAt ? new Date(app.client.createdAt) : null;
+      const daysSinceCreated = createdAt ? (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24) : null;
+      return {
+        ...app,
+        client: {
+          ...app.client,
+          isNew: daysSinceCreated !== null ? daysSinceCreated <= 14 : false,
+          isVerified: !!app.client.emailVerified,
+        },
+      };
+    });
+
+    res.json(enhancedAppointments);
   } catch (error) {
     next(error);
   }

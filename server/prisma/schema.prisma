@@ -71,6 +71,20 @@ model Professional {
   availabilities     Availability[]
   appointments       Appointment[]
   portfolioItems     PortfolioItem[]
+  profileViews       ProfileView[]
+}
+
+model ProfileView {
+  id             String       @id @default(cuid())
+  professionalId String
+  viewerUserId   String?
+  viewerGuestId  String?
+  createdAt      DateTime     @default(now())
+
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, createdAt])
+  @@index([viewerUserId])
 }
 
 model PortfolioItem {

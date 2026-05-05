@@ -11,6 +11,8 @@ export function ClientDashboard() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -41,9 +43,14 @@ export function ClientDashboard() {
           }));
         setAppointments(normalizedAppointments);
       }
-      if (Array.isArray(ordersData)) {
-        setOrders(ordersData);
+      const ordersArray = Array.isArray(ordersData) ? ordersData : (Array.isArray(ordersData?.data) ? ordersData.data : []);
+      if (ordersArray.length >= 0) {
+        setOrders(ordersArray);
       }
+      setProfileForm({
+        name: user?.name || '',
+        phone: user?.phone || '',
+      });
     })
     .catch(console.error)
     .finally(() => setLoading(false));
@@ -118,6 +125,29 @@ export function ClientDashboard() {
     }
   };
 
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      const res = await fetch('/api/users/me', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'No se pudo actualizar el perfil', 'error');
+      } else {
+        showToast('Perfil actualizado correctamente', 'success');
+      }
+    } catch (err) {
+      showToast('Error de conexión al actualizar perfil', 'error');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
@@ -151,7 +181,8 @@ export function ClientDashboard() {
         <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--outline-variant)', marginBottom: '2rem', overflowX: 'auto' }}>
           {[
             { id: 'overview', label: 'Resumen', icon: 'dashboard' },
-            { id: 'messages', label: 'Mensajes', icon: 'chat' }
+            { id: 'messages', label: 'Mensajes', icon: 'chat' },
+            { id: 'profile', label: 'Mi perfil', icon: 'person' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -171,7 +202,7 @@ export function ClientDashboard() {
         </div>
 
         {activeTab === 'messages' && (
-          <div className="card animate-in fade-in" style={{ padding: '0', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: '500px' }}>
+          <div className="card animate-in fade-in" style={{ padding: '0', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: '420px' }}>
             <ChatWindow />
           </div>
         )}
@@ -191,7 +222,7 @@ export function ClientDashboard() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {appointments.map(app => (
-                <div key={app.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--outline-variant)' }}>
+                <div key={app.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--outline-variant)', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <div style={{ width: '3rem', height: '3rem', borderRadius: '50%', background: 'var(--secondary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <span className="material-symbols-outlined" style={{ color: 'var(--secondary)' }}>person</span>
@@ -204,7 +235,7 @@ export function ClientDashboard() {
                       </p>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <span className={`badge ${app.status === 'SCHEDULED' ? 'badge-blue' : ''}`}>{app.status}</span>
                     {app.status === 'SCHEDULED' && (
                       <button
@@ -241,14 +272,14 @@ export function ClientDashboard() {
                 const canDispute = isCompleted && order.completedAt && (Date.now() - new Date(order.completedAt).getTime()) < 72 * 60 * 60 * 1000;
                 
                 return (
-                  <div key={order.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--outline-variant)' }}>
+                  <div key={order.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--outline-variant)', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <div>
                       <h4 style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>{order.description}</h4>
                       <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
                         Profesional: {order.professional?.user?.name} | Total: ${order.agreedPrice} {order.currency}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <span className={`badge`} style={{ 
                         background: order.status === 'COMPLETADO' ? 'var(--success-container)' : 'var(--surface-container-highest)', 
                         color: order.status === 'COMPLETADO' ? 'var(--on-success-container)' : 'var(--on-surface)' 
@@ -283,6 +314,31 @@ export function ClientDashboard() {
           )}
         </div>
         </div>
+        )}
+
+        {activeTab === 'profile' && (
+          <div className="card" style={{ padding: '2rem' }}>
+            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1rem' }}>Editar Perfil</h2>
+            <form onSubmit={handleSaveProfile} style={{ display: 'grid', gap: '0.75rem', maxWidth: '520px' }}>
+              <input
+                className="input-field"
+                placeholder="Nombre completo"
+                value={profileForm.name}
+                onChange={(e) => setProfileForm((p) => ({ ...p, name: e.target.value }))}
+                required
+              />
+              <input
+                className="input-field"
+                placeholder="Teléfono"
+                value={profileForm.phone}
+                onChange={(e) => setProfileForm((p) => ({ ...p, phone: e.target.value }))}
+                required
+              />
+              <button type="submit" className="btn btn-primary" disabled={savingProfile} style={{ width: 'fit-content' }}>
+                {savingProfile ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+            </form>
+          </div>
         )}
       </main>
 

@@ -89,8 +89,6 @@ export function DirectoryPage() {
         <nav style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center', gap: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           <Link to="/">INICIO</Link>
           <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>chevron_right</span>
-          <Link to="/categories">DIRECTORIO</Link>
-          <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>chevron_right</span>
           <span style={{ fontWeight: 600, color: 'var(--on-surface)' }}>RESULTADOS DE BÚSQUEDA</span>
         </nav>
       </div>
@@ -100,7 +98,7 @@ export function DirectoryPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>
-              {queryFromUrl ? `Resultados para "${queryFromUrl}" mientras` : 'Profesionales Verificados mientras'}
+              {queryFromUrl ? `Resultados para "${queryFromUrl}"` : 'Profesionales Verificados'}
             </h1>
             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
               {isLoading ? 'Buscando...' : `${professionals.length} profesional${professionals.length !== 1 ? 'es' : ''} verificado${professionals.length !== 1 ? 's' : ''} encontrado${professionals.length !== 1 ? 's' : ''}`}
@@ -219,7 +217,7 @@ export function DirectoryPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem', background: 'var(--secondary-container)', borderRadius: 'var(--radius-xl)', marginBottom: '1.5rem', border: '1px solid rgba(16,185,129,0.2)' }}>
             <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px', color: 'var(--secondary)' }}>location_on</span>
             <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-secondary-container)' }}>
-              Mostrando profesionales verificados en <strong>CDMX y área metropolitana</strong> mientras exploras
+              Mostrando profesionales verificados en <strong>CDMX y área metropolitana</strong> exploras
             </p>
             <button style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--secondary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
               Ver en mapa →
@@ -288,3 +286,4 @@ export function DirectoryPage() {
     </>
   );
 }
+

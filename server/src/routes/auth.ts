@@ -37,7 +37,7 @@ function getJwtAlgorithm(key: string): 'RS256' | 'HS256' {
 // ─── POST /api/auth/register ─────────────────────────────────────────────────
 router.post('/register', registerLimiter, async (req, res, next) => {
   try {
-    const { email, password, name, phone, role, guest_id, acceptedTerms } = req.body;
+    const { email, password, name, phone, role, guest_id, acceptedTerms, acceptedPrivacy } = req.body;
 
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const fullName = String(name || '').trim();
@@ -56,8 +56,8 @@ router.post('/register', registerLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
     }
 
-    if (!acceptedTerms) {
-      return res.status(400).json({ error: 'Debes aceptar términos y condiciones para crear la cuenta' });
+    if (!acceptedTerms || !acceptedPrivacy) {
+      return res.status(400).json({ error: 'Debes aceptar términos y aviso de privacidad para crear la cuenta' });
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -75,6 +75,7 @@ router.post('/register', registerLimiter, async (req, res, next) => {
         name: fullName,
         phone: phoneValue,
         role: userRole,
+        termsConsentedAt: new Date(),
         privacyConsentedAt: new Date(),
       },
     });

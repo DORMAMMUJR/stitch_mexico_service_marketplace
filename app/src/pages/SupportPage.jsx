@@ -3,6 +3,11 @@ import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 
 export function SupportPage() {
+  const openSupportBot = () => {
+    const botBtn = document.querySelector('[data-viso-trigger]');
+    if (botBtn) botBtn.click();
+  };
+
   return (
     <>
       <NavbarIntecnia />
@@ -18,13 +23,13 @@ export function SupportPage() {
             <span className="material-symbols-outlined" style={{ fontSize: '24px', color: 'var(--primary)', marginBottom: '1rem' }}>chat</span>
             <h3 style={{ fontWeight: 600, marginBottom: '0.5rem', color: 'var(--primary)' }}>Chat en Vivo</h3>
             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '1.5rem' }}>Resolución inmediata para problemas urgentes en su cuenta.</p>
-            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Iniciar Chat</button>
+            <button onClick={openSupportBot} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Iniciar Chat</button>
           </div>
           <div className="card" style={{ padding: '2rem' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '24px', color: 'var(--primary)', marginBottom: '1rem' }}>mail</span>
-            <h3 style={{ fontWeight: 600, marginBottom: '0.5rem', color: 'var(--primary)' }}>Correo Electrónico</h3>
-            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '1.5rem' }}>Para consultas detalladas o apelaciones.</p>
-            <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center' }}>Enviar Ticket</button>
+            <h3 style={{ fontWeight: 600, marginBottom: '0.5rem', color: 'var(--primary)' }}>Correo de Soporte</h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '1.5rem' }}>Para temas complejos, escribe a soporte@intecnia.mx.</p>
+            <a className="btn btn-outline" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }} href="mailto:soporte@intecnia.mx">Escribir correo</a>
           </div>
         </div>
       </main>

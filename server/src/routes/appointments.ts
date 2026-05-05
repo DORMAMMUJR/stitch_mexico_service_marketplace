@@ -24,6 +24,13 @@ function getDayOfWeek(date: Date): number {
   return date.getDay();
 }
 
+function isThirtyMinuteSlot(date: Date): boolean {
+  const minutes = date.getMinutes();
+  const seconds = date.getSeconds();
+  const ms = date.getMilliseconds();
+  return (minutes === 0 || minutes === 30) && seconds === 0 && ms === 0;
+}
+
 // ─── GET /api/appointments/availability/:professionalId ───────────────────────
 // Devuelve los bloques de disponibilidad configurados por el profesional.
 router.get('/availability/:professionalId', async (req, res, next) => {
@@ -72,6 +79,60 @@ router.get('/availability/:professionalId', async (req, res, next) => {
   }
 });
 
+// Disponibilidad efectiva semanal en slots de 30 min (bloques - ocupados)
+router.get('/availability/:professionalId/effective', async (req, res, next) => {
+  try {
+    const { professionalId } = req.params;
+    const professional = await prisma.professional.findUnique({ where: { id: professionalId }, select: { id: true } });
+    if (!professional) return res.status(404).json({ error: 'Profesional no encontrado' });
+
+    const [availabilities, bookedAppointments] = await Promise.all([
+      prisma.availability.findMany({ where: { professionalId }, orderBy: { dayOfWeek: 'asc' } }),
+      prisma.appointment.findMany({
+        where: { professionalId, status: 'SCHEDULED', scheduledAt: { gte: new Date() } },
+        select: { scheduledAt: true },
+      }),
+    ]);
+
+    const bookedByDay = new Map<number, Set<string>>();
+    for (const appointment of bookedAppointments) {
+      if (!appointment.scheduledAt) continue;
+      const day = appointment.scheduledAt.getDay();
+      const time = appointment.scheduledAt.toTimeString().slice(0, 5);
+      if (!bookedByDay.has(day)) bookedByDay.set(day, new Set());
+      bookedByDay.get(day)!.add(time);
+    }
+
+    const toMinutes = (hhmm: string) => {
+      const [h, m] = hhmm.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const toHHMM = (mins: number) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+
+    const effective = availabilities.map((block) => {
+      const start = toMinutes(block.startTime);
+      const end = toMinutes(block.endTime);
+      const slots: string[] = [];
+      for (let current = start; current < end; current += 30) {
+        slots.push(toHHMM(current));
+      }
+      const booked = bookedByDay.get(block.dayOfWeek) ?? new Set<string>();
+      return {
+        dayOfWeek: block.dayOfWeek,
+        startTime: block.startTime,
+        endTime: block.endTime,
+        slots,
+        bookedTimes: Array.from(booked),
+        availableSlots: slots.filter((time) => !booked.has(time)),
+      };
+    });
+
+    res.json(effective);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ─── GET /api/appointments/my ─────────────────────────────────────────────────
 // Obtiene las citas del usuario logueado (como cliente o profesional).
 router.get('/my', authenticate, async (req: any, res: any, next: any) => {
@@ -94,7 +155,7 @@ router.get('/my', authenticate, async (req: any, res: any, next: any) => {
         include: {
           client: { select: { name: true, email: true, avatarUrl: true } },
         },
-        orderBy: { scheduledAt: 'asc' },
+        orderBy: { scheduledAt: 'desc' },
       });
     } else {
       appointments = await prisma.appointment.findMany({
@@ -104,7 +165,7 @@ router.get('/my', authenticate, async (req: any, res: any, next: any) => {
             include: { user: { select: { name: true, avatarUrl: true } } },
           },
         },
-        orderBy: { scheduledAt: 'asc' },
+        orderBy: { scheduledAt: 'desc' },
       });
     }
 
@@ -198,6 +259,10 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
     // No permitir citas en el pasado
     if (scheduledAt <= new Date()) {
       return res.status(400).json({ error: 'No se pueden agendar citas en fechas pasadas' });
+    }
+
+    if (!isThirtyMinuteSlot(scheduledAt)) {
+      return res.status(400).json({ error: 'Las citas deben agendarse en intervalos de 30 minutos exactos (HH:00 o HH:30)' });
     }
 
     // ── Verificación 1: El profesional existe ────────────────────────────────

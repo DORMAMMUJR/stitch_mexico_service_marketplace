@@ -20,7 +20,6 @@ import { AuthProvider } from './hooks/useAuth';
 import { ToastProvider } from './components/ToastContext';
 import { PrivateRoute } from './components/PrivateRoute';
 import { VisoBot } from './components/VisoBot';
-import { SupportWidget } from './components/SupportWidget';
 import './style.css';
 
 const queryClient = new QueryClient({
@@ -95,7 +94,6 @@ ReactDOM.createRoot(document.getElementById('app')).render(
             </Routes>
             {/* Widgets flotantes globales — se montan fuera del árbol de rutas */}
             <VisoBot />
-            <SupportWidget />
           </ToastProvider>
         </AuthProvider>
       </QueryClientProvider>

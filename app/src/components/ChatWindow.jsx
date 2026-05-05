@@ -112,12 +112,19 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   // Eliminar conversación localmente (sin persistencia al servidor en esta fase)
   const handleDeleteConversation = (e, convId) => {
     e.stopPropagation();
-    if (!window.confirm('¿Ocultar esta conversación? Solo se eliminará de tu vista.')) return;
-    setHiddenConvs(prev => new Set([...prev, convId]));
-    if (selectedConvId === convId) {
-      setSelectedConvId(null);
-      setSelectedContact(null);
-    }
+    if (!window.confirm('¿Eliminar esta conversación completa?')) return;
+    apiFetch(`/messages/${convId}`, { method: 'DELETE' })
+      .then(() => {
+        setHiddenConvs(prev => new Set([...prev, convId]));
+        queryClient.invalidateQueries(['conversations']);
+        if (selectedConvId === convId) {
+          setSelectedConvId(null);
+          setSelectedContact(null);
+        }
+      })
+      .catch(() => {
+        alert('No se pudo eliminar la conversación');
+      });
   };
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);

@@ -46,13 +46,25 @@ router.get('/me/notifications', authenticate, async (req: any, res: any, next: a
       return res.status(401).json({ error: 'No autenticado' });
     }
 
+    const limit = Math.min(Number(req.query.limit || 20), 50);
     const notifications = await prisma.notification.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      take: 20 // Limitar a las 20 más recientes por ahora
+      take: limit,
     });
 
     res.json(notifications);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/me/notifications/read-all', authenticate, async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: 'No autenticado' });
+    await prisma.notification.updateMany({ where: { userId, read: false }, data: { read: true } });
+    res.json({ message: 'Notificaciones marcadas como leídas' });
   } catch (error) {
     next(error);
   }

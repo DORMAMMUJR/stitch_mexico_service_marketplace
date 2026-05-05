@@ -140,6 +140,11 @@ export function IntecniaProfilePage() {
                   <button onClick={scrollToChat} className="btn btn-primary">
                     <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>forum</span> Ir al chat
                   </button>
+                  {prof.meetLink && (
+                    <a href={prof.meetLink} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ textDecoration: 'none' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>videocam</span> Link de Meet
+                    </a>
+                  )}
                   {prof.phone ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--secondary)', fontSize: '0.875rem', fontWeight: 600 }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>call</span>

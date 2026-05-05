@@ -48,7 +48,11 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any, next: any) 
 
     const completedOrders = professional.orders.filter(o => o.status === 'COMPLETADO');
     const totalNonDraftOrders = professional.orders.filter(o => !['DRAFT', 'CANCELADO'].includes(o.status)).length;
-    const totalEarnings = completedOrders.reduce((acc, o) => acc + Number(o.agreedPrice), 0);
+    const totalMessages = await prisma.message.count({
+      where: {
+        OR: [{ senderId: professional.userId }, { receiverId: professional.userId }],
+      },
+    });
 
     // Métricas reales calculadas
     // Vista de perfil podría requerir una tabla PageViews, mientras usamos un valor conservador:
@@ -67,7 +71,7 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any, next: any) 
       profileViewsGrowth: null, // Se implementará con tabla PageViews en iteración futura
       totalInteractions: totalInteractions,
       conversionRate: conversionRateStr,
-      automatedMessages: professional.appointments.length, // Un mensaje automatizado por cita
+      automatedMessages: totalMessages,
       appointmentsScheduled: professional.appointments.length,
       verificationStatus: professional.verificationStatus,
       user: {
@@ -154,8 +158,19 @@ router.post('/me/ensure', authenticate, async (req: any, res: any, next: any) =>
 // PUT /api/professionals/me (Actualizar o crear perfil — upsert)
 router.put('/me', authenticate, async (req: any, res, next) => {
   try {
-    const { title, category, bio, hourlyRate } = req.body;
+    const { title, category, bio, hourlyRate, meetLink } = req.body;
     const userId = req.user.userId;
+
+    if (meetLink) {
+      try {
+        const parsed = new URL(String(meetLink));
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+          return res.status(400).json({ error: 'El enlace de Meet debe iniciar con http o https' });
+        }
+      } catch {
+        return res.status(400).json({ error: 'El enlace de Meet no es válido' });
+      }
+    }
 
     // 1. Buscar si ya existe (puede no existir si el usuario era CLIENT)
     const professional = await prisma.professional.findUnique({
@@ -177,6 +192,7 @@ router.put('/me', authenticate, async (req: any, res, next) => {
           category: (category as any) || 'GENERAL_MAINTENANCE',
           bio: bio || null,
           hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
+          meetLink: meetLink ? String(meetLink).trim() : null,
           currency: 'MXN',
         }
       });
@@ -205,6 +221,7 @@ router.put('/me', authenticate, async (req: any, res, next) => {
       category: category || professional.category,
       bio: bio !== undefined ? bio : professional.bio,
       hourlyRate: hourlyRate ? parseFloat(hourlyRate) : professional.hourlyRate,
+      meetLink: req.body.meetLink !== undefined ? String(req.body.meetLink || '').trim() || null : professional.meetLink,
     };
 
     // 4. Si cambió un campo crítico y estaba verificado, resetear verificación
@@ -368,7 +385,7 @@ router.put('/me/availability', authenticate, async (req: any, res: any, next: an
 // GET /api/professionals
 router.get('/', async (req, res, next) => {
   try {
-    const { category, q, maxPrice, minRating } = req.query;
+    const { category, q, maxPrice, minPrice, minRating } = req.query;
 
     // Construir los filtros dinámicamente
     const whereClause: any = {
@@ -390,6 +407,9 @@ router.get('/', async (req, res, next) => {
 
     if (maxPrice) {
       whereClause.hourlyRate = { ...(whereClause.hourlyRate || {}), lte: parseFloat(String(maxPrice)) };
+    }
+    if (minPrice) {
+      whereClause.hourlyRate = { ...(whereClause.hourlyRate || {}), gte: parseFloat(String(minPrice)) };
     }
 
     const professionals = await prisma.professional.findMany({
@@ -550,6 +570,7 @@ router.get('/:id', async (req, res, next) => {
       hourlyRate: professional.hourlyRate ? Number(professional.hourlyRate) : null,
       currency: professional.currency || 'MXN',
       category: professional.category,
+      meetLink: professional.meetLink,
       portfolioItems: professional.portfolioItems,
     });
   } catch (error) {

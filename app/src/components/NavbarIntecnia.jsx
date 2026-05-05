@@ -113,7 +113,10 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
                       <p style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.875rem', color: 'var(--primary)' }}>Notificaciones</p>
                       {notifs.length > 0 && (
                         <button
-                          onClick={() => setNotifs(prev => prev.map(n => ({ ...n, read: true })))}
+                          onClick={async () => {
+                            setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+                            await fetch('/api/users/me/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+                          }}
                           style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: 'var(--secondary)', cursor: 'pointer', fontWeight: 600 }}
                         >
                           Marcar todas leídas
@@ -229,7 +232,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
                       <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{user?.email || ''}</p>
                     </div>
                     <div style={{ padding: '0.5rem' }}>
-                      <Link to={user?.role === 'PROFESSIONAL' ? '/dashboard?tab=profile' : '/verification'} onClick={() => setProfileOpen(false)} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-md)', color: 'var(--on-surface)', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
+                      <Link to={user?.role === 'PROFESSIONAL' ? '/dashboard?tab=profile' : '/mis-solicitudes'} onClick={() => setProfileOpen(false)} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-md)', color: 'var(--on-surface)', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--on-surface-variant)' }}>person</span>
                         Mi Perfil
                       </Link>

@@ -15,6 +15,7 @@ model User {
   phone               String?
   avatarUrl           String?
   emailVerified       Boolean   @default(false)
+  termsConsentedAt    DateTime?
   privacyConsentedAt  DateTime?  // Consentimiento aviso privacidad
   biometricConsentAt  DateTime?  // Consentimiento explícito biométricos
   deletionRequestedAt DateTime?  // Solicitud de supresión ARCO
@@ -46,6 +47,7 @@ model Professional {
   longitude          Float?
   city               String?
   state              String?
+  meetLink           String?
 
   // Verification
   isVerified         Boolean   @default(false)

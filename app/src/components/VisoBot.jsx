@@ -36,7 +36,7 @@ export function VisoBot() {
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       addBotMessage(
-        '👋 Hola, soy Viso.\nTe ayudo a agendar con un profesional en minutos.\n¿Qué servicio estás buscando?'
+        '👋 Hola, soy Viso.\nSoy el bot de soporte de la plataforma.\nPuedo ayudarte con navegación, errores o dudas de uso. ¿Qué problema tienes?'
       );
       setStep('service');
     }
@@ -47,13 +47,27 @@ export function VisoBot() {
     if (!text.trim()) return;
     addUserMessage(text);
     if (step === 'service') {
+      const normalized = text.toLowerCase();
+      if (normalized.includes('mejor') || normalized.includes('recomienda') || normalized.includes('opinión')) {
+        setStep('availability');
+        addBotMessage(
+          'No puedo recomendar especialistas ni dar opiniones personales.\nSí puedo ayudarte a usar la plataforma para encontrarlos.',
+          [
+            { label: 'Ir al directorio', value: 'directory' },
+            { label: user ? 'Ver mis citas' : 'Crear cuenta', value: user ? 'dashboard' : 'register' },
+          ]
+        );
+        return;
+      }
+
       setService(text);
       setStep('availability');
       addBotMessage(
-        `🔍 Buscaré a los mejores en "${text}" para ti.`,
+        `Entendido. Te ayudo con esto: "${text}"`,
         [
-          { label: 'Ver disponibilidad en el directorio', value: 'directory' },
-          { label: user ? 'Ver mis citas' : 'Crear cuenta gratis', value: user ? 'dashboard' : 'register' },
+          { label: 'Abrir directorio', value: 'directory' },
+          { label: 'Ir a soporte', value: 'support' },
+          { label: user ? 'Ver mis citas' : 'Crear cuenta', value: user ? 'dashboard' : 'register' },
         ]
       );
     }
@@ -70,6 +84,9 @@ export function VisoBot() {
       }, 700);
     } else if (option.value === 'dashboard') {
       navigate(user?.role === 'PROFESSIONAL' ? '/dashboard' : '/mis-solicitudes');
+      setIsOpen(false);
+    } else if (option.value === 'support') {
+      navigate('/support');
       setIsOpen(false);
     } else if (option.value === 'register') {
       navigate('/register');
@@ -217,7 +234,7 @@ export function VisoBot() {
           </div>
 
           {/* Input */}
-          {(step === 'greeting' || step === 'location') && (
+          {(step === 'greeting' || step === 'location' || step === 'service') && (
             <div style={{ padding: '1rem', borderTop: '1px solid var(--outline-variant)', background: 'var(--surface)' }}>
                 <form 
                     onSubmit={e => {

@@ -31,6 +31,7 @@ export function DirectoryPage() {
   const [searchParams] = useSearchParams();
   const [professionals, setProfessionals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [priceMin, setPriceMin] = useState(0);
   const [priceCap, setPriceCap] = useState(2000);
   const [minRating, setMinRating] = useState(0);
   const [filterVersion, setFilterVersion] = useState(0);
@@ -56,6 +57,7 @@ export function DirectoryPage() {
         const params = new URLSearchParams();
         if (queryFromUrl) params.set('q', queryFromUrl);
         if (selectedCategory) params.set('category', selectedCategory);
+        params.set('minPrice', String(priceMin));
         params.set('maxPrice', String(priceCap));
         if (minRating > 0) params.set('minRating', String(minRating));
 
@@ -143,21 +145,21 @@ export function DirectoryPage() {
             <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.75rem' }}>RANGO DE PRECIOS (MXN)</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
               {[
-                { label: 'Cualquier precio', value: 'all' },
-                { label: '$0 – $500', value: '0-500' },
-                { label: '$500 – $1,000', value: '500-1000' },
-                { label: '$1,000 – $2,000', value: '1000-2000' },
-                { label: '$2,000+', value: '2000+' },
+                { label: 'Cualquier precio', min: 0, max: 5000 },
+                { label: '$0 – $600', min: 0, max: 600 },
+                { label: '$600 – $1,200', min: 600, max: 1200 },
+                { label: '$1,200 – $2,000', min: 1200, max: 2000 },
+                { label: '$2,000 – $5,000', min: 2000, max: 5000 },
               ].map(opt => (
                 <button
-                  key={opt.value}
-                  onClick={() => setPriceCap(opt.value)}
+                  key={opt.label}
+                  onClick={() => { setPriceMin(opt.min); setPriceCap(opt.max); }}
                   style={{
                     textAlign: 'left', padding: '0.5rem 0.75rem',
                     borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
-                    fontSize: '0.8125rem', fontWeight: priceCap === opt.value ? 700 : 400,
-                    background: priceCap === opt.value ? 'var(--secondary-container)' : 'transparent',
-                    color: priceCap === opt.value ? 'var(--secondary)' : 'var(--on-surface)',
+                    fontSize: '0.8125rem', fontWeight: (priceMin === opt.min && priceCap === opt.max) ? 700 : 400,
+                    background: (priceMin === opt.min && priceCap === opt.max) ? 'var(--secondary-container)' : 'transparent',
+                    color: (priceMin === opt.min && priceCap === opt.max) ? 'var(--secondary)' : 'var(--on-surface)',
                   }}
                 >
                   {opt.label}
@@ -165,6 +167,10 @@ export function DirectoryPage() {
               ))}
             </div>
             <div style={{ marginTop: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <input type="number" step="200" min="0" max={priceCap} value={priceMin} onChange={(e) => setPriceMin(Math.max(0, Math.min(Number(e.target.value || 0), priceCap)))} className="input-field" />
+                <input type="number" step="200" min={priceMin} max="5000" value={priceCap} onChange={(e) => setPriceCap(Math.max(priceMin, Math.min(Number(e.target.value || 0), 5000)))} className="input-field" />
+              </div>
               <input
                 type="range"
                 min="0"
@@ -176,7 +182,7 @@ export function DirectoryPage() {
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.35rem' }}>
                 <span>$0</span>
-                <span>${priceCap.toLocaleString('es-MX')} MXN</span>
+                <span>${priceMin.toLocaleString('es-MX')} - ${priceCap.toLocaleString('es-MX')} MXN</span>
                 <span>$5,000</span>
               </div>
             </div>

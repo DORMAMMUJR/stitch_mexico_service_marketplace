@@ -576,7 +576,7 @@ export function HomePage() {
               Conseguir especialista ahora
             </button>
             <Link
-              to={isAuthenticated ? '/verification' : '/register?role=professional'}
+              to={isAuthenticated ? '/verification' : '/register?role=professional&intent=publish'}
               className="btn"
               style={{ background: 'transparent', color: 'white', border: '2px solid #334155', padding: '1rem 2.5rem', fontSize: '1.0625rem', fontWeight: 700 }}
             >

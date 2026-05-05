@@ -16,7 +16,10 @@ export function RegisterPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const requestedRole = searchParams.get('role') === 'professional' ? 'PROFESSIONAL' : 'CLIENT';
+  const requestedRole = searchParams.get('role') === 'professional' || searchParams.get('intent') === 'publish'
+    ? 'PROFESSIONAL'
+    : 'CLIENT';
+  const intent = searchParams.get('intent');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,7 +37,16 @@ export function RegisterPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, email, password, role: requestedRole, guest_id: guestId, acceptedTerms: true })
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          password,
+          role: requestedRole,
+          guest_id: guestId,
+          acceptedTerms: acceptTerms,
+          acceptedPrivacy: acceptPrivacy,
+        })
       });
 
       const data = await res.json();
@@ -69,7 +81,11 @@ export function RegisterPage() {
         localStorage.removeItem('guest_id');
       }
 
-      navigate(loginData.user?.role === 'PROFESSIONAL' ? '/verification' : '/mis-solicitudes', { replace: true });
+      if (intent === 'publish' || loginData.user?.role === 'PROFESSIONAL') {
+        navigate('/verification', { replace: true });
+        return;
+      }
+      navigate('/mis-solicitudes', { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -152,7 +168,7 @@ export function RegisterPage() {
                   style={{ width: '100%', padding: '0.875rem 2.5rem 0.875rem 1rem', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', color: 'var(--on-surface)', fontSize: '0.9375rem', transition: 'all 0.2s' }}
                   placeholder="••••••••"
                   required
-                  minLength="6"
+                  minLength="8"
                 />
                 <button
                   type="button"
@@ -163,7 +179,7 @@ export function RegisterPage() {
                   <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{showPassword ? 'visibility_off' : 'visibility'}</span>
                 </button>
               </div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.375rem' }}>Mínimo 6 caracteres.</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.375rem' }}>Mínimo 8 caracteres.</p>
             </div>
 
             {/* Casillas de aceptación legal */}

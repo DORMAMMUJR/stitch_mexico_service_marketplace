@@ -13,7 +13,7 @@ export function DashboardPage() {
   const [availStatus, setAvailStatus] = useState(null); 
   const [updateStatus, setUpdateStatus] = useState(null); 
   const [profileForm, setProfileForm] = useState({
-    title: '', category: 'HEALTH_WELLNESS', bio: '', hourlyRate: ''
+    title: '', category: 'HEALTH_WELLNESS', bio: '', hourlyRate: '', meetLink: ''
   });
   const [stripeStatus, setStripeStatus] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -110,14 +110,15 @@ export function DashboardPage() {
           ...app,
           dateLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleDateString('es-MX') : 'Fecha pendiente',
           timeLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleTimeString('es-MX') : 'hora por confirmar',
-        })));
+        })).sort((a, b) => new Date(b.scheduledAt || 0).getTime() - new Date(a.scheduledAt || 0).getTime()));
       }
       if (profileJson && profileJson.id) {
         setProfileForm({
           title: profileJson.title || '',
           category: profileJson.category || 'HEALTH_WELLNESS',
           bio: profileJson.bio || '',
-          hourlyRate: profileJson.hourlyRate || ''
+          hourlyRate: profileJson.hourlyRate || '',
+          meetLink: profileJson.meetLink || ''
         });
         if (profileJson.portfolioItems) setPortfolioItems(profileJson.portfolioItems);
       }
@@ -275,12 +276,24 @@ export function DashboardPage() {
 
           {activeTab === 'appointments' && (
             <div className="card" style={{ padding: '2rem' }}>
-              <h2 style={{ marginBottom: '1.5rem' }}>Próximas Citas mientras</h2>
+              <h2 style={{ marginBottom: '1.5rem' }}>Mis Citas</h2>
               {appointments.length === 0 ? <p>No hay citas.</p> : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {appointments.map(app => (
-                    <div key={app.id} style={{ padding: '1rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)' }}>
-                      {app.client?.name} - {app.dateLabel} {app.timeLabel}
+                    <div key={app.id} style={{ padding: '1rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div>
+                        <p style={{ fontWeight: 700, color: 'var(--primary)' }}>{app.client?.name || 'Cliente'}</p>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} {app.timeLabel}</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
+                          {app.client?.email ? `Contacto: ${app.client.email}` : 'Sin correo visible'}
+                        </p>
+                        <p style={{ fontSize: '0.75rem', color: app.status === 'SCHEDULED' ? 'var(--secondary)' : 'var(--on-surface-variant)', fontWeight: 700 }}>{app.status}</p>
+                      </div>
+                      {app.status === 'SCHEDULED' && (
+                        <button onClick={() => handleCancelAppointment(app.id)} disabled={app._cancelling} className="btn btn-outline">
+                          {app._cancelling ? 'Cancelando...' : 'Cancelar cita'}
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -293,6 +306,7 @@ export function DashboardPage() {
               <h2>Ajustes de Perfil</h2>
               <form onSubmit={handleUpdateProfile}>
                 <input value={profileForm.title} onChange={e => setProfileForm({...profileForm, title: e.target.value})} className="input-field" placeholder="Título" />
+                <input value={profileForm.meetLink} onChange={e => setProfileForm({...profileForm, meetLink: e.target.value})} className="input-field" placeholder="https://meet.google.com/..." style={{ marginTop: '0.75rem' }} />
                 <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem' }}>Guardar</button>
               </form>
             </div>

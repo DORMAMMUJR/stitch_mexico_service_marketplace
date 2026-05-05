@@ -164,4 +164,24 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+// DELETE /api/messages/:conversationId
+// Elimina el historial de la conversación para el usuario participante.
+router.delete('/:conversationId', async (req, res, next) => {
+  const me = (req as any).user;
+  const myId = me.userId;
+  const { conversationId } = req.params;
+
+  const participants = conversationId.split(CONVERSATION_SEPARATOR);
+  if (!participants.includes(myId)) {
+    return res.status(403).json({ error: 'No tienes acceso a esta conversación' });
+  }
+
+  try {
+    await prisma.message.deleteMany({ where: { conversationId } });
+    res.json({ message: 'Conversación eliminada' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export { router as messagesRouter };

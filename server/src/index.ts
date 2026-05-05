@@ -26,7 +26,6 @@ import Stripe from 'stripe';
 import { prisma } from './lib/db';
 import { EscrowStateMachine } from './lib/escrow';
 import { authenticate } from './middleware/auth';
-import { sendEmail, emailTemplates } from './lib/email';
 import { startEscrowCron } from './jobs/escrowCron';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -296,39 +295,6 @@ Mantén respuestas cortas.`;
   }
 });
 
-const supportLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 8,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.post('/api/support/ticket', supportLimiter, async (req, res) => {
-  const subject = String(req.body?.subject || '').trim();
-  const message = String(req.body?.message || '').trim();
-  const email = String(req.body?.email || '').trim();
-
-  if (!subject || !message || !email) {
-    return res.status(400).json({ error: 'subject, message y email son requeridos' });
-  }
-
-  const supportEmail = process.env.SUPPORT_EMAIL || process.env.ADMIN_EMAIL;
-  if (supportEmail) {
-    await sendEmail({
-      to: supportEmail,
-      subject: `[Soporte] ${subject}`,
-      html: `
-        <h2>Nuevo ticket de soporte</h2>
-        <p><strong>Correo:</strong> ${email}</p>
-        <p><strong>Asunto:</strong> ${subject}</p>
-        <p><strong>Mensaje:</strong></p>
-        <p>${message.replace(/\n/g, '<br/>')}</p>
-      `,
-    }).catch(console.error);
-  }
-
-  res.json({ message: 'Ticket enviado' });
-});
 
 // ─── SPA Fallback ────────────────────────────────────────────────────────────
 app.get('*', (req, res) => {

@@ -9,7 +9,6 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isDemo, setIsDemo] = useState(false);
 
   const { login, user } = useAuth();
   const navigate = useNavigate();
@@ -80,24 +79,6 @@ export function LoginPage() {
     }
   };
 
-  const handleDemoLogin = (e) => {
-    e.preventDefault();
-    setIsDemo(true);
-    showToast('Iniciando Modo Demostración...', 'info');
-    setTimeout(() => {
-      login('token-demo', {
-        id: 'demo-001',
-        name: 'Usuario Demo',
-        email: 'demo@intecnia.mx',
-        role: 'PROFESSIONAL',
-        avatarUrl: null
-      });
-      showToast('¡Bienvenido al Modo Demostración de Intecnia!', 'success');
-      navigate('/dashboard');
-      setIsDemo(false);
-    }, 800);
-  };
-
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
       <header className="nav-top">
@@ -109,11 +90,11 @@ export function LoginPage() {
         </div>
       </header>
 
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1.5rem', position: 'relative' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', position: 'relative' }}>
         <div style={{ position: 'absolute', top: '10%', left: '20%', width: '300px', height: '300px', background: 'var(--secondary)', filter: 'blur(120px)', opacity: 0.1, borderRadius: '50%' }}></div>
         <div style={{ position: 'absolute', bottom: '10%', right: '20%', width: '300px', height: '300px', background: 'var(--primary-fixed)', filter: 'blur(120px)', opacity: 0.1, borderRadius: '50%' }}></div>
 
-        <div className="card animate-in stagger-1" style={{ width: '100%', maxWidth: '420px', padding: 'clamp(1.5rem, 5vw, 2.5rem)', position: 'relative', zIndex: 1, backdropFilter: 'blur(16px)', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+        <div className="card animate-in stagger-1" style={{ width: '100%', maxWidth: '420px', padding: 'clamp(1.25rem, 4vw, 2rem)', position: 'relative', zIndex: 1, backdropFilter: 'blur(16px)', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <h1 style={{ fontFamily: 'Manrope', fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Bienvenido de nuevo</h1>
             <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem' }}>Ingresa tus credenciales para continuar</p>
@@ -175,16 +156,6 @@ export function LoginPage() {
               )}
             </button>
 
-            <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
-              <button
-                type="button"
-                onClick={handleDemoLogin}
-                disabled={isDemo}
-                style={{ background: 'none', border: 'none', color: 'var(--on-surface-variant)', fontSize: '0.75rem', textDecoration: 'underline', cursor: 'pointer', opacity: 0.6, padding: 0 }}
-              >
-                {isDemo ? 'Iniciando demo...' : 'Entrar en Modo Explorador (sin cuenta)'}
-              </button>
-            </div>
           </form>
 
           <div style={{ textAlign: 'center', marginTop: '2rem' }}>

@@ -43,7 +43,7 @@
 
   /* On-Surface */
   --on-surface: #0f172a;
-  --on-surface-variant: #475569;
+  --on-surface-variant: #334155;
   --on-background: #0f172a;
 
   /* Outline */
@@ -85,6 +85,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+html, body, #app { max-width: 100%; overflow-x: hidden; }
 
 body {
   font-family: 'Inter', sans-serif;
@@ -639,6 +640,12 @@ img { display: block; max-width: 100%; }
   .layout-profile,
   .layout-bento {
     gap: 1rem;
+  }
+
+  .nav-link,
+  .btn,
+  button {
+    min-height: 44px;
   }
 
   /* Safe area (iPhone con notch/Dynamic Island) */

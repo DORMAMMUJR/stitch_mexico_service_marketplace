@@ -40,6 +40,15 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   // Si viene un receiverId externo (desde perfil de un profesional), seleccionar directamente
   useEffect(() => {
@@ -130,10 +139,11 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   return (
-    <div style={{ display: 'flex', height: '70vh', minHeight: '500px', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', border: '1px solid var(--outline-variant)', boxShadow: 'var(--ambient-shadow)' }}>
+    <div className="chat-window-shell" style={{ display: 'flex', height: '70vh', minHeight: '500px', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', border: '1px solid var(--outline-variant)', boxShadow: 'var(--ambient-shadow)' }}>
 
       {/* ── Panel Izquierdo: Lista de Conversaciones ─────────────────────────── */}
-      <aside style={{ width: '300px', flexShrink: 0, borderRight: '1px solid var(--outline-variant)', display: 'flex', flexDirection: 'column', background: 'var(--surface-container-low)' }}>
+      {(!isMobile || !selectedConvId) && (
+      <aside className="chat-window-list" style={{ width: isMobile ? '100%' : '300px', flexShrink: 0, borderRight: '1px solid var(--outline-variant)', display: 'flex', flexDirection: 'column', background: 'var(--surface-container-low)' }}>
         {/* Header */}
         <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: '1px solid var(--outline-variant)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -234,9 +244,11 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
           )}
         </div>
       </aside>
+      )}
 
       {/* ── Panel Derecho: Ventana de Chat ──────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
+      {(!isMobile || selectedConvId) && (
+      <div className="chat-window-thread" style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
         {!selectedConvId ? (
           // Estado vacío — ninguna conversación seleccionada
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: 'var(--on-surface-variant)' }}>
@@ -248,6 +260,16 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
           <>
             {/* Header del chat */}
             <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--outline-variant)', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--surface-container-low)' }}>
+              {isMobile && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedConvId(null)}
+                  style={{ width: '36px', height: '36px', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)' }}
+                  aria-label="Volver a conversaciones"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>arrow_back</span>
+                </button>
+              )}
               <Avatar user={selectedContact} size={38} />
               <div>
                 <p style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--primary)' }}>{selectedContact?.name}</p>
@@ -277,7 +299,7 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
                   return (
                     <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
                       <div style={{
-                        maxWidth: '70%',
+                        maxWidth: isMobile ? '88%' : '70%',
                         padding: '0.625rem 1rem',
                         borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                         background: isMine ? 'var(--primary)' : 'var(--surface-container)',
@@ -343,6 +365,7 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

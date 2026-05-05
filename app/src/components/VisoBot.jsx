@@ -66,7 +66,7 @@ export function VisoBot() {
         `Entendido. Te ayudo con esto: "${text}"`,
         [
           { label: 'Abrir directorio', value: 'directory' },
-          { label: 'Ir a soporte', value: 'support' },
+        { label: 'Contactar soporte', value: 'contact' },
           { label: user ? 'Ver mis citas' : 'Crear cuenta', value: user ? 'dashboard' : 'register' },
         ]
       );
@@ -85,8 +85,8 @@ export function VisoBot() {
     } else if (option.value === 'dashboard') {
       navigate(user?.role === 'PROFESSIONAL' ? '/dashboard' : '/mis-solicitudes');
       setIsOpen(false);
-    } else if (option.value === 'support') {
-      navigate('/support');
+    } else if (option.value === 'contact') {
+      window.location.href = 'mailto:soporte@intecnia.mx';
       setIsOpen(false);
     } else if (option.value === 'register') {
       navigate('/register');

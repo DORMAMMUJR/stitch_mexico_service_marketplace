@@ -14,7 +14,6 @@ import { AdminPanel } from './pages/AdminPanel';
 import { ClientDashboard } from './pages/ClientDashboard';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
-import { SupportPage } from './pages/SupportPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AuthProvider } from './hooks/useAuth';
 import { ToastProvider } from './components/ToastContext';
@@ -48,7 +47,6 @@ ReactDOM.createRoot(document.getElementById('app')).render(
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/terms"     element={<TermsPage />} />
               <Route path="/privacy"   element={<PrivacyPage />} />
-              <Route path="/support"   element={<SupportPage />} />
               <Route path="/login"     element={<LoginPage />} />
               <Route path="/register"  element={<RegisterPage />} />
 

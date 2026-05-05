@@ -58,7 +58,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
             <span className="material-symbols-outlined icon-filled" style={{ fontSize: '24px', color: 'var(--secondary)' }}>hub</span>
             <span style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', letterSpacing: '-0.02em' }}>Intecnia</span>
           </Link>
-          <div style={{ display: 'flex', gap: '0.25rem' }} className="hide-mobile">
+          <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }} className="hide-mobile">
             <Link to="/" className={`nav-link ${activePage === 'home' ? 'active' : ''}`}>Inicio</Link>
             <Link to="/directory" className={`nav-link ${activePage === 'directory' ? 'active' : ''}`}>Directorio</Link>
           </div>

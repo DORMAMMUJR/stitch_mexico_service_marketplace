@@ -17,7 +17,7 @@ export function Footer() {
             <Link to="/directory" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Directorio</Link>
             <Link to="/privacy" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Privacidad</Link>
             <Link to="/terms" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Términos</Link>
-            <Link to="/support" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Soporte</Link>
+              <a href="mailto:soporte@intecnia.mx" style={{ color: 'rgba(255,255,255,0.7)', transition: 'color 0.2s' }}>Soporte</a>
           </div>
         </div>
         {/* Fila inferior: copyright + CTA alineado */}

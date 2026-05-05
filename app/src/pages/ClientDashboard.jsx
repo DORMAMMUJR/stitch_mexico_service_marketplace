@@ -163,7 +163,7 @@ export function ClientDashboard() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
       <NavbarIntecnia activePage="" />
       
-      <main className="container" style={{ flex: 1, padding: '3rem 1.5rem' }}>
+      <main className="container client-dashboard-main" style={{ flex: 1, padding: '3rem 1.5rem' }}>
         <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontFamily: 'Manrope', fontSize: '2rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>
@@ -202,14 +202,14 @@ export function ClientDashboard() {
         </div>
 
         {activeTab === 'messages' && (
-          <div className="card animate-in fade-in" style={{ padding: '0', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: '420px' }}>
+          <div className="card animate-in fade-in client-dashboard-chat-card" style={{ padding: '0', overflow: 'hidden', height: 'min(70vh, 680px)', minHeight: '360px' }}>
             <ChatWindow />
           </div>
         )}
 
         {activeTab === 'overview' && (
           <div className="animate-in slide-in-bottom">
-            <div className="card" style={{ padding: '2rem', marginBottom: '2rem' }}>
+            <div className="card client-dashboard-card" style={{ marginBottom: '2rem' }}>
               <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Tus Solicitudes de Servicio</h2>
           
           {appointments.length === 0 ? (
@@ -257,7 +257,7 @@ export function ClientDashboard() {
           )}
         </div>
 
-        <div className="card" style={{ padding: '2rem' }}>
+        <div className="card client-dashboard-card">
           <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Tus Órdenes y Pagos</h2>
           
           {orders.length === 0 ? (
@@ -317,7 +317,7 @@ export function ClientDashboard() {
         )}
 
         {activeTab === 'profile' && (
-          <div className="card" style={{ padding: '2rem' }}>
+          <div className="card client-dashboard-card">
             <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1rem' }}>Editar Perfil</h2>
             <form onSubmit={handleSaveProfile} style={{ display: 'grid', gap: '0.75rem', maxWidth: '520px' }}>
               <input

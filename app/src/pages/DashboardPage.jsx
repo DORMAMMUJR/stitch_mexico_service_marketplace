@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../components/ToastContext';
 import { useAuth } from '../hooks/useAuth';
 import { ChatWindow } from '../components/ChatWindow';
@@ -24,6 +24,13 @@ export function DashboardPage() {
     const params = new URLSearchParams(routerLocation.search);
     return params.get('tab') || 'overview';
   });
+  const dashboardTabs = [
+    { id: 'overview', label: 'Tablero', icon: 'dashboard' },
+    { id: 'profile', label: 'Perfil', icon: 'person' },
+    { id: 'appointments', label: 'Citas', icon: 'event' },
+    { id: 'availability', label: 'Horario', icon: 'schedule' },
+    { id: 'messages', label: 'Mensajes', icon: 'forum' },
+  ];
 
   useEffect(() => {
     const params = new URLSearchParams(routerLocation.search);
@@ -227,26 +234,34 @@ export function DashboardPage() {
           </div>
 
           <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <button onClick={() => setActiveTab('overview')} className={`sidebar-link ${activeTab === 'overview' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px' }}>dashboard</span> Tablero
-            </button>
-            <button onClick={() => setActiveTab('profile')} className={`sidebar-link ${activeTab === 'profile' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>person</span> Perfil
-            </button>
-            <button onClick={() => setActiveTab('appointments')} className={`sidebar-link ${activeTab === 'appointments' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>event</span> Mis Citas
-            </button>
-            <button onClick={() => setActiveTab('availability')} className={`sidebar-link ${activeTab === 'availability' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>schedule</span> Disponibilidad
-            </button>
-            <button onClick={() => setActiveTab('messages')} className={`sidebar-link ${activeTab === 'messages' ? 'active' : ''}`} style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>forum</span> Mensajes
-            </button>
+            {dashboardTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`sidebar-link ${activeTab === tab.id ? 'active' : ''}`}
+                style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{tab.icon}</span> {tab.label}
+              </button>
+            ))}
           </nav>
         </aside>
 
+        <div className="dashboard-mobile-tabs">
+          {dashboardTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`dashboard-mobile-tab ${activeTab === tab.id ? 'active' : ''}`}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
         <main className="dashboard-main">
-          <header className="flex-between" style={{ marginBottom: '3rem' }}>
+          <header className="flex-between" style={{ marginBottom: '2rem' }}>
             <div>
               <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN</p>
               <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Panel profesional</h1>
@@ -280,7 +295,7 @@ export function DashboardPage() {
           )}
 
           {activeTab === 'appointments' && (
-            <div className="card" style={{ padding: '2rem' }}>
+            <div className="card dashboard-card">
               <h2 style={{ marginBottom: '1.5rem' }}>Mis Citas</h2>
               {appointments.length === 0 ? <p>No hay citas.</p> : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -310,7 +325,7 @@ export function DashboardPage() {
           )}
 
           {activeTab === 'profile' && (
-            <div className="card" style={{ padding: '2rem' }}>
+            <div className="card dashboard-card">
               <h2>Ajustes de Perfil</h2>
               <form onSubmit={handleUpdateProfile}>
                 <input value={profileForm.title} onChange={e => setProfileForm({...profileForm, title: e.target.value})} className="input-field" placeholder="Título" />
@@ -320,7 +335,7 @@ export function DashboardPage() {
             </div>
           )}
           {activeTab === 'availability' && (
-            <div className="card" style={{ padding: '2rem' }}>
+            <div className="card dashboard-card">
               <h2 style={{ marginBottom: '1rem' }}>Disponibilidad semanal</h2>
               <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', marginBottom: '1rem' }}>
                 Define tus horarios para que el calendario y el bot muestren slots reales.
@@ -354,7 +369,11 @@ export function DashboardPage() {
             </div>
           )}
 
-          {activeTab === 'messages' && <ChatWindow />}
+          {activeTab === 'messages' && (
+            <div className="card dashboard-card" style={{ padding: 0 }}>
+              <ChatWindow />
+            </div>
+          )}
         </main>
       </div>
     </div>

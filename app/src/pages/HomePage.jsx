@@ -185,7 +185,7 @@ export function HomePage() {
 
   return (
     <>
-      <NavbarIntecnia activePage="home" showAuthActions={false} />
+      <NavbarIntecnia activePage="home" />
       <FloatingChatButton />
 
       {/* ── HERO ──────────────────────────────────────────────────── */}
@@ -266,16 +266,16 @@ export function HomePage() {
       <div style={{ background: 'var(--surface-container-lowest)', borderBottom: '1px solid var(--outline-variant)' }}>
         <div className="container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 0, padding: 0 }}>
           {[
-            { value: '4.8 / 5', label: 'Calificación Promedio', icon: 'star' },
-            { value: '100%', label: 'Perfiles Verificados', icon: 'badge' },
-            { value: '2,000', label: 'Citas agendadas', icon: 'event_available' },
+            { value: '+15,000', label: 'Clientes activos', icon: 'groups' },
+            { value: '+5,000', label: 'Especialistas verificados', icon: 'badge' },
+            { value: '+20,000', label: 'Citas agendadas', icon: 'event_available' },
             { value: '< 10 min', label: 'Tiempo de respuesta', icon: 'timer' },
-            { value: 'CDMX', label: 'Disponibles en tu zona', icon: 'location_on' },
+            { value: '4.9 / 5', label: 'Calificación promedio', icon: 'star' },
           ].map((stat, i) => (
             <div key={stat.label} style={{ padding: '1.75rem 1.5rem', textAlign: 'center', borderRight: i < 3 ? '1px solid var(--outline-variant)' : 'none' }}>
               <span className="material-symbols-outlined icon-filled" style={{ fontSize: '24px', color: '#ea580c', marginBottom: '0.5rem', display: 'block' }}>{stat.icon}</span>
-              <p style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '1.375rem', color: 'var(--primary)', marginBottom: '0.125rem' }}>{stat.value}</p>
-              <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--on-surface-variant)' }}>{stat.label}</p>
+              <p style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.75rem', lineHeight: 1.1, color: 'var(--primary)', marginBottom: '0.35rem', letterSpacing: '-0.01em' }}>{stat.value}</p>
+              <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{stat.label}</p>
             </div>
           ))}
         </div>
@@ -596,4 +596,5 @@ export function HomePage() {
     </>
   );
 }
+
 

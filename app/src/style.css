@@ -620,6 +620,80 @@ img { display: block; max-width: 100%; }
   padding: 2rem 1.5rem 4rem;
 }
 
+.profile-pro-grid {
+  align-items: start;
+}
+
+.profile-hero-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-hero-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), transparent 45%);
+}
+
+.profile-side-col {
+  min-width: 0;
+}
+
+.profile-sticky-panel {
+  position: sticky;
+  top: 5.25rem;
+}
+
+.profile-booking-card,
+.profile-chat-widget {
+  border: 1px solid rgba(6, 78, 59, 0.12);
+}
+
+.profile-booking-card h3,
+.profile-chat-header h3 {
+  letter-spacing: -0.01em;
+}
+
+.profile-booking-days::-webkit-scrollbar {
+  height: 6px;
+}
+
+.profile-booking-days::-webkit-scrollbar-thumb {
+  background: rgba(6, 78, 59, 0.25);
+  border-radius: 9999px;
+}
+
+.profile-booking-submit {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.profile-chat-header {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+}
+
+.profile-chat-body {
+  background: linear-gradient(180deg, rgba(248, 250, 252, 1) 0%, rgba(241, 245, 249, 0.7) 100%);
+}
+
+.profile-chat-input-area {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.profile-chat-input-wrap {
+  border: 1px solid rgba(6, 78, 59, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.profile-chat-input-wrap:focus-within {
+  border-color: rgba(16, 185, 129, 0.75);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+
 .layout-bento { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
 .dashboard-header-actions { display: flex; gap: 0.75rem; }
 
@@ -637,6 +711,7 @@ img { display: block; max-width: 100%; }
   .dashboard-mobile-tabs { display: flex; }
   .layout-directory { grid-template-columns: 1fr; }
   .layout-profile { grid-template-columns: 1fr; }
+  .profile-sticky-panel { position: static; }
   .layout-bento { grid-template-columns: 1fr; }
   .hide-mobile { display: none !important; }
   .hamburger-btn { display: block; }

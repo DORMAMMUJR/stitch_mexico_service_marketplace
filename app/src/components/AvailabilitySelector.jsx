@@ -133,7 +133,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
   };
 
   return (
-    <div className="card" style={{ padding: '2rem' }}>
+    <div className="card glass-card profile-booking-card" style={{ padding: '1.25rem' }}>
       <h3
         style={{
           fontFamily:   'Manrope',
@@ -148,6 +148,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
 
       {/* ── Selector de fecha (scroll horizontal) ── */}
       <div
+        className="profile-booking-days"
         style={{
           display:       'flex',
           gap:           '0.75rem',
@@ -319,7 +320,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
       <button
         onClick={handleBooking}
         disabled={!selectedSlot || isLoading}
-        className="btn btn-primary"
+        className="btn btn-primary profile-booking-submit"
         style={{
           width:           '100%',
           justifyContent:  'center',

@@ -18,7 +18,6 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { AuthProvider } from './hooks/useAuth';
 import { ToastProvider } from './components/ToastContext';
 import { PrivateRoute } from './components/PrivateRoute';
-import { VisoBot } from './components/VisoBot';
 import './style.css';
 
 const queryClient = new QueryClient({
@@ -91,8 +90,6 @@ ReactDOM.createRoot(document.getElementById('app')).render(
               <Route path="*" element={<NotFoundPage />} />
 
             </Routes>
-            {/* Widgets flotantes globales — se montan fuera del árbol de rutas */}
-            <VisoBot />
           </ToastProvider>
         </AuthProvider>
       </QueryClientProvider>

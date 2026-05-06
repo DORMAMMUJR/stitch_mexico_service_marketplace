@@ -122,16 +122,17 @@ function FloatingChatButton() {
 
   return (
     <button
+      className="home-cta-floating"
       onClick={openChat}
       style={{
         position: 'fixed',
         bottom: '1.5rem',
         right: '1.5rem',
-        zIndex: 999,
+        zIndex: 9998,
         display: 'flex',
         alignItems: 'center',
         gap: '0.625rem',
-        background: '#ea580c',
+        background: 'var(--secondary)',
         color: 'white',
         border: 'none',
         borderRadius: 'var(--radius-full)',
@@ -140,7 +141,7 @@ function FloatingChatButton() {
         fontWeight: 800,
         fontSize: '0.9375rem',
         cursor: 'pointer',
-        boxShadow: '0 8px 32px rgba(234, 88, 12, 0.35)',
+        boxShadow: '0 8px 32px rgba(16, 185, 129, 0.35)',
         animation: 'slideUp 0.4s ease',
         transition: 'transform 0.2s',
       }}
@@ -198,18 +199,18 @@ export function HomePage() {
 
         {/* Título principal — Enfoque en resultado y eliminación de riesgo */}
         <h1 className="animate-in stagger-2" style={{ fontFamily: 'Manrope', fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, maxWidth: '850px', margin: '0 auto 1.25rem', color: 'var(--on-primary)' }}>
-          Encuentra un profesional confiable en minutos exploras<br />
-          <span style={{ color: '#fbbf24' }}>(sin sorpresas ni fricción)</span>
+          Encuentra profesionales confiables en minutos<br />
+          <span style={{ color: '#fbbf24' }}>con validación real y contratación clara</span>
         </h1>
 
         <p className="animate-in stagger-3" style={{ fontSize: '1.125rem', color: '#e2e8f0', maxWidth: '560px', margin: '0 auto 2.5rem', lineHeight: 1.7 }}>
-          Agenda hoy mismo con especialistas verificados en tu zona garantizamos tu seguridad. Precios claros, identidades reales y trato directo conectas.
+          Agenda con especialistas verificados en tu zona, con precios transparentes e información completa desde el primer contacto.
         </p>
 
         {/* Buscador */}
         <form onSubmit={handleSearch} className="hero-search-container animate-in stagger-4" style={{ maxWidth: '640px', margin: '0 auto 1.25rem', borderRadius: 'var(--radius-xl)', padding: '0.375rem', background: 'var(--surface)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, padding: '0 1.25rem' }}>
-            <span className="material-symbols-outlined" style={{ color: '#ea580c', fontSize: '24px' }}>search</span>
+            <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: '24px' }}>search</span>
             <input
               type="text"
               placeholder="Psicóloga, Abogado, Plomero..."
@@ -218,11 +219,11 @@ export function HomePage() {
               style={{ flex: 1, padding: '1rem 0', fontSize: '1rem', color: 'var(--on-surface)', background: 'transparent', border: 'none', outline: 'none' }}
             />
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-surface-variant)', whiteSpace: 'nowrap', paddingRight: '0.5rem' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#ea580c' }}>location_on</span>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--secondary)' }}>location_on</span>
               CDMX
             </span>
           </div>
-          <button type="submit" className="btn btn-primary" style={{ borderRadius: 'var(--radius-lg)', padding: '0.875rem 2rem', fontWeight: 800, fontSize: '1rem', background: '#ea580c', borderColor: '#ea580c' }}>
+          <button type="submit" className="btn btn-primary" style={{ borderRadius: 'var(--radius-lg)', padding: '0.875rem 2rem', fontWeight: 800, fontSize: '1rem', background: 'var(--secondary)', borderColor: 'var(--secondary)' }}>
             Buscar
           </button>
         </form>
@@ -273,7 +274,7 @@ export function HomePage() {
             { value: '4.9 / 5', label: 'Calificación promedio', icon: 'star' },
           ].map((stat, i) => (
             <div key={stat.label} style={{ padding: '1.75rem 1.5rem', textAlign: 'center', borderRight: i < 3 ? '1px solid var(--outline-variant)' : 'none' }}>
-              <span className="material-symbols-outlined icon-filled" style={{ fontSize: '24px', color: '#ea580c', marginBottom: '0.5rem', display: 'block' }}>{stat.icon}</span>
+              <span className="material-symbols-outlined icon-filled" style={{ fontSize: '24px', color: '#047857', marginBottom: '0.5rem', display: 'block' }}>{stat.icon}</span>
               <p style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.75rem', lineHeight: 1.1, color: 'var(--primary)', marginBottom: '0.35rem', letterSpacing: '-0.01em' }}>{stat.value}</p>
               <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{stat.label}</p>
             </div>
@@ -295,7 +296,7 @@ export function HomePage() {
               </div>
               <div>
                   <p style={{ fontSize: '0.875rem', color: '#431407', fontStyle: 'italic', marginBottom: '0.25rem', lineHeight: 1.4 }}>{t.text}</p>
-                  <p style={{ fontSize: '0.75rem', color: '#ea580c', fontWeight: 800 }}>— {t.name}</p>
+                  <p style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 800 }}>— {t.name}</p>
               </div>
             </div>
           ))}
@@ -312,7 +313,7 @@ export function HomePage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', maxWidth: '1000px', margin: '0 auto' }}>
             {[
               { title: 'Identidad Verificada', text: 'Validamos INE y SAT de cada especialista manualmente. Si no son reales, no entran a la plataforma.', icon: 'badge', color: '#16a34a' },
-              { title: 'Cero Intermediarios', text: 'Hablas y tratas directo con el profesional. No cobramos comisiones ocultas por tu servicio.', icon: 'handshake', color: '#ea580c' },
+              { title: 'Cero Intermediarios', text: 'Hablas y tratas directo con el profesional. No cobramos comisiones ocultas por tu servicio.', icon: 'handshake', color: '#047857' },
               { title: 'Opiniones 100% Reales', text: 'Solo quienes han tomado el servicio pueden dejar reseña. Nada de calificaciones compradas.', icon: 'star', color: '#ca8a04' },
               { title: 'Sin Sorpresas', text: 'Conoces los precios base desde antes de hablar con ellos. Transparencia total desde el inicio.', icon: 'payments', color: '#2563eb' }
             ].map(item => (
@@ -347,15 +348,15 @@ export function HomePage() {
               { num: '3', icon: 'event_available', title: 'Agendo por ti', text: 'Si te gusta una opción, separo el espacio en su agenda automáticamente. Cero llamadas incómodas.' },
             ].map((step, i) => (
               <div key={step.num} style={{ background: 'var(--surface-container-lowest)', padding: '2rem', borderRadius: 'var(--radius-xl)', border: '1px solid var(--outline-variant)', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: '-1rem', left: '2rem', background: '#ea580c', color: 'white', width: '2rem', height: '2rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontFamily: 'Manrope', boxShadow: '0 4px 12px rgba(234, 88, 12, 0.3)' }}>{step.num}</div>
-                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: '#ea580c', marginBottom: '1rem', display: 'block', marginTop: '0.5rem' }}>{step.icon}</span>
+                <div style={{ position: 'absolute', top: '-1rem', left: '2rem', background: '#047857', color: 'white', width: '2rem', height: '2rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontFamily: 'Manrope', boxShadow: '0 4px 12px rgba(234, 88, 12, 0.3)' }}>{step.num}</div>
+                <span className="material-symbols-outlined" style={{ fontSize: '32px', color: '#047857', marginBottom: '1rem', display: 'block', marginTop: '0.5rem' }}>{step.icon}</span>
                 <h3 style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>{step.title}</h3>
                 <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem', lineHeight: 1.6 }}>{step.text}</p>
               </div>
             ))}
           </div>
           <div style={{ textAlign: 'center', marginTop: '3rem' }}>
-            <button onClick={() => { const botBtn = document.querySelector('[data-viso-trigger]'); if (botBtn) botBtn.click(); }} className="btn btn-primary" style={{ padding: '0.875rem 2rem', fontSize: '1rem', fontWeight: 800, background: '#ea580c', borderColor: '#ea580c' }}>
+            <button onClick={() => { const botBtn = document.querySelector('[data-viso-trigger]'); if (botBtn) botBtn.click(); }} className="btn btn-primary" style={{ padding: '0.875rem 2rem', fontSize: '1rem', fontWeight: 800, background: '#047857', borderColor: '#047857' }}>
                 <span className="material-symbols-outlined">forum</span>
                 Probar el asistente ahora
             </button>
@@ -371,7 +372,7 @@ export function HomePage() {
               <h2 className="text-headline-md" style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontWeight: 800 }}>Explora por tu cuenta</h2>
               <p style={{ color: 'var(--on-surface-variant)', fontSize: '1rem' }}>Directorio completo de profesionales verificados listos para ayudarte.</p>
             </div>
-            <Link to="/directory" style={{ fontSize: '0.875rem', fontWeight: 700, color: '#ea580c', display: 'flex', alignItems: 'center', gap: '0.375rem', textDecoration: 'none' }}>
+            <Link to="/directory" style={{ fontSize: '0.875rem', fontWeight: 700, color: '#047857', display: 'flex', alignItems: 'center', gap: '0.375rem', textDecoration: 'none' }}>
               VER DIRECTORIO COMPLETO <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
             </Link>
           </div>
@@ -385,7 +386,7 @@ export function HomePage() {
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.10)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
               >
-                <div className="cat-icon" style={{ background: '#fff7ed', color: '#ea580c' }}>
+                <div className="cat-icon" style={{ background: '#fff7ed', color: '#047857' }}>
                   <span className="material-symbols-outlined">{cat.icon}</span>
                 </div>
                 <span style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '0.9375rem', color: 'var(--primary)', lineHeight: 1.3 }}>{cat.label}</span>
@@ -530,7 +531,7 @@ export function HomePage() {
       <section style={{ padding: '5rem 1.5rem', background: '#f8fafc' }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
-            <p className="text-label-md" style={{ color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.75rem', fontWeight: 800 }}>HISTORIAS REALES</p>
+            <p className="text-label-md" style={{ color: '#047857', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.75rem', fontWeight: 800 }}>HISTORIAS REALES</p>
             <h2 className="text-headline-md" style={{ color: 'var(--primary)', fontWeight: 800 }}>Resultados, no solo promesas</h2>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
@@ -570,7 +571,7 @@ export function HomePage() {
           <button
               onClick={() => { const botBtn = document.querySelector('[data-viso-trigger]'); if (botBtn) botBtn.click(); else navigate('/directory'); }}
               className="btn btn-primary"
-              style={{ padding: '1rem 2.5rem', fontSize: '1.0625rem', fontWeight: 800, background: '#ea580c', borderColor: '#ea580c', boxShadow: '0 8px 24px rgba(234, 88, 12, 0.4)' }}
+              style={{ padding: '1rem 2.5rem', fontSize: '1.0625rem', fontWeight: 800, background: '#047857', borderColor: '#047857', boxShadow: '0 8px 24px rgba(234, 88, 12, 0.4)' }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>rocket_launch</span>
               Conseguir especialista ahora

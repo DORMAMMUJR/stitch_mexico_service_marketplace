@@ -31,10 +31,10 @@ export function DirectoryPage() {
   const [searchParams] = useSearchParams();
   const [professionals, setProfessionals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
   const [priceMin, setPriceMin] = useState(0);
   const [priceCap, setPriceCap] = useState(2000);
   const [minRating, setMinRating] = useState(0);
-  const [filterVersion, setFilterVersion] = useState(0);
   const { showToast } = useToast();
 
   // Leer category y query de la URL (vienen del Hero o de las categorías)
@@ -51,11 +51,15 @@ export function DirectoryPage() {
 
 
   useEffect(() => {
+    setSearchTerm(queryFromUrl);
+  }, [queryFromUrl]);
+
+  useEffect(() => {
     const fetchProfessionals = async () => {
       setIsLoading(true);
       try {
         const params = new URLSearchParams();
-        if (queryFromUrl) params.set('q', queryFromUrl);
+        if (searchTerm.trim()) params.set('q', searchTerm.trim());
         if (selectedCategory) params.set('category', selectedCategory);
         params.set('minPrice', String(priceMin));
         params.set('maxPrice', String(priceCap));
@@ -73,7 +77,7 @@ export function DirectoryPage() {
       }
     };
     fetchProfessionals();
-  }, [queryFromUrl, selectedCategory, priceCap, minRating, filterVersion]);
+  }, [searchTerm, selectedCategory, priceMin, priceCap, minRating]);
 
   const handleCategoryChange = (e) => {
     const label = e.target.value;
@@ -95,6 +99,11 @@ export function DirectoryPage() {
 
       {/* Search Header */}
       <div className="container" style={{ padding: '0 1.5rem 1.5rem' }}>
+        {searchParams.get('welcome') === 'professional' && (
+          <div style={{ marginBottom: '1rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.35)', color: '#065f46', borderRadius: 'var(--radius-lg)', padding: '0.875rem 1rem', fontSize: '0.875rem', fontWeight: 600 }}>
+            Tu perfil ya es visible en el directorio para los clientes.
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>
@@ -108,6 +117,17 @@ export function DirectoryPage() {
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>tune</span>
             Ordenar por: Recomendado
           </button>
+        </div>
+        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.75rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>search</span>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por servicio o especialidad..."
+            className="input-field"
+            style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: '0.5rem 0.25rem' }}
+          />
         </div>
         {/* Category Quick Filters */}
         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
@@ -208,7 +228,7 @@ export function DirectoryPage() {
             </div>
           </div>
 
-          <button onClick={(e) => { e.preventDefault(); setFilterVersion(v => v + 1); showToast('Filtros aplicados correctamente', 'success'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Aplicar Filtros</button>
+          <button onClick={(e) => { e.preventDefault(); setSelectedCategory(''); setPriceMin(0); setPriceCap(2000); setMinRating(0); showToast('Filtros reiniciados', 'info'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Limpiar Filtros</button>
         </aside>
 
         {/* Results */}

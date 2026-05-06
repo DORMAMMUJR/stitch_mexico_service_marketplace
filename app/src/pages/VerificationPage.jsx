@@ -159,8 +159,8 @@ export function VerificationPage() {
     try {
       await apiFetch('/professionals/me/submit-review', { method: 'POST' });
       showToast('Perfil enviado a revisión. ¡Te notificaremos pronto!', 'success');
-      // Forzar recarga para que AuthProvider actualice el rol a PROFESSIONAL
-      window.location.href = '/dashboard';
+      // Forzar recarga para que AuthProvider actualice rol y mostrar feedback de onboarding
+      window.location.href = '/directory?welcome=professional';
     } catch (err) {
       showToast(err.message, 'error');
     } finally {

@@ -1,384 +1,432 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { NavbarIntecnia } from '../components/NavbarIntecnia';
+import { ChatWindow } from '../components/ChatWindow';
 import { useToast } from '../components/ToastContext';
 import { useAuth } from '../hooks/useAuth';
-import { ChatWindow } from '../components/ChatWindow';
-import { NavbarIntecnia } from '../components/NavbarIntecnia';
 
 export function DashboardPage() {
-  const [data, setData] = useState(null);
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState([]);
-  const [availStatus, setAvailStatus] = useState(null); 
-  const [updateStatus, setUpdateStatus] = useState(null); 
-  const [profileForm, setProfileForm] = useState({
-    title: '', category: 'HEALTH_WELLNESS', bio: '', hourlyRate: '', meetLink: ''
-  });
-  const [stripeStatus, setStripeStatus] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState(null);
-  const [portfolioItems, setPortfolioItems] = useState([]);
-
-  const routerLocation = useLocation();
-  const [activeTab, setActiveTab] = useState(() => {
-    const params = new URLSearchParams(routerLocation.search);
-    return params.get('tab') || 'overview';
-  });
-  const dashboardTabs = [
-    { id: 'overview', label: 'Tablero', icon: 'dashboard' },
-    { id: 'profile', label: 'Perfil', icon: 'person' },
-    { id: 'appointments', label: 'Citas', icon: 'event' },
-    { id: 'availability', label: 'Horario', icon: 'schedule' },
-    { id: 'messages', label: 'Mensajes', icon: 'forum' },
-  ];
-
-  useEffect(() => {
-    const params = new URLSearchParams(routerLocation.search);
-    const tab = params.get('tab');
-    if (tab && tab !== activeTab) {
-      setActiveTab(tab);
-    }
-  }, [routerLocation.search]);
-
-  const avatarInputRef = React.useRef(null);
+  const { user, updateUser } = useAuth();
   const { showToast } = useToast();
-  const navigate = useNavigate();
-  const { logout, updateUser } = useAuth();
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
+  const isProfessional = user?.role === 'PROFESSIONAL';
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [appointments, setAppointments] = useState([]);
 
-  const handleCancelAppointment = async (appointmentId) => {
-    if (!window.confirm('¿Estás seguro de que deseas cancelar esta cita?')) return;
-    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: true } : a));
-    try {
-      const res = await fetch(`/api/appointments/${appointmentId}/cancel`, {
-        method: 'PATCH',
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast('Cita cancelada con éxito', 'success');
-        setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: 'CANCELLED', _cancelling: false } : a));
-      } else {
-        setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: false } : a));
-        showToast(data.error || 'Error al cancelar la cita', 'error');
-      }
-    } catch (err) {
-      setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: false } : a));
-      showToast('Error de conexión', 'error');
+  const [dashboardData, setDashboardData] = useState({
+    profileViews: 0,
+    totalInteractions: 0,
+    appointmentsScheduled: 0,
+  });
+
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    lastName: '',
+    phone: '',
+    email: '',
+    currentPassword: '',
+    newPassword: '',
+    title: '',
+    bio: '',
+    category: 'HEALTH_WELLNESS',
+    hourlyRate: '',
+    meetLink: '',
+  });
+
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const avatarInputRef = useRef(null);
+
+  const [availabilities, setAvailabilities] = useState([]);
+
+  const tabs = useMemo(() => {
+    const base = [
+      { id: 'overview', label: 'Resumen', icon: 'dashboard' },
+      { id: 'appointments', label: 'Citas', icon: 'event' },
+      { id: 'messages', label: 'Mensajes', icon: 'forum' },
+      { id: 'profile', label: 'Perfil', icon: 'person' },
+    ];
+
+    if (isProfessional) {
+      base.push({ id: 'availability', label: 'Horario', icon: 'schedule' });
     }
-  };
 
-  const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  const defaultAvailabilities = DAYS.map((day, i) => ({
-    dayOfWeek: i,
-    dayName: day,
-    active: i > 0 && i < 6, // L-V
-    startTime: '09:00',
-    endTime: '18:00'
-  }));
-  const [availabilities, setAvailabilities] = useState(defaultAvailabilities);
+    return base;
+  }, [isProfessional]);
 
   useEffect(() => {
-    const fetchDashboard = fetch('/api/professionals/me/dashboard', { credentials: 'include' }).then(res => res.json()).catch(() => ({}));
-    const fetchAppointments = fetch('/api/appointments/my', { credentials: 'include' }).then(res => res.json()).catch(() => []);
-    const fetchProfile = fetch('/api/professionals/me', { credentials: 'include' }).then(res => res.json()).catch(() => ({}));
-    const fetchAvailability = fetch('/api/professionals/me/availability', { credentials: 'include' }).then(res => res.json()).catch(() => []);
-    const fetchNotifications = fetch('/api/users/me/notifications', { credentials: 'include' }).then(res => res.json()).catch(() => []);
-    const fetchStripeStatus = fetch('/api/orders/stripe-connect/status', { credentials: 'include' }).then(res => res.json()).catch(() => null);
+    const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
+    const defaultAvailabilities = DAYS.map((day, i) => ({
+      dayOfWeek: i,
+      dayName: day,
+      active: i > 0 && i < 6,
+      startTime: '09:00',
+      endTime: '18:00',
+    }));
 
-    Promise.all([fetchDashboard, fetchAppointments, fetchProfile, fetchAvailability, fetchNotifications, fetchStripeStatus])
-    .then(([dashboardJson, appointmentsJson, profileJson, availabilityJson, notificationsJson, stripeJson]) => {
-      if (dashboardJson.user) {
-        setData(dashboardJson);
-      } else {
-        const userName = profileJson?.user?.name || profileJson?.name || 'Profesional';
-        setData({
-          profileViews: 0,
-          profileViewsGrowth: '0%',
-          totalInteractions: 0,
-          conversionRate: '0%',
-          automatedMessages: 0,
-          appointmentsScheduled: 0,
-          verificationStatus: profileJson?.verificationStatus || 'PENDING',
-          user: {
-            name: userName,
-            title: profileJson?.title || '',
-            avatarUrl: profileJson?.user?.avatarUrl || null,
-            isVerified: profileJson?.isVerified || false,
+    const fetchAppointments = fetch('/api/appointments/my', { credentials: 'include' }).then((res) => res.json()).catch(() => []);
+    const fetchUserProfile = fetch('/api/auth/me', { credentials: 'include' }).then((res) => res.json()).catch(() => ({}));
+
+    const requests = [fetchAppointments, fetchUserProfile];
+
+    if (isProfessional) {
+      requests.push(
+        fetch('/api/professionals/me/dashboard', { credentials: 'include' }).then((res) => res.json()).catch(() => ({})),
+        fetch('/api/professionals/me', { credentials: 'include' }).then((res) => res.json()).catch(() => ({})),
+        fetch('/api/professionals/me/availability', { credentials: 'include' }).then((res) => res.json()).catch(() => [])
+      );
+    }
+
+    Promise.all(requests)
+      .then((result) => {
+        const [appointmentsJson, authMeJson, proDashboardJson, proProfileJson, proAvailabilityJson] = result;
+
+        const normalizedAppointments = Array.isArray(appointmentsJson)
+          ? [...appointmentsJson]
+              .sort((a, b) => new Date(b.scheduledAt || b.createdAt || 0) - new Date(a.scheduledAt || a.createdAt || 0))
+              .map((app) => ({
+                ...app,
+                dateLabel: app.scheduledAt
+                  ? new Date(app.scheduledAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+                  : 'Fecha pendiente',
+                timeLabel: app.scheduledAt
+                  ? new Date(app.scheduledAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                  : 'Hora por confirmar',
+              }))
+          : [];
+
+        setAppointments(normalizedAppointments);
+
+        const fullName = authMeJson?.name || user?.name || '';
+        const [firstName = '', ...lastParts] = String(fullName).split(' ');
+        const lastName = lastParts.join(' ');
+
+        if (isProfessional) {
+          setDashboardData({
+            profileViews: proDashboardJson?.profileViews || 0,
+            totalInteractions: proDashboardJson?.totalInteractions || 0,
+            appointmentsScheduled: proDashboardJson?.appointmentsScheduled || normalizedAppointments.length,
+          });
+
+          setProfileForm({
+            name: firstName,
+            lastName,
+            phone: authMeJson?.phone || user?.phone || '',
+            email: authMeJson?.email || user?.email || '',
+            currentPassword: '',
+            newPassword: '',
+            title: proProfileJson?.title || '',
+            bio: proProfileJson?.bio || '',
+            category: proProfileJson?.category || 'HEALTH_WELLNESS',
+            hourlyRate: proProfileJson?.hourlyRate || '',
+            meetLink: proProfileJson?.meetLink || '',
+          });
+
+          if (Array.isArray(proAvailabilityJson) && proAvailabilityJson.length > 0) {
+            const merged = defaultAvailabilities.map((def) => {
+              const found = proAvailabilityJson.find((a) => a.dayOfWeek === def.dayOfWeek);
+              return found ? { ...def, active: true, startTime: found.startTime, endTime: found.endTime } : { ...def, active: false };
+            });
+            setAvailabilities(merged);
+          } else {
+            setAvailabilities(defaultAvailabilities);
           }
-        });
-      }
-      if (Array.isArray(appointmentsJson)) {
-        setAppointments(appointmentsJson.map(app => ({
-          ...app,
-          dateLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleDateString('es-MX') : 'Fecha pendiente',
-          timeLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleTimeString('es-MX') : 'hora por confirmar',
-        })).sort((a, b) => new Date(b.scheduledAt || 0).getTime() - new Date(a.scheduledAt || 0).getTime()));
-      }
-      if (profileJson && profileJson.id) {
-        setProfileForm({
-          title: profileJson.title || '',
-          category: profileJson.category || 'HEALTH_WELLNESS',
-          bio: profileJson.bio || '',
-          hourlyRate: profileJson.hourlyRate || '',
-          meetLink: profileJson.meetLink || ''
-        });
-        if (profileJson.portfolioItems) setPortfolioItems(profileJson.portfolioItems);
-      }
-      if (Array.isArray(availabilityJson) && availabilityJson.length > 0) {
-        const merged = defaultAvailabilities.map(def => {
-          const found = availabilityJson.find(a => a.dayOfWeek === def.dayOfWeek);
-          return found ? { ...def, active: true, startTime: found.startTime, endTime: found.endTime } : { ...def, active: false };
-        });
-        setAvailabilities(merged);
-      }
-      if (Array.isArray(notificationsJson)) setNotifications(notificationsJson);
-      if (stripeJson) setStripeStatus(stripeJson);
-    })
-    .catch(console.error)
-    .finally(() => setLoading(false));
-  }, []);
+        } else {
+          setDashboardData({
+            profileViews: 0,
+            totalInteractions: 0,
+            appointmentsScheduled: normalizedAppointments.length,
+          });
+
+          setProfileForm({
+            name: firstName,
+            lastName,
+            phone: authMeJson?.phone || user?.phone || '',
+            email: authMeJson?.email || user?.email || '',
+            currentPassword: '',
+            newPassword: '',
+            title: '',
+            bio: '',
+            category: 'HEALTH_WELLNESS',
+            hourlyRate: '',
+            meetLink: '',
+          });
+        }
+      })
+      .catch(() => showToast('No se pudieron cargar todos los datos del panel', 'error'))
+      .finally(() => setLoading(false));
+  }, [isProfessional, showToast, user?.email, user?.name, user?.phone]);
 
   const handleAvatarChange = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
     const formData = new FormData();
     formData.append('avatar', file);
     try {
-      const response = await fetch('/api/users/avatar', { method: 'POST', credentials: 'include', body: formData });
-      if (response.ok) {
-        const result = await response.json();
-        setAvatarPreview(result.avatarUrl);
-        updateUser({ avatarUrl: result.avatarUrl });
-        showToast('¡Foto de perfil actualizada!', 'success');
-      }
-    } catch (error) { console.error(error); }
+      const res = await fetch('/api/users/avatar', { method: 'POST', credentials: 'include', body: formData });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'No se pudo subir la foto');
+      setAvatarPreview(data.avatarUrl || null);
+      updateUser?.({ avatarUrl: data.avatarUrl });
+      showToast('Foto actualizada', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al actualizar foto', 'error');
+    } finally {
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
   };
 
-  const handlePortfolioUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleCancelAppointment = async (appointmentId) => {
+    if (!window.confirm('¿Seguro que deseas cancelar esta cita?')) return;
+    setAppointments((prev) => prev.map((a) => (a.id === appointmentId ? { ...a, _cancelling: true } : a)));
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const res = await fetch('/api/professionals/me/portfolio', { method: 'POST', credentials: 'include', body: formData });
-      if (res.ok) {
-        const result = await res.json();
-        setPortfolioItems([result.portfolioItem, ...portfolioItems]);
-        showToast('¡Imagen subida correctamente!', 'success');
-      }
-    } catch (err) { console.error(err); }
+      const res = await fetch(`/api/appointments/${appointmentId}/cancel`, { method: 'PATCH', credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'No se pudo cancelar la cita');
+      setAppointments((prev) => prev.map((a) => (a.id === appointmentId ? { ...a, status: 'CANCELLED', _cancelling: false } : a)));
+      showToast('Cita cancelada', 'success');
+    } catch (err) {
+      setAppointments((prev) => prev.map((a) => (a.id === appointmentId ? { ...a, _cancelling: false } : a)));
+      showToast(err.message || 'Error al cancelar', 'error');
+    }
   };
 
-  const handleDeletePortfolioItem = async (itemId) => {
-    if (!confirm('¿Seguro que quieres eliminar esta imagen?')) return;
-    try {
-      const res = await fetch(`/api/professionals/me/portfolio/${itemId}`, { method: 'DELETE', credentials: 'include' });
-      if (res.ok) {
-        setPortfolioItems(portfolioItems.filter(item => item.id !== itemId));
-        showToast('Imagen eliminada', 'success');
-      }
-    } catch (err) { console.error(err); }
-  };
-
-  const handleUpdateProfile = async (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
+    setSavingProfile(true);
+
     try {
-      const res = await fetch('/api/professionals/me', {
+      const userPayload = {
+        name: profileForm.name,
+        lastName: profileForm.lastName,
+        phone: profileForm.phone,
+        email: profileForm.email,
+        currentPassword: profileForm.currentPassword,
+        newPassword: profileForm.newPassword,
+      };
+
+      const userRes = await fetch('/api/users/me', {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profileForm)
+        body: JSON.stringify(userPayload),
       });
-      if (res.ok) showToast('¡Perfil actualizado!', 'success');
-    } catch (error) { console.error(error); }
+
+      const userData = await userRes.json().catch(() => ({}));
+      if (!userRes.ok) throw new Error(userData?.error || 'No se pudo actualizar la cuenta');
+
+      updateUser?.({ name: `${profileForm.name} ${profileForm.lastName}`.trim(), phone: profileForm.phone, email: profileForm.email });
+
+      if (isProfessional) {
+        const proPayload = {
+          title: profileForm.title,
+          bio: profileForm.bio,
+          category: profileForm.category,
+          hourlyRate: profileForm.hourlyRate,
+          meetLink: profileForm.meetLink,
+        };
+
+        const proRes = await fetch('/api/professionals/me', {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(proPayload),
+        });
+
+        const proData = await proRes.json().catch(() => ({}));
+        if (!proRes.ok) throw new Error(proData?.error || 'No se pudo actualizar perfil profesional');
+      }
+
+      setProfileForm((prev) => ({ ...prev, currentPassword: '', newPassword: '' }));
+      showToast('Perfil actualizado', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al guardar', 'error');
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
-  const handleUpdateAvailability = async () => {
-    const toSave = availabilities.filter(a => a.active).map(a => ({ dayOfWeek: a.dayOfWeek, startTime: a.startTime, endTime: a.endTime }));
+  const handleSaveAvailability = async () => {
+    const payload = availabilities.filter((a) => a.active).map((a) => ({ dayOfWeek: a.dayOfWeek, startTime: a.startTime, endTime: a.endTime }));
     try {
       const res = await fetch('/api/professionals/me/availability', {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ availabilities: toSave })
+        body: JSON.stringify({ availabilities: payload }),
       });
-      if (res.ok) showToast('¡Horarios actualizados!', 'success');
-    } catch (error) { console.error(error); }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'No se pudo guardar disponibilidad');
+      showToast('Disponibilidad actualizada', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al actualizar disponibilidad', 'error');
+    }
   };
 
-  if (loading) return <div>Cargando...</div>;
-  if (!data) return <div>No hay datos.</div>;
-
-  const { user } = data;
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', animation: 'spin 1s linear infinite' }}>progress_activity</span>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--surface)' }}>
       <NavbarIntecnia activePage="dashboard" />
-      <div className="dashboard-layout" style={{ paddingTop: '1rem' }}>
-        <aside className="sidebar" style={{ top: '5rem', height: 'calc(100vh - 5rem)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', padding: '0.5rem' }}>
-            <img 
-              src={avatarPreview || user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'P')}&background=2dbcfe&color=fff&size=48`} 
-              alt={user.name} 
-              style={{ width: '3rem', height: '3rem', borderRadius: '50%', objectFit: 'cover' }} 
-            />
-            <div>
-              <h2 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '0.9375rem', color: 'var(--primary)' }}>{user.name}</h2>
-              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{user.title} • {user.isVerified ? 'Verificado' : 'Pendiente'}</p>
-            </div>
-          </div>
 
-          <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            {dashboardTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`sidebar-link ${activeTab === tab.id ? 'active' : ''}`}
-                style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{tab.icon}</span> {tab.label}
-              </button>
-            ))}
-          </nav>
-        </aside>
+      <main className="container dashboard-premium" style={{ padding: '2rem 1rem 3rem' }}>
+        <header style={{ marginBottom: '1.5rem' }}>
+          <p className="text-label-md" style={{ color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>PANEL UNIFICADO</p>
+          <h1 className="text-headline-md" style={{ color: 'var(--primary)' }}>{isProfessional ? 'Dashboard cliente + profesional' : 'Dashboard cliente'}</h1>
+        </header>
 
-        <div className="dashboard-mobile-tabs">
-          {dashboardTabs.map((tab) => (
+        <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--outline-variant)', marginBottom: '1.25rem', overflowX: 'auto' }}>
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`dashboard-mobile-tab ${activeTab === tab.id ? 'active' : ''}`}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '0.75rem 0.9rem',
+                fontFamily: 'Manrope',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                color: activeTab === tab.id ? 'var(--secondary)' : 'var(--on-surface-variant)',
+                borderBottom: activeTab === tab.id ? '2px solid var(--secondary)' : '2px solid transparent',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+                whiteSpace: 'nowrap',
+              }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{tab.icon}</span>
-              <span>{tab.label}</span>
+              {tab.label}
             </button>
           ))}
         </div>
 
-        <main className="dashboard-main">
-          <header className="flex-between" style={{ marginBottom: '2rem' }}>
-            <div>
-              <p className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>RESUMEN</p>
-              <h1 className="text-display-lg" style={{ color: 'var(--primary)' }}>Panel profesional</h1>
+        {activeTab === 'overview' && (
+          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+            <div className="card glass-card" style={{ padding: '1rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas totales</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{appointments.length}</p>
             </div>
-          </header>
 
-          {activeTab === 'overview' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-              <div className="card" style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Vistas de perfil (30 días)</p>
-                <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{data.profileViews}</p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>{data.profileViewsGrowth || '0%'}</p>
-              </div>
-              <div className="card" style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Interacciones totales</p>
-                <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{data.totalInteractions}</p>
-              </div>
-              <div className="card" style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Conversión</p>
-                <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{data.conversionRate}</p>
-              </div>
-              <div className="card" style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Mensajes (cliente a cliente)</p>
-                <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{data.automatedMessages}</p>
-              </div>
-              <div className="card" style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas agendadas</p>
-                <p style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{data.appointmentsScheduled}</p>
-              </div>
-            </div>
-          )}
+            {isProfessional && (
+              <>
+                <div className="card glass-card" style={{ padding: '1rem' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Vistas de perfil</p>
+                  <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.profileViews}</p>
+                </div>
+                <div className="card glass-card" style={{ padding: '1rem' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Interacciones</p>
+                  <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.totalInteractions}</p>
+                </div>
+              </>
+            )}
+          </section>
+        )}
 
-          {activeTab === 'appointments' && (
-            <div className="card dashboard-card">
-              <h2 style={{ marginBottom: '1.5rem' }}>Mis Citas</h2>
-              {appointments.length === 0 ? <p>No hay citas.</p> : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {appointments.map(app => (
-                    <div key={app.id} style={{ padding: '1rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        {activeTab === 'appointments' && (
+          <section className="card glass-card" style={{ padding: '1rem' }}>
+            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '1rem', color: 'var(--primary)' }}>Mis citas</h2>
+            {appointments.length === 0 ? (
+              <p style={{ color: 'var(--on-surface-variant)' }}>No hay citas registradas.</p>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                {appointments.map((app) => {
+                  const counterpart = isProfessional ? app.client : app.professional?.user;
+                  const counterpartName = counterpart?.name || (isProfessional ? 'Cliente' : 'Profesional');
+                  return (
+                    <div key={app.id} className="dashboard-appointment-item" style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                       <div>
-                        <p style={{ fontWeight: 700, color: 'var(--primary)' }}>{app.client?.name || 'Cliente'}</p>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} {app.timeLabel}</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
-                          {app.client?.email ? `Contacto: ${app.client.email}` : 'Sin correo visible'}
-                        </p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
-                          {app.client?.isVerified ? 'Cliente verificado' : 'Cliente no verificado'} · {app.client?.isNew ? 'Cliente nuevo' : 'Cliente recurrente'}
-                        </p>
-                        <p style={{ fontSize: '0.75rem', color: app.status === 'SCHEDULED' ? 'var(--secondary)' : 'var(--on-surface-variant)', fontWeight: 700 }}>{app.status}</p>
+                        <p style={{ fontWeight: 700, color: 'var(--primary)' }}>{counterpartName}</p>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} - {app.timeLabel}</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{app.status}</p>
                       </div>
                       {app.status === 'SCHEDULED' && (
-                        <button onClick={() => handleCancelAppointment(app.id)} disabled={app._cancelling} className="btn btn-outline">
-                          {app._cancelling ? 'Cancelando...' : 'Cancelar cita'}
+                        <button onClick={() => handleCancelAppointment(app.id)} disabled={app._cancelling} className="btn btn-outline" style={{ borderColor: 'var(--error)', color: 'var(--error)' }}>
+                          {app._cancelling ? 'Cancelando...' : 'Cancelar'}
                         </button>
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'profile' && (
-            <div className="card dashboard-card">
-              <h2>Ajustes de Perfil</h2>
-              <form onSubmit={handleUpdateProfile}>
-                <input value={profileForm.title} onChange={e => setProfileForm({...profileForm, title: e.target.value})} className="input-field" placeholder="Título" />
-                <input value={profileForm.meetLink} onChange={e => setProfileForm({...profileForm, meetLink: e.target.value})} className="input-field" placeholder="https://meet.google.com/..." style={{ marginTop: '0.75rem' }} />
-                <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem' }}>Guardar</button>
-              </form>
-            </div>
-          )}
-          {activeTab === 'availability' && (
-            <div className="card dashboard-card">
-              <h2 style={{ marginBottom: '1rem' }}>Disponibilidad semanal</h2>
-              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem', marginBottom: '1rem' }}>
-                Define tus horarios para que el calendario y el bot muestren slots reales.
-              </p>
-              <div style={{ display: 'grid', gap: '0.75rem' }}>
-                {availabilities.map((slot, idx) => (
-                  <div
-                    key={slot.dayOfWeek}
-                    className="availability-row"
-                    style={{
-                      border: '1px solid var(--outline-variant)',
-                      borderRadius: 'var(--radius-lg)',
-                      padding: '0.75rem',
-                      display: 'grid',
-                      gridTemplateColumns: '1fr auto auto auto',
-                      gap: '0.75rem',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, color: 'var(--primary)' }}>
-                      <input type="checkbox" checked={slot.active} onChange={(e) => setAvailabilities((prev) => prev.map((it, i) => i === idx ? { ...it, active: e.target.checked } : it))} />
-                      {slot.dayName}
-                    </label>
-                    <input type="time" value={slot.startTime} disabled={!slot.active} onChange={(e) => setAvailabilities((prev) => prev.map((it, i) => i === idx ? { ...it, startTime: e.target.value } : it))} className="input-field" style={{ minWidth: '120px', padding: '0.5rem 0.625rem' }} />
-                    <input type="time" value={slot.endTime} disabled={!slot.active} onChange={(e) => setAvailabilities((prev) => prev.map((it, i) => i === idx ? { ...it, endTime: e.target.value } : it))} className="input-field" style={{ minWidth: '120px', padding: '0.5rem 0.625rem' }} />
-                    <span style={{ fontSize: '0.75rem', color: slot.active ? 'var(--secondary)' : 'var(--on-surface-variant)', fontWeight: 700 }}>{slot.active ? 'Activo' : 'Inactivo'}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-              <button onClick={handleUpdateAvailability} className="btn btn-primary" style={{ marginTop: '1rem' }}>Guardar disponibilidad</button>
-            </div>
-          )}
+            )}
+          </section>
+        )}
 
-          {activeTab === 'messages' && (
-            <div className="card dashboard-card" style={{ padding: 0 }}>
-              <ChatWindow />
+        {activeTab === 'messages' && (
+          <section className="card glass-card" style={{ padding: 0, overflow: 'hidden', minHeight: '420px' }}>
+            <ChatWindow />
+          </section>
+        )}
+
+        {activeTab === 'profile' && (
+          <section className="card glass-card" style={{ padding: '1rem' }}>
+            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '1rem', color: 'var(--primary)' }}>Ajustes de perfil</h2>
+
+            <form onSubmit={handleSaveProfile} style={{ display: 'grid', gap: '0.75rem', maxWidth: '700px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', marginBottom: '0.25rem' }}>
+                <img
+                  src={avatarPreview || user?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=047857&color=fff&size=96`}
+                  alt="Avatar"
+                  style={{ width: '4rem', height: '4rem', borderRadius: '9999px', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.35)' }}
+                />
+                <div>
+                  <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} />
+                  <button type="button" className="btn btn-outline" onClick={() => avatarInputRef.current?.click()}>
+                    Subir/Cambiar foto
+                  </button>
+                </div>
+              </div>
+
+              <input className="input-field" placeholder="Nombre" value={profileForm.name} onChange={(e) => setProfileForm((p) => ({ ...p, name: e.target.value }))} required />
+              <input className="input-field" placeholder="Apellidos" value={profileForm.lastName} onChange={(e) => setProfileForm((p) => ({ ...p, lastName: e.target.value }))} required />
+              <input className="input-field" placeholder="Telefono" value={profileForm.phone} onChange={(e) => setProfileForm((p) => ({ ...p, phone: e.target.value }))} required />
+              <input className="input-field" type="email" placeholder="Correo" value={profileForm.email} onChange={(e) => setProfileForm((p) => ({ ...p, email: e.target.value }))} required />
+              <input className="input-field" type="password" placeholder="Contrasena actual (si vas a cambiarla)" value={profileForm.currentPassword} onChange={(e) => setProfileForm((p) => ({ ...p, currentPassword: e.target.value }))} />
+              <input className="input-field" type="password" placeholder="Nueva contrasena" value={profileForm.newPassword} onChange={(e) => setProfileForm((p) => ({ ...p, newPassword: e.target.value }))} />
+
+              {isProfessional && (
+                <>
+                  <input className="input-field" placeholder="Titulo profesional" value={profileForm.title} onChange={(e) => setProfileForm((p) => ({ ...p, title: e.target.value }))} />
+                  <textarea className="input-field" placeholder="Descripcion" rows={4} value={profileForm.bio} onChange={(e) => setProfileForm((p) => ({ ...p, bio: e.target.value }))} />
+                  <input className="input-field" placeholder="Costos/Tarifas" value={profileForm.hourlyRate} onChange={(e) => setProfileForm((p) => ({ ...p, hourlyRate: e.target.value }))} />
+                  <input className="input-field" placeholder="Link de Meet" value={profileForm.meetLink} onChange={(e) => setProfileForm((p) => ({ ...p, meetLink: e.target.value }))} />
+                </>
+              )}
+
+              <button type="submit" className="btn btn-primary" disabled={savingProfile} style={{ width: 'fit-content' }}>
+                {savingProfile ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+            </form>
+          </section>
+        )}
+
+        {isProfessional && activeTab === 'availability' && (
+          <section className="card glass-card" style={{ padding: '1rem' }}>
+            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>Disponibilidad semanal</h2>
+            <div style={{ display: 'grid', gap: '0.625rem' }}>
+              {availabilities.map((slot, idx) => (
+                <div key={slot.dayOfWeek} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: '0.5rem', alignItems: 'center', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.625rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 600, color: 'var(--primary)' }}>
+                    <input type="checkbox" checked={slot.active} onChange={(e) => setAvailabilities((prev) => prev.map((it, i) => (i === idx ? { ...it, active: e.target.checked } : it)))} />
+                    {slot.dayName}
+                  </label>
+                  <input type="time" className="input-field" style={{ minWidth: '108px', padding: '0.4rem 0.55rem' }} disabled={!slot.active} value={slot.startTime} onChange={(e) => setAvailabilities((prev) => prev.map((it, i) => (i === idx ? { ...it, startTime: e.target.value } : it)))} />
+                  <input type="time" className="input-field" style={{ minWidth: '108px', padding: '0.4rem 0.55rem' }} disabled={!slot.active} value={slot.endTime} onChange={(e) => setAvailabilities((prev) => prev.map((it, i) => (i === idx ? { ...it, endTime: e.target.value } : it)))} />
+                  <span style={{ fontSize: '0.75rem', color: slot.active ? 'var(--secondary)' : 'var(--on-surface-variant)', fontWeight: 700 }}>{slot.active ? 'Activo' : 'Inactivo'}</span>
+                </div>
+              ))}
             </div>
-          )}
-        </main>
-      </div>
+            <button className="btn btn-primary" style={{ marginTop: '0.875rem' }} onClick={handleSaveAvailability}>Guardar disponibilidad</button>
+          </section>
+        )}
+      </main>
     </div>
   );
 }
-
-
-

@@ -279,6 +279,41 @@ img { display: block; max-width: 100%; }
   padding: 0.75rem 0.875rem;
 }
 
+.dashboard-premium {
+  position: relative;
+}
+
+.dashboard-premium::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 45%);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 38px rgba(2, 6, 23, 0.12);
+}
+
+.dashboard-appointment-item {
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.dashboard-appointment-item:hover {
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  background: rgba(16, 185, 129, 0.04);
+}
+
 /* ── Sidebar (Dashboard only) ── */
 .sidebar {
   position: fixed; left: 0; top: 0; bottom: 0;
@@ -323,6 +358,12 @@ img { display: block; max-width: 100%; }
   border: 2px solid transparent;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
+}
+
+/* Home CTA flotante: evita solape con VisoBot */
+.home-cta-floating {
+  bottom: 6.5rem !important;
+  right: 1.5rem !important;
 }
 .hero-search-container:focus-within {
   border-color: var(--secondary);
@@ -665,6 +706,12 @@ img { display: block; max-width: 100%; }
 
   /* VisoBot: no tapar contenido en móvil */
   .visobot-widget { bottom: 1rem !important; right: 1rem !important; }
+  .home-cta-floating {
+    bottom: 6.75rem !important;
+    right: 1rem !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.8125rem !important;
+  }
   .visobot-chat-panel {
     bottom: 5rem !important;
     right: 1rem !important;

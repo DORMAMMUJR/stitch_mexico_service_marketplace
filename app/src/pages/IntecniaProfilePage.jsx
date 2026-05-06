@@ -20,6 +20,7 @@ export function IntecniaProfilePage() {
   const { data: availability } = useAvailability(id);
   const navigate = useNavigate();
   const chatRef = useRef(null);
+  const [bookingBanner, setBookingBanner] = React.useState('');
 
   const scrollToChat = () => {
     chatRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -80,6 +81,11 @@ export function IntecniaProfilePage() {
       <NavbarIntecnia />
 
       <div className="container layout-profile">
+        {bookingBanner && (
+          <div style={{ marginBottom: '1rem' }}>
+            <NotifBanner text={bookingBanner} />
+          </div>
+        )}
         {/* Left Column */}
         <div>
           {/* ── Header Card: Foto → Nombre → Título → Rating → Precio → Bio ── */}
@@ -304,7 +310,11 @@ export function IntecniaProfilePage() {
               navigate('/login');
             }
           }}>
-            <AvailabilitySelector professionalId={id} availability={availability} />
+            <AvailabilitySelector
+              professionalId={id}
+              availability={availability}
+              onBooked={(text) => setBookingBanner(text)}
+            />
           </div>
           
           <div ref={chatRef} className="animate-in stagger-3" onClickCapture={(e) => {

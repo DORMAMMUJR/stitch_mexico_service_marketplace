@@ -5,13 +5,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HomePage } from './pages/HomePage';
 import { DirectoryPage } from './pages/DirectoryPage';
 import { CategoriesPage } from './pages/CategoriesPage';
+import { MarketplacePage } from './pages/MarketplacePage';
 import { IntecniaProfilePage } from './pages/IntecniaProfilePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { VerificationPage } from './pages/VerificationPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminPanel } from './pages/AdminPanel';
-import { ClientDashboard } from './pages/ClientDashboard';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -45,6 +45,7 @@ ReactDOM.createRoot(document.getElementById('app')).render(
               <Route path="/"          element={<HomePage />} />
               <Route path="/directory" element={<DirectoryPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
+              <Route path="/marketplace" element={<MarketplacePage />} />
               <Route path="/terms"     element={<TermsPage />} />
               <Route path="/privacy"   element={<PrivacyPage />} />
               <Route path="/login"     element={<LoginPage />} />
@@ -59,8 +60,8 @@ ReactDOM.createRoot(document.getElementById('app')).render(
               {/* ── Rutas protegidas — PROFESSIONAL ────────────────────── */}
               <Route path="/dashboard" element={
                 <PrivateRoute
-                  allowedRoles={['PROFESSIONAL']}
-                  requireCompleteProfile
+                  allowedRoles={['PROFESSIONAL', 'CLIENT']}
+                  requireCompleteProfile={false}
                 >
                   <DashboardPage />
                 </PrivateRoute>
@@ -74,8 +75,8 @@ ReactDOM.createRoot(document.getElementById('app')).render(
 
               {/* ── Rutas protegidas — CLIENT ───────────────────────────── */}
               <Route path="/mis-solicitudes" element={
-                <PrivateRoute allowedRoles={['CLIENT']}>
-                  <ClientDashboard />
+                <PrivateRoute allowedRoles={['CLIENT', 'PROFESSIONAL']}>
+                  <Navigate to="/dashboard" replace />
                 </PrivateRoute>
               } />
 

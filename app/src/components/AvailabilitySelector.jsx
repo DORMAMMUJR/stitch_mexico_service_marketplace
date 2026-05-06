@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAvailability } from '../hooks/useAvailability';
 
-export function AvailabilitySelector({ professionalId }) {
+export function AvailabilitySelector({ professionalId, onBooked }) {
   const [selectedDate, setSelectedDate]   = useState(null);
   const [selectedSlot, setSelectedSlot]   = useState(null); // ISO string completo
   const [isLoading, setIsLoading]         = useState(false);
@@ -77,7 +77,7 @@ export function AvailabilitySelector({ professionalId }) {
           });
         }
       }
-      current = new Date(current.getTime() + 60 * 60 * 1000); // +1 hora
+      current = new Date(current.getTime() + 30 * 60 * 1000); // +30 minutos
     }
 
     return slots;
@@ -118,6 +118,7 @@ export function AvailabilitySelector({ professionalId }) {
       // sin necesidad de recargar la pagina ni llamar al backend de nuevo
       setBookedSlots(prev => new Set([...prev, selectedSlot]));
       setMessage({ type: 'success', text: '¡Cita agendada con éxito! Revisa Mis Citas.' });
+      onBooked?.(`Cita confirmada para ${new Date(selectedSlot).toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long' })} a las ${new Date(selectedSlot).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}.`);
       setSelectedSlot(null);
       // Refrescar la disponibilidad desde el servidor para reflejar cambios
       // (ej. si el profesional cerro un slot tras el booking)

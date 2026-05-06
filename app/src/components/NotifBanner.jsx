@@ -1,7 +1,8 @@
 import React from 'react';
 
-export function NotifBanner({ text = '¡Cita Confirmada! Lunes 24 de Mayo, 10:00 AM. Detalles enviados a tu correo.' }) {
+export function NotifBanner({ text = '¡Cita confirmada! Revisa los detalles en tu panel de citas.' }) {
   const [isVisible, setIsVisible] = React.useState(true);
+  React.useEffect(() => { setIsVisible(true); }, [text]);
 
   if (!isVisible) return null;
 

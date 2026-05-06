@@ -36,7 +36,7 @@ export function VisoBot() {
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       addBotMessage(
-        '👋 Hola, soy Viso.\nSoy el bot de soporte de la plataforma.\nPuedo ayudarte con navegación, errores o dudas de uso. ¿Qué problema tienes?'
+        '👋 Hola, soy Viso.\nTe ayudo solo a agendar citas y concretar servicios.\n¿Qué servicio necesitas contratar hoy?'
       );
       setStep('service');
     }
@@ -51,7 +51,7 @@ export function VisoBot() {
       if (normalized.includes('mejor') || normalized.includes('recomienda') || normalized.includes('opinión')) {
         setStep('availability');
         addBotMessage(
-          'No puedo recomendar especialistas ni dar opiniones personales.\nSí puedo ayudarte a usar la plataforma para encontrarlos.',
+          'No doy recomendaciones personales.\nPuedo llevarte al directorio y ayudarte a agendar una cita.',
           [
             { label: 'Ir al directorio', value: 'directory' },
             { label: user ? 'Ver mis citas' : 'Crear cuenta', value: user ? 'dashboard' : 'register' },
@@ -66,7 +66,6 @@ export function VisoBot() {
         `Entendido. Te ayudo con esto: "${text}"`,
         [
           { label: 'Abrir directorio', value: 'directory' },
-        { label: 'Contactar soporte', value: 'contact' },
           { label: user ? 'Ver mis citas' : 'Crear cuenta', value: user ? 'dashboard' : 'register' },
         ]
       );
@@ -84,9 +83,6 @@ export function VisoBot() {
       }, 700);
     } else if (option.value === 'dashboard') {
       navigate(user?.role === 'PROFESSIONAL' ? '/dashboard' : '/mis-solicitudes');
-      setIsOpen(false);
-    } else if (option.value === 'contact') {
-      window.location.href = 'mailto:soporte@intecnia.mx';
       setIsOpen(false);
     } else if (option.value === 'register') {
       navigate('/register');

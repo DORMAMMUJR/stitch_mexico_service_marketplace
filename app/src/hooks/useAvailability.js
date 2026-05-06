@@ -18,7 +18,7 @@ import { apiFetch } from '../lib/api';
 export function useAvailability(professionalId) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['availability', professionalId],
-    queryFn:  () => apiFetch(`/appointments/availability/${professionalId}`),
+    queryFn:  () => apiFetch(`/appointments/availability/${professionalId}/effective`),
     enabled:  !!professionalId,
     staleTime: 1000 * 60 * 2,  // 2 min — la disponibilidad puede cambiar frecuentemente
     gcTime:    1000 * 60 * 5,  // 5 min en cache inactiva

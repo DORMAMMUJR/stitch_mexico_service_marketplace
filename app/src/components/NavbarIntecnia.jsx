@@ -48,7 +48,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
     }
   };
 
-  const dashboardPath = user?.role === 'ADMIN' ? '/admin' : user?.role === 'CLIENT' ? '/mis-solicitudes' : '/dashboard';
+  const dashboardPath = user?.role === 'ADMIN' ? '/admin' : '/dashboard';
 
   return (
     <nav className="nav-top">
@@ -61,6 +61,8 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
           <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }} className="hide-mobile">
             <Link to="/" className={`nav-link ${activePage === 'home' ? 'active' : ''}`}>Inicio</Link>
             <Link to="/directory" className={`nav-link ${activePage === 'directory' ? 'active' : ''}`}>Directorio</Link>
+            <Link to="/marketplace" className={`nav-link ${activePage === 'marketplace' ? 'active' : ''}`}>Marketplace</Link>
+            <Link to="/categories" className={`nav-link ${activePage === 'categories' ? 'active' : ''}`}>Categorías</Link>
           </div>
         </div>
 
@@ -273,6 +275,8 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
       <div className={`mobile-menu ${mobileOpen ? 'open' : ''}`}>
         <Link to="/" className="nav-link" onClick={() => setMobileOpen(false)}>Inicio</Link>
         <Link to="/directory" className="nav-link" onClick={() => setMobileOpen(false)}>Directorio</Link>
+        <Link to="/marketplace" className="nav-link" onClick={() => setMobileOpen(false)}>Marketplace</Link>
+        <Link to="/categories" className="nav-link" onClick={() => setMobileOpen(false)}>Categorías</Link>
 
         {isAuthenticated ? (
           <>
@@ -285,7 +289,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
             {user?.role === 'CLIENT' && (
               <>
                 <Link to="/verification" className="nav-link" onClick={() => setMobileOpen(false)}>Ofrecer Servicios</Link>
-                <Link to="/mis-solicitudes" className="nav-link" onClick={() => setMobileOpen(false)}>Mis Citas</Link>
+                <Link to="/dashboard" className="nav-link" onClick={() => setMobileOpen(false)}>Mis Citas</Link>
               </>
             )}
             {user?.role === 'ADMIN' && <Link to="/admin" className="nav-link" onClick={() => setMobileOpen(false)}>Panel Admin</Link>}

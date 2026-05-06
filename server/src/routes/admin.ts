@@ -2,8 +2,19 @@ import { Router } from 'express';
 import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
 import { sendEmail, emailTemplates } from '../lib/email';
+import { notifyUser } from '../lib/notifications';
 
 const router = Router();
+
+function parseAppointmentMeta(notes?: string | null): any {
+  if (!notes) return null;
+  try {
+    const parsed = JSON.parse(notes);
+    return typeof parsed === 'object' && parsed ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 // FIX: Guard de ADMIN centralizado — se aplica a TODAS las rutas del router.
 // Elimina la necesidad de repetir el check en cada handler individualmente.
@@ -104,6 +115,100 @@ router.patch('/verifications/:id/reject', async (req: any, res: any, next: any) 
     }).catch(console.error);
 
     res.json({ message: 'Documento rechazado. Se notificara al profesional.', document: doc });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/appointments/upcoming
+router.get('/appointments/upcoming', async (_req: any, res: any, next: any) => {
+  try {
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        status: 'SCHEDULED',
+        scheduledAt: { gte: new Date() },
+      },
+      include: {
+        client: { select: { id: true, name: true, email: true } },
+        professional: {
+          include: { user: { select: { id: true, name: true, email: true } } },
+        },
+      },
+      orderBy: { scheduledAt: 'asc' },
+      take: 100,
+    });
+
+    const normalized = appointments.map((a) => {
+      const meta = parseAppointmentMeta(a.notes);
+      return {
+        ...a,
+        meetingLink: meta?.meetingLink ?? null,
+      };
+    });
+
+    res.json(normalized);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/admin/appointments/:id/meeting-link
+router.patch('/appointments/:id/meeting-link', async (req: any, res: any, next: any) => {
+  try {
+    const { id } = req.params;
+    const { meetingLink } = req.body;
+
+    if (!meetingLink || typeof meetingLink !== 'string' || !/^https?:\/\//i.test(meetingLink.trim())) {
+      return res.status(400).json({ error: 'Debes enviar un link válido (http/https)' });
+    }
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        client: { select: { id: true, name: true, email: true } },
+        professional: { include: { user: { select: { id: true, name: true, email: true } } } },
+      },
+    });
+
+    if (!appointment) return res.status(404).json({ error: 'Cita no encontrada' });
+
+    const currentMeta = parseAppointmentMeta(appointment.notes) || {};
+    const updatedNotes = JSON.stringify({
+      ...currentMeta,
+      meetingLink: meetingLink.trim(),
+      meetingLinkUpdatedAt: new Date().toISOString(),
+    });
+
+    const updated = await prisma.appointment.update({
+      where: { id },
+      data: { notes: updatedNotes },
+    });
+
+    if (appointment.clientId && appointment.client) {
+      notifyUser({
+        userId: appointment.clientId,
+        type: 'ORDER_STATUS',
+        title: 'Link de videollamada asignado',
+        body: `Tu cita ya tiene link: ${meetingLink.trim()}`,
+        metadata: { appointmentId: appointment.id, meetingLink: meetingLink.trim() },
+        email: appointment.client.email,
+        emailSubject: 'Link de tu cita — Intecnia',
+        emailHtml: `<p>Tu cita ya tiene link de videollamada:</p><p><a href="${meetingLink.trim()}">${meetingLink.trim()}</a></p>`,
+      }).catch(console.error);
+    }
+
+    notifyUser({
+      userId: appointment.professional.userId,
+      type: 'ORDER_STATUS',
+      title: 'Link de videollamada actualizado',
+      body: `La cita del ${appointment.scheduledAt?.toLocaleDateString('es-MX') ?? ''} tiene nuevo link.`,
+      metadata: { appointmentId: appointment.id, meetingLink: meetingLink.trim() },
+      email: appointment.professional.user.email,
+      emailSubject: 'Link actualizado — Intecnia',
+      emailHtml: `<p>Se actualizó el link de la cita:</p><p><a href="${meetingLink.trim()}">${meetingLink.trim()}</a></p>`,
+    }).catch(console.error);
+
+    res.json({ message: 'Link de cita actualizado y enviado', appointment: { ...updated, meetingLink: meetingLink.trim() } });
   } catch (error) {
     next(error);
   }

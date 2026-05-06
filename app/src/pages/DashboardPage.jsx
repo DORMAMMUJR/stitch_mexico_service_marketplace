@@ -345,6 +345,16 @@ export function DashboardPage() {
                         <p style={{ fontWeight: 700, color: 'var(--primary)' }}>{counterpartName}</p>
                         <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} - {app.timeLabel}</p>
                         <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{app.status}</p>
+                        {app.meetingLink && (
+                          <a
+                            href={app.meetingLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ fontSize: '0.75rem', color: 'var(--secondary)', fontWeight: 700 }}
+                          >
+                            Abrir videollamada
+                          </a>
+                        )}
                       </div>
                       {app.status === 'SCHEDULED' && (
                         <button onClick={() => handleCancelAppointment(app.id)} disabled={app._cancelling} className="btn btn-outline" style={{ borderColor: 'var(--error)', color: 'var(--error)' }}>

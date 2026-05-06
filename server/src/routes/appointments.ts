@@ -31,6 +31,26 @@ function isThirtyMinuteSlot(date: Date): boolean {
   return (minutes === 0 || minutes === 30) && seconds === 0 && ms === 0;
 }
 
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function parseAppointmentMeta(notes?: string | null): any {
+  if (!notes) return null;
+  try {
+    const parsed = JSON.parse(notes);
+    return typeof parsed === 'object' && parsed ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractMeetingLink(notes?: string | null): string | null {
+  const meta = parseAppointmentMeta(notes);
+  if (meta?.meetingLink && typeof meta.meetingLink === 'string') return meta.meetingLink;
+  return null;
+}
+
 // ─── GET /api/appointments/availability/:professionalId ───────────────────────
 // Devuelve los bloques de disponibilidad configurados por el profesional.
 router.get('/availability/:professionalId', async (req, res, next) => {
@@ -133,6 +153,41 @@ router.get('/availability/:professionalId/effective', async (req, res, next) => 
   }
 });
 
+// Precio del servicio + comision del 10% para pago por transferencia
+router.get('/pricing/:professionalId', async (req, res, next) => {
+  try {
+    const { professionalId } = req.params;
+    const professional = await prisma.professional.findUnique({
+      where: { id: professionalId },
+      select: { id: true, hourlyRate: true, currency: true, user: { select: { name: true } } },
+    });
+
+    if (!professional) return res.status(404).json({ error: 'Profesional no encontrado' });
+
+    const basePrice = Number(professional.hourlyRate ?? 0);
+    if (!basePrice || basePrice <= 0) {
+      return res.status(400).json({ error: 'El profesional no tiene tarifa configurada' });
+    }
+
+    const commissionRate = 0.1;
+    const commission = round2(basePrice * commissionRate);
+    const total = round2(basePrice + commission);
+
+    return res.json({
+      professionalId,
+      professionalName: professional.user.name,
+      currency: professional.currency || 'MXN',
+      basePrice,
+      commissionRate,
+      commission,
+      total,
+      paymentMethod: 'BANK_TRANSFER',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ─── GET /api/appointments/my ─────────────────────────────────────────────────
 // Obtiene las citas del usuario logueado (como cliente o profesional).
 router.get('/my', authenticate, async (req: any, res: any, next: any) => {
@@ -170,11 +225,13 @@ router.get('/my', authenticate, async (req: any, res: any, next: any) => {
     }
 
     const enhancedAppointments = appointments.map((app: any) => {
-      if (!app.client) return app;
+      const meetingLink = extractMeetingLink(app.notes);
+      if (!app.client) return { ...app, meetingLink };
       const createdAt = app.client.createdAt ? new Date(app.client.createdAt) : null;
       const daysSinceCreated = createdAt ? (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24) : null;
       return {
         ...app,
+        meetingLink,
         client: {
           ...app.client,
           isNew: daysSinceCreated !== null ? daysSinceCreated <= 14 : false,
@@ -257,7 +314,16 @@ router.post('/availability', authenticate, async (req: any, res: any, next: any)
 router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => {
   try {
     const clientId = req.user?.userId ?? null;
-    const { professionalId, scheduledAt: scheduledAtRaw, service, notes } = req.body;
+    const {
+      professionalId,
+      scheduledAt: scheduledAtRaw,
+      service,
+      notes,
+      paymentMethod,
+      transferReference,
+      transferProofUrl,
+      paymentTotal,
+    } = req.body;
 
     // ── Validación de campos requeridos ──────────────────────────────────────
     if (!professionalId || !scheduledAtRaw) {
@@ -292,6 +358,26 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
     // ── Verificación 2: El cliente no agenda con sigo mismo ──────────────────
     if (clientId && professional.userId === clientId) {
       return res.status(400).json({ error: 'No puedes agendar una cita contigo mismo' });
+    }
+
+    // Solo transferencia bancaria antes de confirmar cita
+    if (paymentMethod !== 'BANK_TRANSFER') {
+      return res.status(400).json({ error: 'Solo se acepta Transferencia Bancaria en esta etapa' });
+    }
+    if (!transferReference || String(transferReference).trim().length < 4) {
+      return res.status(400).json({ error: 'Referencia de transferencia inválida' });
+    }
+
+    const basePrice = Number(professional.hourlyRate ?? 0);
+    if (!basePrice || basePrice <= 0) {
+      return res.status(400).json({ error: 'El profesional no tiene tarifa configurada' });
+    }
+    const commissionRate = 0.1;
+    const commission = round2(basePrice * commissionRate);
+    const expectedTotal = round2(basePrice + commission);
+    const paidTotal = Number(paymentTotal ?? 0);
+    if (!paidTotal || Math.abs(paidTotal - expectedTotal) > 0.01) {
+      return res.status(400).json({ error: `Monto inválido. Total esperado: ${expectedTotal}` });
     }
 
     // ── Verificación 3: El profesional tiene disponibilidad ese día ──────────
@@ -341,7 +427,21 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
           professionalId,
           service: service ?? null,
           scheduledAt,
-          notes: notes ?? null,
+          notes: JSON.stringify({
+            plainNotes: notes ?? null,
+            payment: {
+              method: 'BANK_TRANSFER',
+              reference: String(transferReference).trim(),
+              proofUrl: transferProofUrl ?? null,
+              basePrice,
+              commissionRate,
+              commission,
+              total: expectedTotal,
+              currency: professional.currency || 'MXN',
+              paidAt: new Date().toISOString(),
+            },
+            meetingLink: null,
+          }),
           status: 'SCHEDULED',
         },
       });

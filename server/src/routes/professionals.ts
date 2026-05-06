@@ -408,12 +408,10 @@ router.put('/me/availability', authenticate, async (req: any, res: any, next: an
 // GET /api/professionals
 router.get('/', async (req, res, next) => {
   try {
-    const { category, q, maxPrice, minPrice, minRating } = req.query;
+    const { category, q, maxPrice, minPrice, minRating, verifiedOnly } = req.query;
 
     // Construir los filtros dinámicamente
-    const whereClause: any = {
-      isVerified: true, // Solo mostramos verificados en el directorio
-    };
+    const whereClause: any = {};
 
     if (category) {
       whereClause.category = String(category);
@@ -434,6 +432,9 @@ router.get('/', async (req, res, next) => {
     if (minPrice) {
       whereClause.hourlyRate = { ...(whereClause.hourlyRate || {}), gte: parseFloat(String(minPrice)) };
     }
+    if (String(verifiedOnly).toLowerCase() === 'true') {
+      whereClause.isVerified = true;
+    }
 
     const professionals = await prisma.professional.findMany({
       where: whereClause,
@@ -441,6 +442,10 @@ router.get('/', async (req, res, next) => {
         user: { select: { name: true, avatarUrl: true } },
         reviews: { select: { rating: true } }
       },
+      orderBy: [
+        { isVerified: 'desc' }, // Primero verificados
+        { createdAt: 'desc' },  // Luego más recientes
+      ],
       take: 20 // Paginación básica
     });
 
@@ -457,6 +462,7 @@ router.get('/', async (req, res, next) => {
         title: p.title,
         category: p.category,
         hourlyRate: p.hourlyRate,
+        isVerified: p.isVerified,
         rating: rating,
         reviewCount: p.reviews.length
       };

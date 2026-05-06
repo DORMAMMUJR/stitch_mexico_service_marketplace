@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+﻿import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 import { useToast } from '../components/ToastContext';
@@ -7,212 +7,156 @@ import { useToast } from '../components/ToastContext';
 export function AdminPanel() {
   const [pendingDocs, setPendingDocs] = useState([]);
   const [disputes, setDisputes] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [supportLink, setSupportLink] = useState(localStorage.getItem('platform_support_link') || 'https://wa.me/');
+  const [linkDrafts, setLinkDrafts] = useState({});
+  const [savingMap, setSavingMap] = useState({});
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchDocs = fetch('/api/admin/verifications/pending', {
-      credentials: 'include',
-    }).then(res => {
-      if (res.status === 401 || res.status === 403) {
-        navigate('/');
-        throw new Error('No autorizado');
-      }
-      return res.json();
-    });
-
-    const fetchDisputes = fetch('/api/orders/admin/disputes', {
-      credentials: 'include',
-    }).then(res => res.ok ? res.json() : []);
-
-    Promise.all([fetchDocs, fetchDisputes])
-    .then(([docsData, disputesData]) => {
-      setPendingDocs(docsData);
-      setDisputes(disputesData);
-      setLoading(false);
-    })
-    .catch(console.error);
-  }, [navigate]);
-
-  const handleApprove = async (docId) => {
-    if (!window.confirm('¿Confirmas que deseas APROBAR este documento y verificar al profesional?')) return;
-    const res = await fetch(`/api/admin/verifications/${docId}/approve`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
-
-    if (res.ok) {
-      setPendingDocs(prev => prev.filter(d => d.id !== docId));
-      showToast('Documento aprobado', 'success');
-    } else {
-      showToast('Error al aprobar el documento.', 'error');
-    }
-  };
-
-  const handleReject = async (docId) => {
-    const reason = window.prompt('Motivo del rechazo (obligatorio):');
-    if (!reason?.trim()) return; // cancelado o vacío
-
-    const res = await fetch(`/api/admin/verifications/${docId}/reject`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason })
-    });
-
-    if (res.ok) {
-      setPendingDocs(prev => prev.filter(d => d.id !== docId));
-      showToast('Documento rechazado', 'info');
-    } else {
-      const data = await res.json().catch(() => ({}));
-      showToast(data.error || 'Error al rechazar el documento.', 'error');
-    }
-  };
-
-  const handleResolveDispute = async (orderId, resolution) => {
-    if (!window.confirm(`¿Estás seguro de resolver esta disputa con: ${resolution}?`)) return;
-
+  const loadAll = async () => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/resolve`, {
+      setLoading(true);
+      const [docsRes, disputesRes, apptRes] = await Promise.all([
+        fetch('/api/admin/verifications/pending', { credentials: 'include' }),
+        fetch('/api/orders/admin/disputes', { credentials: 'include' }),
+        fetch('/api/admin/appointments/upcoming', { credentials: 'include' }),
+      ]);
+
+      if (docsRes.status === 401 || docsRes.status === 403) {
+        navigate('/');
+        return;
+      }
+
+      const docsData = await docsRes.json();
+      const disputesData = disputesRes.ok ? await disputesRes.json() : [];
+      const apptData = apptRes.ok ? await apptRes.json() : [];
+
+      setPendingDocs(Array.isArray(docsData) ? docsData : []);
+      setDisputes(Array.isArray(disputesData) ? disputesData : []);
+      setAppointments(Array.isArray(apptData) ? apptData : []);
+
+      const draftSeed = {};
+      (Array.isArray(apptData) ? apptData : []).forEach((a) => {
+        draftSeed[a.id] = a.meetingLink || '';
+      });
+      setLinkDrafts(draftSeed);
+    } catch {
+      showToast('No se pudieron cargar los datos de administración', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  const saveSupportLink = () => {
+    localStorage.setItem('platform_support_link', supportLink.trim());
+    showToast('Link guardado correctamente', 'success');
+  };
+
+  const sortedAppointments = useMemo(() => {
+    return [...appointments].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+  }, [appointments]);
+
+  const handleSendMeetingLink = async (appointmentId) => {
+    const link = (linkDrafts[appointmentId] || '').trim();
+    if (!/^https?:\/\//i.test(link)) {
+      showToast('Ingresa un link válido (http/https)', 'error');
+      return;
+    }
+
+    setSavingMap((prev) => ({ ...prev, [appointmentId]: true }));
+    try {
+      const res = await fetch(`/api/admin/appointments/${appointmentId}/meeting-link`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolution })
+        body: JSON.stringify({ meetingLink: link }),
       });
 
-      if (res.ok) {
-        setDisputes(prev => prev.filter(d => d.id !== orderId));
-        showToast('Disputa resuelta', 'success');
-      } else {
-        const data = await res.json();
-        showToast(data.error || 'Error al resolver la disputa.', 'error');
-      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo guardar el link');
+
+      showToast('Link de cita enviado a cliente y profesional', 'success');
+      setAppointments((prev) => prev.map((a) => (a.id === appointmentId ? { ...a, meetingLink: link } : a)));
     } catch (err) {
-      console.error(err);
-      showToast('Error de conexión.', 'error');
+      showToast(err.message || 'Error al enviar link', 'error');
+    } finally {
+      setSavingMap((prev) => ({ ...prev, [appointmentId]: false }));
     }
   };
 
   return (
     <>
       <NavbarIntecnia />
-      <div className="container" style={{ padding: '4rem 1.5rem', minHeight: '60vh' }}>
-        <h1 style={{ fontFamily: 'Manrope', color: 'var(--primary)', marginBottom: '2rem', fontSize: '2rem', fontWeight: 700 }}>Panel de Control: Verificaciones</h1>
-        
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--on-surface-variant)' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '36px', animation: 'spin 1s linear infinite', display: 'block', marginBottom: '1rem' }}>progress_activity</span>
-            Cargando documentos pendientes...
-          </div>
-        ) : (
-          <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-            <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
-                <thead style={{ background: 'var(--surface-container-low)' }}>
-                  <tr>
-                    <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.8125rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profesional</th>
-                    <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.8125rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tipo Doc</th>
-                    <th style={{ padding: '1rem 1.5rem', textAlign: 'center', fontSize: '0.8125rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Archivo</th>
-                    <th style={{ padding: '1rem 1.5rem', textAlign: 'center', fontSize: '0.8125rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingDocs.map(doc => (
-                    <tr key={doc.id} style={{ borderBottom: '1px solid var(--surface-container)', transition: 'background 0.2s' }}>
-                      <td style={{ padding: '1rem 1.5rem' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{doc.professional?.user?.name || 'Usuario'}</div>
-                        <div style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)' }}>{doc.professional?.user?.email || doc.professionalId}</div>
-                      </td>
-                      <td style={{ padding: '1rem 1.5rem' }}>
-                        <span style={{ background: 'var(--surface-container-high)', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--on-surface)' }}>
-                          {doc.type === 'SAT_CONSTANCIA' ? 'Constancia SAT' : doc.type}
-                        </span>
-                      </td>
-                      <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
-                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', gap: '0.25rem' }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>visibility</span>
-                          {doc.fileUrl?.match(/\.(jpg|jpeg|png|webp)$/i) ? 'Ver Imagen' : 'Ver PDF'}
-                        </a>
-                      </td>
-                      <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                          <button onClick={() => handleApprove(doc.id)} className="btn btn-primary" style={{ padding: '0.375rem 0.875rem', fontSize: '0.8125rem', display: 'inline-flex', gap: '0.25rem' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span> Aprobar
-                          </button>
-                          <button onClick={() => handleReject(doc.id)} className="btn btn-outline" style={{ padding: '0.375rem 0.875rem', fontSize: '0.8125rem', display: 'inline-flex', gap: '0.25rem', borderColor: 'var(--error)', color: 'var(--error)' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>cancel</span> Rechazar
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {pendingDocs.length === 0 && !loading && (
-              <div style={{ padding: '4rem 2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--surface-container-highest)', display: 'block', marginBottom: '1rem' }}>task</span>
-                <p style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--on-surface)', marginBottom: '0.25rem' }}>Todo al día</p>
-                <p style={{ fontSize: '0.875rem' }}>No hay documentos pendientes de revisión.</p>
-              </div>
-            )}
-          </div>
-        )}
+      <div className="container" style={{ padding: '3rem 1rem', minHeight: '60vh' }}>
+        <h1 style={{ fontFamily: 'Manrope', color: 'var(--primary)', marginBottom: '0.75rem', fontSize: '2rem', fontWeight: 700 }}>Super Admin Dashboard</h1>
+        <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem' }}>Gestión operativa de citas y envío manual de links de videollamada.</p>
 
-        {/* Sección de Disputas */}
-        <h2 style={{ fontFamily: 'Manrope', color: 'var(--primary)', marginBottom: '1.5rem', marginTop: '4rem', fontSize: '1.5rem', fontWeight: 700 }}>Disputas Activas</h2>
-        
-        {!loading && disputes.length === 0 ? (
-          <div className="card" style={{ padding: '4rem 2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--surface-container-highest)', display: 'block', marginBottom: '1rem' }}>gavel</span>
-            <p style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--on-surface)', marginBottom: '0.25rem' }}>Sin Disputas</p>
-            <p style={{ fontSize: '0.875rem' }}>No hay órdenes en estado de disputa actualmente.</p>
+        <div className="card glass-card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
+          <p style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Link principal de contacto/soporte</p>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <input value={supportLink} onChange={(e) => setSupportLink(e.target.value)} className="input-field" placeholder="https://wa.me/521..." style={{ flex: 1, minWidth: '260px' }} />
+            <button className="btn btn-primary" onClick={saveSupportLink}>Guardar link</button>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {disputes.map(dispute => (
-              <div key={dispute.id} className="card" style={{ padding: '1.5rem', borderLeft: '4px solid var(--error)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-                  <div>
-                    <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>
-                      Orden #{dispute.id.slice(0, 8).toUpperCase()} - ${dispute.agreedPrice} {dispute.currency}
-                    </h3>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>
-                      <strong>Cliente:</strong> {dispute.client?.name} ({dispute.client?.email})
+        </div>
+
+        <div className="card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
+          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>Resumen rápido</h2>
+          {loading ? (
+            <p>Cargando...</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '0.75rem' }}>
+              <p style={{ color: 'var(--on-surface-variant)' }}>Verificaciones pendientes: <strong>{pendingDocs.length}</strong></p>
+              <p style={{ color: 'var(--on-surface-variant)' }}>Disputas activas: <strong>{disputes.length}</strong></p>
+              <p style={{ color: 'var(--on-surface-variant)' }}>Citas próximas: <strong>{appointments.length}</strong></p>
+            </div>
+          )}
+        </div>
+
+        <div className="card" style={{ padding: '1rem' }}>
+          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Asignar link de videollamada por cita</h2>
+          {loading ? (
+            <p>Cargando citas...</p>
+          ) : sortedAppointments.length === 0 ? (
+            <p style={{ color: 'var(--on-surface-variant)' }}>No hay citas próximas para gestionar.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              {sortedAppointments.map((appt) => (
+                <div key={appt.id} style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.875rem' }}>
+                  <div style={{ marginBottom: '0.625rem' }}>
+                    <p style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9375rem' }}>
+                      {new Date(appt.scheduledAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
                     </p>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '1rem' }}>
-                      <strong>Profesional:</strong> {dispute.professional?.user?.name} ({dispute.professional?.user?.email})
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem' }}>
+                      Cliente: <strong>{appt.client?.name || 'Invitado'}</strong> · Profesional: <strong>{appt.professional?.user?.name || 'N/D'}</strong>
                     </p>
-                    <div style={{ background: 'var(--surface-container-lowest)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}>
-                      <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--on-surface)', marginBottom: '0.25rem', textTransform: 'uppercase' }}>Motivo de la disputa:</p>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{dispute.disputeReason || 'No especificado'}</p>
-                    </div>
                   </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: '200px' }}>
-                    <button 
-                      onClick={() => handleResolveDispute(dispute.id, 'FAVOR_CLIENT')}
-                      className="btn btn-outline" style={{ borderColor: 'var(--error)', color: 'var(--error)', fontSize: '0.8125rem', width: '100%', justifyContent: 'center' }}
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <input
+                      className="input-field"
+                      placeholder="https://meet.google.com/..."
+                      value={linkDrafts[appt.id] || ''}
+                      onChange={(e) => setLinkDrafts((prev) => ({ ...prev, [appt.id]: e.target.value }))}
+                      style={{ flex: 1, minWidth: '260px' }}
+                    />
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleSendMeetingLink(appt.id)}
+                      disabled={!!savingMap[appt.id]}
                     >
-                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>undo</span>
-                      Reembolsar a Cliente
-                    </button>
-                    <button 
-                      onClick={() => handleResolveDispute(dispute.id, 'FAVOR_PROFESSIONAL')}
-                      className="btn btn-primary" style={{ fontSize: '0.8125rem', width: '100%', justifyContent: 'center' }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>payments</span>
-                      Pagar a Profesional
+                      {savingMap[appt.id] ? 'Enviando...' : 'Guardar y enviar link'}
                     </button>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <Footer />
     </>

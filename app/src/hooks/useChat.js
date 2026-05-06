@@ -34,24 +34,10 @@ export function useChat(professionalName, receiverId) {
           }));
           setMessages(formatted);
         } else {
-          setMessages([
-            {
-              id: 'greeting',
-              sender: 'bot',
-              text: getGreeting(professionalName),
-              timestamp: new Date(),
-            },
-          ]);
+          setMessages([{ id: 'greeting', sender: 'bot', text: getGreeting(professionalName), timestamp: new Date() }]);
         }
       } catch {
-        setMessages([
-          {
-            id: 'greeting',
-            sender: 'bot',
-            text: getGreeting(professionalName),
-            timestamp: new Date(),
-          },
-        ]);
+        setMessages([{ id: 'greeting', sender: 'bot', text: getGreeting(professionalName), timestamp: new Date() }]);
       } finally {
         setIsTyping(false);
         setHasFetched(true);
@@ -82,20 +68,21 @@ export function useChat(professionalName, receiverId) {
             body: JSON.stringify({ receiverId, content: text }),
           });
 
-          setMessages((prev) =>
-            prev.map((m) => (m.id === optimisticMsg.id ? { ...m, id: saved.id } : m))
-          );
+          setMessages((prev) => prev.map((m) => (m.id === optimisticMsg.id ? { ...m, id: saved.id } : m)));
         } catch {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === optimisticMsg.id ? { ...m, failed: true } : m))
-          );
+          setMessages((prev) => prev.map((m) => (m.id === optimisticMsg.id ? { ...m, failed: true } : m)));
         } finally {
           setIsTyping(false);
         }
       }
 
       setIsTyping(true);
-      const botText = getLocalResponse(professionalName, text);
+      let botText = getLocalResponse(professionalName, text);
+      const lastBot = [...messages].reverse().find((m) => m.sender === 'bot');
+      if (lastBot && lastBot.text === botText) {
+        botText = 'Perfecto. Para avanzar, selecciona un horario disponible y te ayudo a cerrar la cita.';
+      }
+
       setTimeout(() => {
         setMessages((prev) => [
           ...prev,
@@ -109,7 +96,7 @@ export function useChat(professionalName, receiverId) {
         setIsTyping(false);
       }, 650);
     },
-    [user, receiverId, professionalName]
+    [user, receiverId, professionalName, messages]
   );
 
   return { messages, sendMessage, isTyping };

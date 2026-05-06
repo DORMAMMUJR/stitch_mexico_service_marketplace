@@ -1,45 +1,45 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 
-// ── Categorías mejoradas ──────────────
+// â”€â”€ CategorÃ­as mejoradas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CATEGORIES = [
-  { label: 'Psicólogos y Salud', icon: 'psychology', key: 'HEALTH_WELLNESS', desc: 'Bienestar mental y físico' },
-  { label: 'Abogados y Asesoría Legal', icon: 'gavel', key: 'LEGAL', desc: 'Contratos, litigios y más' },
-  { label: 'Soporte Técnico y Sistemas', icon: 'computer', key: 'IT_SECURITY', desc: 'IT, desarrollo y seguridad' },
+  { label: 'PsicÃ³logos y Salud', icon: 'psychology', key: 'HEALTH_WELLNESS', desc: 'Bienestar mental y fÃ­sico' },
+  { label: 'Abogados y AsesorÃ­a Legal', icon: 'gavel', key: 'LEGAL', desc: 'Contratos, litigios y mÃ¡s' },
+  { label: 'Soporte TÃ©cnico y Sistemas', icon: 'computer', key: 'IT_SECURITY', desc: 'IT, desarrollo y seguridad' },
   { label: 'Contadores y Finanzas', icon: 'account_balance', key: 'FINANCE_TAX', desc: 'Impuestos y contabilidad' },
-  { label: 'Ingeniería y Proyectos', icon: 'engineering', key: 'ENGINEERING', desc: 'Civil, mecánica y más' },
-  { label: 'Reparaciones del Hogar', icon: 'home_repair_service', key: 'GENERAL_MAINTENANCE', desc: 'Plomería, electricidad y más' },
+  { label: 'IngenierÃ­a y Proyectos', icon: 'engineering', key: 'ENGINEERING', desc: 'Civil, mecÃ¡nica y mÃ¡s' },
+  { label: 'Reparaciones del Hogar', icon: 'home_repair_service', key: 'GENERAL_MAINTENANCE', desc: 'PlomerÃ­a, electricidad y mÃ¡s' },
 ];
 
 const CATEGORY_MAP = {
-  'HEALTH_WELLNESS': 'Psicólogos y Salud',
-  'LEGAL': 'Abogados y Asesoría Legal',
+  'HEALTH_WELLNESS': 'PsicÃ³logos y Salud',
+  'LEGAL': 'Abogados y AsesorÃ­a Legal',
   'FINANCE_TAX': 'Contadores y Finanzas',
-  'IT_SECURITY': 'Soporte Técnico y Sistemas',
-  'ENGINEERING': 'Ingeniería y Proyectos',
-  'PLUMBING': 'Plomería',
+  'IT_SECURITY': 'Soporte TÃ©cnico y Sistemas',
+  'ENGINEERING': 'IngenierÃ­a y Proyectos',
+  'PLUMBING': 'PlomerÃ­a',
   'ELECTRICAL': 'Electricidad',
-  'HVAC': 'Climatización',
+  'HVAC': 'ClimatizaciÃ³n',
   'GENERAL_MAINTENANCE': 'Reparaciones del Hogar',
 };
 
-// ── Tarjetas de placeholder — visibles solo cuando no hay profesionales reales ──
+// â”€â”€ Tarjetas de placeholder â€” visibles solo cuando no hay profesionales reales â”€â”€
 // Flag IS_PLACEHOLDER: true identifica estos datos como ficticios en todo el codebase
 const PLACEHOLDER_PROFESSIONALS = [
   {
     id: 'placeholder-1',
     IS_PLACEHOLDER: true,
-    user: { name: 'Dra. Sofía Ramírez', avatarUrl: null },
-    title: 'Psicóloga Clínica',
+    user: { name: 'Dra. SofÃ­a RamÃ­rez', avatarUrl: null },
+    title: 'PsicÃ³loga ClÃ­nica',
     category: 'HEALTH_WELLNESS',
     rating: 4.9,
     reviews: 38,
     price: 350,
     responseTime: '< 5 min',
-    specialties: ['Terapia de pareja', 'Ansiedad', 'Depresión'],
+    specialties: ['Terapia de pareja', 'Ansiedad', 'DepresiÃ³n'],
     initials: 'SR',
     avatarBg: '#7c3aed',
   },
@@ -67,7 +67,7 @@ const PLACEHOLDER_PROFESSIONALS = [
     reviews: 19,
     price: 520,
     responseTime: '< 8 min',
-    specialties: ['Declaraciones', 'Facturación', 'SAT'],
+    specialties: ['Declaraciones', 'FacturaciÃ³n', 'Fiscal'],
     initials: 'ET',
     avatarBg: '#059669',
   },
@@ -75,7 +75,7 @@ const PLACEHOLDER_PROFESSIONALS = [
     id: 'placeholder-4',
     IS_PLACEHOLDER: true,
     user: { name: 'Ing. Roberto Vega', avatarUrl: null },
-    title: 'Técnico de Redes',
+    title: 'TÃ©cnico de Redes',
     category: 'IT_SECURITY',
     rating: 4.7,
     reviews: 24,
@@ -103,7 +103,7 @@ function ProfessionalSkeleton() {
   );
 }
 
-// ── Botón flotante del chat ──────────────────────────────────────────
+// â”€â”€ BotÃ³n flotante del chat â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function FloatingChatButton() {
   const [visible, setVisible] = useState(false);
 
@@ -187,24 +187,24 @@ export function HomePage() {
   return (
     <>
       <NavbarIntecnia activePage="home" />
-      <FloatingChatButton />
+      
 
-      {/* ── HERO ──────────────────────────────────────────────────── */}
+      {/* â”€â”€ HERO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <section className="hero-gradient" style={{ padding: '6rem 1.5rem 5rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         {/* Badge de confianza */}
         <div className="animate-in stagger-1" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius-full)', padding: '0.375rem 1rem', marginBottom: '1.5rem' }}>
           <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#4ade80' }}>verified</span>
-          <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--on-primary)', letterSpacing: '0.05em' }}>PLATAFORMA VERIFICADA · CDMX</span>
+          <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--on-primary)', letterSpacing: '0.05em' }}>PLATAFORMA VERIFICADA Â· CDMX</span>
         </div>
 
-        {/* Título principal — Enfoque en resultado y eliminación de riesgo */}
+        {/* TÃ­tulo principal â€” Enfoque en resultado y eliminaciÃ³n de riesgo */}
         <h1 className="animate-in stagger-2" style={{ fontFamily: 'Manrope', fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, maxWidth: '850px', margin: '0 auto 1.25rem', color: 'var(--on-primary)' }}>
           Encuentra profesionales confiables en minutos<br />
-          <span style={{ color: '#fbbf24' }}>con validación real y contratación clara</span>
+          <span style={{ color: '#fbbf24' }}>con validaciÃ³n real y contrataciÃ³n clara</span>
         </h1>
 
         <p className="animate-in stagger-3" style={{ fontSize: '1.125rem', color: '#e2e8f0', maxWidth: '560px', margin: '0 auto 2.5rem', lineHeight: 1.7 }}>
-          Agenda con especialistas verificados en tu zona, con precios transparentes e información completa desde el primer contacto.
+          Agenda con especialistas verificados en tu zona, con precios transparentes e informaciÃ³n completa desde el primer contacto.
         </p>
 
         {/* Buscador */}
@@ -213,7 +213,7 @@ export function HomePage() {
             <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: '24px' }}>search</span>
             <input
               type="text"
-              placeholder="Psicóloga, Abogado, Plomero..."
+              placeholder="PsicÃ³loga, Abogado, Plomero..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ flex: 1, padding: '1rem 0', fontSize: '1rem', color: 'var(--on-surface)', background: 'transparent', border: 'none', outline: 'none' }}
@@ -228,12 +228,12 @@ export function HomePage() {
           </button>
         </form>
 
-        {/* Acciones Rápidas (Zero Friction) */}
+        {/* Acciones RÃ¡pidas (Zero Friction) */}
         <div className="animate-in stagger-5" style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '2.5rem' }}>
           {[
-            { icon: '🔧', text: 'Necesito plomero urgente' },
-            { icon: '⚖️', text: 'Asesoría legal hoy' },
-            { icon: '💻', text: 'Soporte técnico ahora' },
+            { icon: 'ðŸ”§', text: 'Necesito plomero urgente' },
+            { icon: 'âš–ï¸', text: 'AsesorÃ­a legal hoy' },
+            { icon: 'ðŸ’»', text: 'Soporte tÃ©cnico ahora' },
           ].map(action => (
             <button 
                 key={action.text} 
@@ -263,17 +263,17 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── ESTADÍSTICAS ──────────────────────────────────────────── */}
+      {/* â”€â”€ ESTADÃSTICAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div style={{ background: 'var(--surface-container-lowest)', borderBottom: '1px solid var(--outline-variant)' }}>
-        <div className="container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 0, padding: 0 }}>
+        <div className="container home-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 0, padding: 0 }}>
           {[
-            { value: '+15,000', label: 'Clientes activos', icon: 'groups' },
-            { value: '+5,000', label: 'Especialistas verificados', icon: 'badge' },
-            { value: '+20,000', label: 'Citas agendadas', icon: 'event_available' },
+            { value: '+15k', label: 'Clientes activos', icon: 'groups' },
+            { value: '+5k', label: 'Especialistas verificados', icon: 'badge' },
+            { value: '+2k', label: 'Citas agendadas', icon: 'event_available' },
             { value: '< 10 min', label: 'Tiempo de respuesta', icon: 'timer' },
-            { value: '4.9 / 5', label: 'Calificación promedio', icon: 'star' },
+            { value: '4.9 / 5', label: 'CalificaciÃ³n promedio', icon: 'star' },
           ].map((stat, i) => (
-            <div key={stat.label} style={{ padding: '1.75rem 1.5rem', textAlign: 'center', borderRight: i < 3 ? '1px solid var(--outline-variant)' : 'none' }}>
+            <div key={stat.label} className="home-stat-item" style={{ padding: '1.75rem 1.5rem', textAlign: 'center', borderRight: i < 4 ? '1px solid var(--outline-variant)' : 'none' }}>
               <span className="material-symbols-outlined icon-filled" style={{ fontSize: '24px', color: '#047857', marginBottom: '0.5rem', display: 'block' }}>{stat.icon}</span>
               <p style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.75rem', lineHeight: 1.1, color: 'var(--primary)', marginBottom: '0.35rem', letterSpacing: '-0.01em' }}>{stat.value}</p>
               <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{stat.label}</p>
@@ -282,13 +282,13 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* ── TESTIMONIOS CORTOS — Ultra reales ── */}
+      {/* â”€â”€ TESTIMONIOS CORTOS â€” Ultra reales â”€â”€ */}
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--outline-variant)', padding: '1.5rem' }}>
         <div className="container" style={{ display: 'flex', gap: '1.5rem', overflowX: 'auto', justifyContent: 'center', flexWrap: 'wrap' }}>
           {[
-            { text: '"Necesitaba un abogado para un contrato y lo resolví el mismo día. Su INE estaba verificada."', name: 'Carlos, CDMX' },
-            { text: '"Reservé un plomero a las 8pm, llegó en 15 min y arregló la fuga. Sí cumplen."', name: 'Ana, CDMX' },
-            { text: '"Ya me habían estafado en Facebook. Aquí vi su perfil completo y me dio paz."', name: 'Luis, CDMX' },
+            { text: '"Necesitaba un abogado para un contrato y lo resolvÃ­ el mismo dÃ­a. Su INE estaba verificada."', name: 'Carlos, CDMX' },
+            { text: '"ReservÃ© un plomero a las 8pm, llegÃ³ en 15 min y arreglÃ³ la fuga. SÃ­ cumplen."', name: 'Ana, CDMX' },
+            { text: '"Ya me habÃ­an estafado en Facebook. AquÃ­ vi su perfil completo y me dio paz."', name: 'Luis, CDMX' },
           ].map(t => (
             <div key={t.name} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.5rem', background: '#fff7ed', borderRadius: 'var(--radius-xl)', border: '1px solid #ffedd5', flexShrink: 0, maxWidth: '400px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -296,25 +296,25 @@ export function HomePage() {
               </div>
               <div>
                   <p style={{ fontSize: '0.875rem', color: '#431407', fontStyle: 'italic', marginBottom: '0.25rem', lineHeight: 1.4 }}>{t.text}</p>
-                  <p style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 800 }}>— {t.name}</p>
+                  <p style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 800 }}>â€” {t.name}</p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── POR QUÉ ELEGIRNOS VS FACEBOOK (Generador de confianza fuerte) ── */}
+      {/* â”€â”€ POR QUÃ‰ ELEGIRNOS VS FACEBOOK (Generador de confianza fuerte) â”€â”€ */}
       <section style={{ padding: '5rem 1.5rem', background: '#fff7ed' }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-            <h2 className="text-headline-md" style={{ color: '#9a3412', marginBottom: '0.5rem', fontWeight: 800 }}>¿Por qué usar Intecnia en vez de Facebook?</h2>
+            <h2 className="text-headline-md" style={{ color: '#9a3412', marginBottom: '0.5rem', fontWeight: 800 }}>Â¿Por quÃ© usar Intecnia en vez de Facebook?</h2>
             <p style={{ color: '#c2410c', maxWidth: '480px', margin: '0 auto', fontSize: '1.0625rem', fontWeight: 500 }}>La diferencia entre dudar y tener certeza total te protegemos.</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', maxWidth: '1000px', margin: '0 auto' }}>
             {[
-              { title: 'Identidad Verificada', text: 'Validamos INE y SAT de cada especialista manualmente. Si no son reales, no entran a la plataforma.', icon: 'badge', color: '#16a34a' },
-              { title: 'Cero Intermediarios', text: 'Hablas y tratas directo con el profesional. No cobramos comisiones ocultas por tu servicio.', icon: 'handshake', color: '#047857' },
-              { title: 'Opiniones 100% Reales', text: 'Solo quienes han tomado el servicio pueden dejar reseña. Nada de calificaciones compradas.', icon: 'star', color: '#ca8a04' },
+              { title: 'Identidad Verificada', text: 'Validamos con identificación oficial y cédula profesional (en caso de ser requerida).', icon: 'badge', color: '#16a34a' },
+              { title: 'Comunicación directa con el profesional', text: 'Hablas directamente con la persona que te atenderá, sin intermediarios.', icon: 'handshake', color: '#047857' },
+              { title: 'Opiniones 100% Reales', text: 'Solo quienes han tomado el servicio pueden dejar reseÃ±a. Nada de calificaciones compradas.', icon: 'star', color: '#ca8a04' },
               { title: 'Sin Sorpresas', text: 'Conoces los precios base desde antes de hablar con ellos. Transparencia total desde el inicio.', icon: 'payments', color: '#2563eb' }
             ].map(item => (
               <div key={item.title} style={{ background: 'white', padding: '1.75rem', borderRadius: 'var(--radius-xl)', border: '1px solid #ffedd5', boxShadow: '0 4px 12px rgba(234, 88, 12, 0.05)' }}>
@@ -329,7 +329,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── CÓMO TE AYUDAMOS (El Bot como Protagonista) ────────────────────────────────────────── */}
+      {/* â”€â”€ CÃ“MO TE AYUDAMOS (El Bot como Protagonista) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <section style={{ padding: '5rem 1.5rem', background: 'var(--surface)' }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
@@ -337,15 +337,15 @@ export function HomePage() {
               <span className="material-symbols-outlined icon-filled" style={{ fontSize: '18px' }}>smart_toy</span>
               TU ASISTENTE INTELIGENTE
             </div>
-            <h2 className="text-headline-md" style={{ color: 'var(--primary)', marginBottom: '1rem', fontWeight: 800 }}>"Solo dime qué necesitas y yo lo consigo por ti"</h2>
+            <h2 className="text-headline-md" style={{ color: 'var(--primary)', marginBottom: '1rem', fontWeight: 800 }}>"Solo dime quÃ© necesitas y yo lo consigo por ti"</h2>
             <p style={{ color: 'var(--on-surface-variant)', maxWidth: '600px', margin: '0 auto', fontSize: '1.125rem' }}>Deja de preguntar en grupos o rogar por recomendaciones. Tu asistente inteligente encuentra opciones reales y verifica disponibilidad en segundos.</p>
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', maxWidth: '900px', margin: '0 auto' }}>
             {[
-              { num: '1', icon: 'chat', title: 'Cuéntame tu problema', text: '¿Fuga de agua? ¿Contrato laboral? Escríbeme como si hablaras con un amigo.' },
+              { num: '1', icon: 'chat', title: 'CuÃ©ntame tu problema', text: 'Â¿Fuga de agua? Â¿Contrato laboral? EscrÃ­beme como si hablaras con un amigo.' },
               { num: '2', icon: 'person_search', title: 'Filtro a los mejores', text: 'Busco entre profesionales verificados con INE, reviso sus precios y calificaciones.' },
-              { num: '3', icon: 'event_available', title: 'Agendo por ti', text: 'Si te gusta una opción, separo el espacio en su agenda automáticamente. Cero llamadas incómodas.' },
+              { num: '3', icon: 'event_available', title: 'Agendo por ti', text: 'Si te gusta una opciÃ³n, separo el espacio en su agenda automÃ¡ticamente. Cero llamadas incÃ³modas.' },
             ].map((step, i) => (
               <div key={step.num} style={{ background: 'var(--surface-container-lowest)', padding: '2rem', borderRadius: 'var(--radius-xl)', border: '1px solid var(--outline-variant)', position: 'relative' }}>
                 <div style={{ position: 'absolute', top: '-1rem', left: '2rem', background: '#047857', color: 'white', width: '2rem', height: '2rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontFamily: 'Manrope', boxShadow: '0 4px 12px rgba(234, 88, 12, 0.3)' }}>{step.num}</div>
@@ -364,7 +364,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── CATEGORÍAS — más humanas, con hover animado ────────────── */}
+      {/* â”€â”€ CATEGORÃAS â€” mÃ¡s humanas, con hover animado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <section style={{ padding: '5rem 1.5rem', background: 'var(--surface-container-lowest)' }}>
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -397,12 +397,12 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── PROFESIONALES DESTACADOS (Con Señales de Confianza Reales) ── */}
+      {/* â”€â”€ PROFESIONALES DESTACADOS (Con SeÃ±ales de Confianza Reales) â”€â”€ */}
       <section style={{ padding: '5rem 1.5rem', background: 'var(--surface)' }}>
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <p className="text-label-md" style={{ color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.5rem', fontWeight: 800 }}><span className="material-symbols-outlined icon-filled" style={{ fontSize: '14px', verticalAlign: 'middle', marginRight: '4px' }}>verified</span>VERIFICADOS Y ACTIVOS</p>
+              <p className="text-label-md" style={{ color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.5rem', fontWeight: 800 }}><span className="material-symbols-outlined icon-filled" style={{ fontSize: '14px', verticalAlign: 'middle', marginRight: '4px' }}>verified</span>VERIFICADOS PRIMERO (Y EN REVISIÓN)</p>
               <h2 className="text-headline-md" style={{ color: 'var(--primary)', fontWeight: 800 }}>Especialistas Destacados</h2>
             </div>
           </div>
@@ -416,10 +416,10 @@ export function HomePage() {
               {/* Banner informativo */}
               <div style={{ textAlign: 'center', padding: '1.5rem', background: 'var(--surface-container)', borderRadius: 'var(--radius-xl)', border: '1px dashed var(--outline-variant)', marginBottom: '1.5rem' }}>
                 <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>
-                  🚀 Estamos creciendo — estos son ejemplos de lo que encontrarás aquí
+                  ðŸš€ Estamos creciendo â€” estos son ejemplos de lo que encontrarÃ¡s aquÃ­
                 </p>
               </div>
-              {/* Placeholder cards enriquecidas con señales de confianza */}
+              {/* Placeholder cards enriquecidas con seÃ±ales de confianza */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
                 {PLACEHOLDER_PROFESSIONALS.map(pro => (
                   <div key={pro.id} className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--outline-variant)', transition: 'transform 0.2s, box-shadow 0.2s' }}
@@ -448,19 +448,19 @@ export function HomePage() {
                       ))}
                     </div>
 
-                    {/* Señales de confianza */}
+                    {/* SeÃ±ales de confianza */}
                     <div style={{ background: '#f0fdf4', borderRadius: 'var(--radius-lg)', padding: '0.875rem', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                           <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#f59e0b' }}>star</span>
                           <span style={{ fontWeight: 800, fontSize: '0.9375rem', color: '#0f172a' }}>{pro.rating}</span>
-                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>({pro.reviews} reseñas)</span>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>({pro.reviews} reseÃ±as)</span>
                         </div>
                         <span style={{ fontSize: '0.875rem', fontWeight: 800, color: '#0f172a' }}>Desde ${pro.price} MXN</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#15803d', fontWeight: 600 }}>
                         <span style={{ width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%', display: 'inline-block', boxShadow: '0 0 0 2px #dcfce7' }}></span>
-                        Responde en {pro.responseTime} · Verificado con INE y SAT
+                        Responde en {pro.responseTime} Â· Validamos con identificación oficial (INE) y cédula profesional (en caso de ser requerida).
                       </div>
                     </div>
 
@@ -491,17 +491,26 @@ export function HomePage() {
                     <div style={{ minWidth: 0 }}>
                       <p style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '1rem', color: 'var(--primary)', marginBottom: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {pro.user?.name || 'Especialista'}
-                        <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#10b981', verticalAlign: 'middle', marginLeft: '4px' }} title="Verificado">verified</span>
-                      </p>
-                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{pro.title || CATEGORY_MAP[pro.category] || pro.category}</p>
+                          {pro.isVerified ? (
+                            <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#10b981', verticalAlign: 'middle', marginLeft: '4px' }} title="Verificado">verified</span>
+                          ) : (
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#f59e0b', verticalAlign: 'middle', marginLeft: '4px' }} title="En revisión">schedule</span>
+                          )}
+                        </p>
+                        <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{pro.title || CATEGORY_MAP[pro.category] || pro.category}</p>
+                        <p style={{ fontSize: '0.6875rem', marginTop: '0.125rem', color: pro.isVerified ? 'var(--secondary)' : '#b45309', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {pro.isVerified ? 'Verificado' : 'En revisión'}
+                        </p>
                     </div>
                   </div>
                   
-                  {/* SEÑALES DE CONFIANZA FUERTES */}
+                  {/* SEÃ‘ALES DE CONFIANZA FUERTES */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f8fafc', padding: '0.875rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#334155', fontWeight: 700 }}>
                       <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#10b981' }}>badge</span>
-                      Verificado con INE y SAT
+                      {pro.isVerified
+                        ? 'Validamos con identificación oficial (INE) y cédula profesional (en caso de ser requerida).'
+                        : 'Perfil en revisión documental (se mostrará como verificado al aprobarse).'}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#334155', fontWeight: 600 }}>
                       <span style={{ width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%', display: 'inline-block', boxShadow: '0 0 0 2px #dcfce7' }}></span>
@@ -511,7 +520,7 @@ export function HomePage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                             <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#f59e0b' }}>star</span>
                             <span style={{ fontSize: '0.875rem', fontWeight: 800 }}>{Number(pro.rating > 0 ? pro.rating : 4.8).toFixed(1)}</span>
-                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>(+2,000 opiniones)</span>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>(+2k opiniones)</span>
                         </div>
                         <span style={{ fontSize: '0.875rem', fontWeight: 800, color: '#0f172a' }}>Desde $2,000</span>
                     </div>
@@ -527,7 +536,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── TESTIMONIOS COMPLETOS CON HISTORIA ─────────────────────────────────── */}
+      {/* â”€â”€ TESTIMONIOS COMPLETOS CON HISTORIA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <section style={{ padding: '5rem 1.5rem', background: '#f8fafc' }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
@@ -536,9 +545,9 @@ export function HomePage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
             {[
-              { name: 'María González', role: 'Necesitaba ayuda fiscal urgente', text: 'Llevaba días buscando en grupos de Facebook alguien que me ayudara con mis impuestos, pero no me daban confianza (había mucho perfil falso). El bot de Intecnia me encontró un contador verificado en 3 minutos. Pude ver su cédula profesional antes de pagar. Ya presenté mi declaración sin problemas.', stars: 5 },
-              { name: 'Carlos Mendoza', role: 'Emergencia en casa', text: 'Se rompió una tubería el domingo a las 9pm. Usé los botones rápidos, me conectó con un plomero que vive a 15 minutos y llegó de inmediato. Ver su foto e INE verificada antes de que llegara a mi casa me tranquilizó muchísimo. Totalmente recomendado.', stars: 5 },
-              { name: 'Ana Ramírez', role: 'Buscaba psicóloga', text: 'Me daba pena preguntar en redes por recomendaciones de psicólogos. Aquí encontré a mi psicóloga leyendo su perfil completo, vi sus precios desde el inicio (sin sorpresas) y agendé directo en su calendario sin hablar con nadie más. Funciona perfecto.', stars: 5 },
+              { name: 'MarÃ­a GonzÃ¡lez', role: 'Necesitaba ayuda fiscal urgente', text: 'Llevaba dÃ­as buscando en grupos de Facebook alguien que me ayudara con mis impuestos, pero no me daban confianza (habÃ­a mucho perfil falso). El bot de Intecnia me encontrÃ³ un contador verificado en 3 minutos. Pude ver su cÃ©dula profesional antes de pagar. Ya presentÃ© mi declaraciÃ³n sin problemas.', stars: 5 },
+              { name: 'Carlos Mendoza', role: 'Emergencia en casa', text: 'Se rompiÃ³ una tuberÃ­a el domingo a las 9pm. UsÃ© los botones rÃ¡pidos, me conectÃ³ con un plomero que vive a 15 minutos y llegÃ³ de inmediato. Ver su foto e INE verificada antes de que llegara a mi casa me tranquilizÃ³ muchÃ­simo. Totalmente recomendado.', stars: 5 },
+              { name: 'Ana RamÃ­rez', role: 'Buscaba psicÃ³loga', text: 'Me daba pena preguntar en redes por recomendaciones de psicÃ³logos. AquÃ­ encontrÃ© a mi psicÃ³loga leyendo su perfil completo, vi sus precios desde el inicio (con total claridad) y agendÃ© directo en su calendario sin hablar con nadie mÃ¡s. Funciona perfecto.', stars: 5 },
             ].map(t => (
               <div key={t.name} className="testimonial-card" style={{ background: 'white', padding: '2rem', borderRadius: 'var(--radius-xl)', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
                 <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '1.25rem' }}>
@@ -557,12 +566,12 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── CTA FINAL ──────────────────────────────── */}
+      {/* â”€â”€ CTA FINAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <section style={{ padding: '6rem 1.5rem', background: '#0f172a', textAlign: 'center' }}>
         <div className="container" style={{ maxWidth: '700px' }}>
           <span className="material-symbols-outlined icon-filled" style={{ fontSize: '56px', color: '#10b981', marginBottom: '1.5rem', display: 'block' }}>shield_lock</span>
           <h2 style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: 'clamp(2rem, 4vw, 2.75rem)', color: 'white', marginBottom: '1.25rem', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-            No te arriesgues más con desconocidos
+            No te arriesgues mÃ¡s con desconocidos
           </h2>
           <p style={{ fontSize: '1.125rem', color: '#94a3b8', marginBottom: '2.5rem', lineHeight: 1.7, fontWeight: 500 }}>
             Miles de profesionales verificados listos para trabajar. Sin pagos por adelantado, sin comisiones ocultas el servicio es garantizado.
@@ -584,9 +593,9 @@ export function HomePage() {
               Publicar servicio
             </Link>
           </div>
-          {/* Señales de confianza finales */}
+          {/* SeÃ±ales de confianza finales */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
-            {['✔ Gratis para el cliente', '✔ Perfiles 100% verificados', '✔ Cancela cuando quieras'].map(item => (
+            {['âœ” Gratis para el cliente', 'âœ” Perfiles 100% verificados', 'âœ” Cancela cuando quieras'].map(item => (
               <span key={item} style={{ fontSize: '0.875rem', color: '#cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>{item}</span>
             ))}
           </div>
@@ -597,5 +606,10 @@ export function HomePage() {
     </>
   );
 }
+
+
+
+
+
 
 

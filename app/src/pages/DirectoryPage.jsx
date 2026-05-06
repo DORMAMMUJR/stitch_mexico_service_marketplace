@@ -28,13 +28,14 @@ const FILTER_TO_CATEGORY = {
 };
 
 export function DirectoryPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [professionals, setProfessionals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
   const [priceMin, setPriceMin] = useState(0);
   const [priceCap, setPriceCap] = useState(2000);
   const [minRating, setMinRating] = useState(0);
+  const [verifiedOnly, setVerifiedOnly] = useState(searchParams.get('verifiedOnly') === 'true');
   const { showToast } = useToast();
 
   // Leer category y query de la URL (vienen del Hero o de las categorías)
@@ -49,10 +50,25 @@ export function DirectoryPage() {
     setSelectedCategory(categoryFromUrl);
   }, [categoryFromUrl]);
 
+  useEffect(() => {
+    setVerifiedOnly(searchParams.get('verifiedOnly') === 'true');
+  }, [searchParams]);
 
   useEffect(() => {
     setSearchTerm(queryFromUrl);
   }, [queryFromUrl]);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (verifiedOnly) {
+      next.set('verifiedOnly', 'true');
+    } else {
+      next.delete('verifiedOnly');
+    }
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [verifiedOnly, searchParams, setSearchParams]);
 
   useEffect(() => {
     const fetchProfessionals = async () => {
@@ -64,6 +80,7 @@ export function DirectoryPage() {
         params.set('minPrice', String(priceMin));
         params.set('maxPrice', String(priceCap));
         if (minRating > 0) params.set('minRating', String(minRating));
+        if (verifiedOnly) params.set('verifiedOnly', 'true');
 
         const res = await fetch(`/api/professionals?${params.toString()}`);
         if (res.ok) {
@@ -77,7 +94,7 @@ export function DirectoryPage() {
       }
     };
     fetchProfessionals();
-  }, [searchTerm, selectedCategory, priceMin, priceCap, minRating]);
+  }, [searchTerm, selectedCategory, priceMin, priceCap, minRating, verifiedOnly]);
 
   const handleCategoryChange = (e) => {
     const label = e.target.value;
@@ -104,33 +121,45 @@ export function DirectoryPage() {
             Tu perfil ya es visible en el directorio para los clientes.
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="directory-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>
               {queryFromUrl ? `Resultados para "${queryFromUrl}"` : 'Profesionales Verificados'}
             </h1>
             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-              {isLoading ? 'Buscando...' : `${professionals.length} profesional${professionals.length !== 1 ? 'es' : ''} verificado${professionals.length !== 1 ? 's' : ''} encontrado${professionals.length !== 1 ? 's' : ''}`}
+              {isLoading ? 'Buscando...' : `${professionals.length} profesional${professionals.length !== 1 ? 'es' : ''} encontrado${professionals.length !== 1 ? 's' : ''}${verifiedOnly ? ' (solo verificados)' : ''}`}
             </p>
           </div>
-          <button onClick={(e) => { e.preventDefault(); showToast('Ordenando por recomendaciones...', 'info'); }} className="btn btn-outline" style={{ fontSize: '0.8125rem' }}>
+          <button onClick={(e) => { e.preventDefault(); showToast('Ordenando por recomendaciones...', 'info'); }} className="btn btn-outline directory-sort-btn" style={{ fontSize: '0.8125rem' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>tune</span>
             Ordenar por: Recomendado
           </button>
         </div>
-        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.75rem' }}>
+        <div className="directory-search-box" style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.75rem' }}>
           <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>search</span>
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por servicio o especialidad..."
-            className="input-field"
+            className="input-field directory-search-input"
             style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: '0.5rem 0.25rem' }}
           />
         </div>
+        <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <input
+            id="verified-only-top"
+            type="checkbox"
+            checked={verifiedOnly}
+            onChange={(e) => setVerifiedOnly(e.target.checked)}
+            style={{ accentColor: 'var(--secondary)' }}
+          />
+          <label htmlFor="verified-only-top" style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', cursor: 'pointer' }}>
+            Solo verificados
+          </label>
+        </div>
         {/* Category Quick Filters */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+        <div className="directory-quick-filters" style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
           <button onClick={() => setSelectedCategory('')} className={`btn ${selectedCategory === '' ? 'btn-primary' : 'btn-outline'}`} style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}>Todos</button>
           {Object.entries(FILTER_TO_CATEGORY).map(([label, key]) => (
             <button key={key} onClick={() => setSelectedCategory(key)} className={`btn ${selectedCategory === key ? 'btn-primary' : 'btn-outline'}`} style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}>
@@ -220,6 +249,19 @@ export function DirectoryPage() {
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
+            <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>VERIFICACIÓN</label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={verifiedOnly}
+                onChange={(e) => setVerifiedOnly(e.target.checked)}
+                style={{ accentColor: 'var(--secondary)' }}
+              />
+              Solo perfiles verificados
+            </label>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
             <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>DISPONIBILIDAD</label>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span style={{ padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 500, background: 'rgba(45,188,254,0.1)', color: 'var(--secondary)', cursor: 'pointer' }}>Urgente</span>
@@ -228,13 +270,13 @@ export function DirectoryPage() {
             </div>
           </div>
 
-          <button onClick={(e) => { e.preventDefault(); setSelectedCategory(''); setPriceMin(0); setPriceCap(2000); setMinRating(0); showToast('Filtros reiniciados', 'info'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Limpiar Filtros</button>
+          <button onClick={(e) => { e.preventDefault(); setSelectedCategory(''); setPriceMin(0); setPriceCap(2000); setMinRating(0); setVerifiedOnly(false); showToast('Filtros reiniciados', 'info'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Limpiar Filtros</button>
         </aside>
 
         {/* Results */}
         <div>
           {/* Banner de zona — reemplaza el mapa */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem', background: 'var(--secondary-container)', borderRadius: 'var(--radius-xl)', marginBottom: '1.5rem', border: '1px solid rgba(16,185,129,0.2)' }}>
+          <div className="directory-map-banner" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem', background: 'var(--secondary-container)', borderRadius: 'var(--radius-xl)', marginBottom: '1.5rem', border: '1px solid rgba(16,185,129,0.2)' }}>
             <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px', color: 'var(--secondary)' }}>location_on</span>
             <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-secondary-container)' }}>
               Mostrando profesionales verificados en <strong>CDMX y área metropolitana</strong> exploras
@@ -262,14 +304,18 @@ export function DirectoryPage() {
           )}
 
           {/* Professional Cards Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '1.25rem' }}>
+          <div className="directory-results-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '1.25rem' }}>
             {professionals.map(p => (
               <div key={p.id} className="pro-card" style={{ cursor: 'pointer' }}>
                   <Link to={`/profile/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
                     <div style={{ position: 'relative' }}>
                       <img src={p.avatarUrl || '/default-avatar.png'} alt={p.name} style={{ width: '3.5rem', height: '3.5rem', borderRadius: 'var(--radius-lg)', objectFit: 'cover', background: 'var(--surface-container)' }} />
-                      <span className="material-symbols-outlined icon-filled" style={{ position: 'absolute', bottom: '-2px', right: '-2px', fontSize: '14px', color: 'var(--secondary)', background: 'var(--surface-container-lowest)', borderRadius: '50%', padding: '1px' }}>verified</span>
+                      {p.isVerified ? (
+                        <span className="material-symbols-outlined icon-filled" style={{ position: 'absolute', bottom: '-2px', right: '-2px', fontSize: '14px', color: 'var(--secondary)', background: 'var(--surface-container-lowest)', borderRadius: '50%', padding: '1px' }}>verified</span>
+                      ) : (
+                        <span className="material-symbols-outlined" style={{ position: 'absolute', bottom: '-2px', right: '-2px', fontSize: '14px', color: '#f59e0b', background: 'var(--surface-container-lowest)', borderRadius: '50%', padding: '1px' }}>schedule</span>
+                      )}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -279,6 +325,9 @@ export function DirectoryPage() {
                         </span>
                       </div>
                       <p style={{ fontSize: '0.6875rem', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{p.title}</p>
+                      <p style={{ fontSize: '0.6875rem', marginTop: '0.125rem', color: p.isVerified ? 'var(--secondary)' : '#b45309', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {p.isVerified ? 'Verificado' : 'En revisión'}
+                      </p>
                       <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>star</span> {p.reviewCount} Reseñas
@@ -290,7 +339,7 @@ export function DirectoryPage() {
                     </div>
                   </div>
                   </Link>
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <div className="directory-card-actions" style={{ display: 'flex', gap: '0.75rem' }}>
                     <Link to={`/profile/${p.id}?tab=chat`} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem', textDecoration: 'none' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chat</span> Mensaje
                     </Link>

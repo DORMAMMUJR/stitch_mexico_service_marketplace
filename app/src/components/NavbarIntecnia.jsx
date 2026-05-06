@@ -76,7 +76,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
                 <Link to="/verification" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Ofrecer Servicios</Link>
               )}
               {user?.role === 'ADMIN' && (
-                <Link to="/admin" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Panel Admin</Link>
+                <Link to="/admin" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Super Admin</Link>
               )}
 
               <div ref={notifRef} style={{ position: 'relative' }}>
@@ -239,7 +239,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
                       </Link>
                       <Link to={dashboardPath} onClick={() => setProfileOpen(false)} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-md)', color: 'var(--on-surface)', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--on-surface-variant)' }}>dashboard</span>
-                        {user?.role === 'ADMIN' ? 'Panel Admin' : user?.role === 'CLIENT' ? 'Mis Citas' : 'Dashboard'}
+                        {user?.role === 'ADMIN' ? 'Super Admin' : user?.role === 'CLIENT' ? 'Mis Citas' : 'Dashboard'}
                       </Link>
                       <div style={{ height: '1px', background: 'var(--outline-variant)', margin: '0.375rem 0' }} />
                       <button
@@ -292,7 +292,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
                 <Link to="/dashboard" className="nav-link" onClick={() => setMobileOpen(false)}>Mis Citas</Link>
               </>
             )}
-            {user?.role === 'ADMIN' && <Link to="/admin" className="nav-link" onClick={() => setMobileOpen(false)}>Panel Admin</Link>}
+            {user?.role === 'ADMIN' && <Link to="/admin" className="nav-link" onClick={() => setMobileOpen(false)}>Super Admin</Link>}
             <button onClick={handleLogout} className="nav-link" style={{ textAlign: 'left', border: 'none', background: 'none', width: '100%', color: '#dc2626', cursor: 'pointer' }}>Cerrar Sesión</button>
           </>
         ) : showAuthActions ? (
@@ -307,3 +307,4 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
     </nav>
   );
 }
+

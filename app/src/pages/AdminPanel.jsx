@@ -8,6 +8,7 @@ export function AdminPanel() {
   const [pendingDocs, setPendingDocs] = useState([]);
   const [disputes, setDisputes] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [activeProfessionals, setActiveProfessionals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [supportLink, setSupportLink] = useState(localStorage.getItem('platform_support_link') || 'https://wa.me/');
   const [linkDrafts, setLinkDrafts] = useState({});
@@ -18,10 +19,11 @@ export function AdminPanel() {
   const loadAll = async () => {
     try {
       setLoading(true);
-      const [docsRes, disputesRes, apptRes] = await Promise.all([
+      const [docsRes, disputesRes, apptRes, prosRes] = await Promise.all([
         fetch('/api/admin/verifications/pending', { credentials: 'include' }),
         fetch('/api/orders/admin/disputes', { credentials: 'include' }),
         fetch('/api/admin/appointments/upcoming', { credentials: 'include' }),
+        fetch('/api/admin/professionals/active', { credentials: 'include' }),
       ]);
 
       if (docsRes.status === 401 || docsRes.status === 403) {
@@ -32,10 +34,12 @@ export function AdminPanel() {
       const docsData = await docsRes.json();
       const disputesData = disputesRes.ok ? await disputesRes.json() : [];
       const apptData = apptRes.ok ? await apptRes.json() : [];
+      const prosData = prosRes.ok ? await prosRes.json() : [];
 
       setPendingDocs(Array.isArray(docsData) ? docsData : []);
       setDisputes(Array.isArray(disputesData) ? disputesData : []);
       setAppointments(Array.isArray(apptData) ? apptData : []);
+      setActiveProfessionals(Array.isArray(prosData) ? prosData : []);
 
       const draftSeed = {};
       (Array.isArray(apptData) ? apptData : []).forEach((a) => {
@@ -90,6 +94,16 @@ export function AdminPanel() {
     }
   };
 
+  const copyReservationLink = async (professionalId) => {
+    const link = `${window.location.origin}/reserva/${professionalId}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast('Link de reserva copiado', 'success');
+    } catch {
+      showToast('No se pudo copiar el link', 'error');
+    }
+  };
+
   return (
     <>
       <NavbarIntecnia />
@@ -114,6 +128,27 @@ export function AdminPanel() {
               <p style={{ color: 'var(--on-surface-variant)' }}>Verificaciones pendientes: <strong>{pendingDocs.length}</strong></p>
               <p style={{ color: 'var(--on-surface-variant)' }}>Disputas activas: <strong>{disputes.length}</strong></p>
               <p style={{ color: 'var(--on-surface-variant)' }}>Citas próximas: <strong>{appointments.length}</strong></p>
+            </div>
+          )}
+        </div>
+
+        <div className="card" style={{ padding: '1rem' }}>
+          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Links directos de reserva</h2>
+          {loading ? (
+            <p>Cargando profesionales...</p>
+          ) : activeProfessionals.length === 0 ? (
+            <p style={{ color: 'var(--on-surface-variant)' }}>No hay profesionales activos para mostrar.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.625rem', marginBottom: '1rem' }}>
+              {activeProfessionals.map((pro) => (
+                <div key={pro.id} style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div>
+                    <p style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.9rem' }}>{pro.name}</p>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem' }}>{pro.title || 'Profesional verificado'}</p>
+                  </div>
+                  <button className="btn btn-outline" onClick={() => copyReservationLink(pro.id)}>Copiar link</button>
+                </div>
+              ))}
             </div>
           )}
         </div>

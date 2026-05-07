@@ -2,8 +2,24 @@ import { Router } from 'express';
 import { prisma } from '../lib/db';
 import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import { notifyUser } from '../lib/notifications';
+import { uploadPrivateDoc } from '../lib/upload';
 
 const router = Router();
+
+router.post('/upload-transfer-proof', optionalAuthenticate, uploadPrivateDoc.single('proof'), async (req: any, res: any) => {
+  const file = req.file;
+  if (!file) {
+    return res.status(400).json({ error: 'Debes subir un comprobante de pago (PNG/JPG).' });
+  }
+
+  const allowed = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!allowed.includes(file.mimetype)) {
+    return res.status(400).json({ error: 'Formato no permitido. Usa PNG, JPG o WEBP.' });
+  }
+
+  const proofUrl = file.location || `/uploads/private/${file.filename}`;
+  return res.json({ proofUrl, message: 'Comprobante subido correctamente' });
+});
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -74,7 +90,7 @@ router.get('/availability/:professionalId', async (req, res, next) => {
     const bookedAppointments = await prisma.appointment.findMany({
       where: {
         professionalId,
-        status: 'SCHEDULED',
+        status: { in: ['PENDING_PAYMENT', 'SCHEDULED'] },
         scheduledAt: { gte: new Date() },
       },
       select: { scheduledAt: true },
@@ -109,7 +125,7 @@ router.get('/availability/:professionalId/effective', async (req, res, next) => 
     const [availabilities, bookedAppointments] = await Promise.all([
       prisma.availability.findMany({ where: { professionalId }, orderBy: { dayOfWeek: 'asc' } }),
       prisma.appointment.findMany({
-        where: { professionalId, status: 'SCHEDULED', scheduledAt: { gte: new Date() } },
+        where: { professionalId, status: { in: ['PENDING_PAYMENT', 'SCHEDULED'] }, scheduledAt: { gte: new Date() } },
         select: { scheduledAt: true },
       }),
     ]);
@@ -367,6 +383,9 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
     if (!transferReference || String(transferReference).trim().length < 4) {
       return res.status(400).json({ error: 'Referencia de transferencia inválida' });
     }
+    if (!transferProofUrl || typeof transferProofUrl !== 'string') {
+      return res.status(400).json({ error: 'Debes adjuntar foto del comprobante de transferencia.' });
+    }
 
     const basePrice = Number(professional.hourlyRate ?? 0);
     if (!basePrice || basePrice <= 0) {
@@ -442,7 +461,7 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
             },
             meetingLink: null,
           }),
-          status: 'SCHEDULED',
+          status: 'PENDING_PAYMENT',
         },
       });
     } catch (dbError: any) {
@@ -459,7 +478,7 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
     notifyUser({
       userId: professional.userId,
       type: 'ORDER_STATUS',
-      title: 'Nueva cita agendada',
+      title: 'Nueva cita pendiente de validación de pago',
       body: `Tienes una nueva cita para el ${scheduledAt.toLocaleDateString('es-MX', {
         weekday: 'long',
         year: 'numeric',
@@ -487,7 +506,7 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
       `,
     }).catch(console.error);
 
-    res.status(201).json({ message: 'Cita agendada con éxito', appointment });
+    res.status(201).json({ message: 'Cita creada con estado pending de pago', appointment });
   } catch (error) {
     next(error);
   }
@@ -521,7 +540,7 @@ router.patch('/:id/cancel', authenticate, async (req: any, res: any, next: any) 
       return res.status(403).json({ error: 'No tienes permiso para cancelar esta cita' });
     }
 
-    if (appointment.status !== 'SCHEDULED') {
+    if (!['SCHEDULED', 'PENDING_PAYMENT'].includes(appointment.status)) {
       return res.status(400).json({
         error: `No se puede cancelar una cita en estado: ${appointment.status}`,
       });

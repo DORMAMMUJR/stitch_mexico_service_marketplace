@@ -12,6 +12,7 @@ import { VerificationPage } from './pages/VerificationPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminPanel } from './pages/AdminPanel';
+import { ReservationDirectPage } from './pages/ReservationDirectPage';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -49,6 +50,7 @@ ReactDOM.createRoot(document.getElementById('app')).render(
               <Route path="/privacy"   element={<PrivacyPage />} />
               <Route path="/login"     element={<LoginPage />} />
               <Route path="/register"  element={<RegisterPage />} />
+              <Route path="/reserva/:id" element={<ReservationDirectPage />} />
 
               {/* Perfil público — visible solo si isVerified (validado en backend) */}
               <Route path="/profile/:id"         element={<IntecniaProfilePage />} />

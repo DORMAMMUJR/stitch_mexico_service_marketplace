@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 import { useToast } from '../components/ToastContext';
 
-// Mapeo de categoría de backend → label legible
+// Mapeo de categoría de backend -> label legible
 const CATEGORY_MAP = {
   'HEALTH_WELLNESS': 'Salud y Bienestar',
   'LEGAL': 'Consultoría Legal',
@@ -110,7 +110,7 @@ export function DirectoryPage() {
         <nav style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center', gap: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           <Link to="/">INICIO</Link>
           <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>chevron_right</span>
-          <span style={{ fontWeight: 600, color: 'var(--on-surface)' }}>RESULTADOS DE BÚSQUEDA</span>
+          <span style={{ fontWeight: 600, color: 'var(--on-surface)' }}>RESULTADOS DE BUSQUEDA</span>
         </nav>
       </div>
 
@@ -170,7 +170,7 @@ export function DirectoryPage() {
       </div>
 
       {/* Main Content */}
-      <div className="container layout-directory">
+      <div className="container layout-directory" style={{ paddingBottom: '8rem' }}>
         {/* Filters Sidebar */}
         <aside className="card hide-mobile" style={{ padding: '1.5rem', height: 'fit-content', position: 'sticky', top: '5rem' }}>
           <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.0625rem', color: 'var(--secondary)', marginBottom: '1.5rem' }}>Filtros</h3>
@@ -193,10 +193,10 @@ export function DirectoryPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
               {[
                 { label: 'Cualquier precio', min: 0, max: 5000 },
-                { label: '$0 – $600', min: 0, max: 600 },
-                { label: '$600 – $1,200', min: 600, max: 1200 },
-                { label: '$1,200 – $2,000', min: 1200, max: 2000 },
-                { label: '$2,000 – $5,000', min: 2000, max: 5000 },
+                { label: '$0 - $600', min: 0, max: 600 },
+                { label: '$600 - $1,200', min: 600, max: 1200 },
+                { label: '$1,200 - $2,000', min: 1200, max: 2000 },
+                { label: '$2,000 - $5,000', min: 2000, max: 5000 },
               ].map(opt => (
                 <button
                   key={opt.label}
@@ -236,7 +236,7 @@ export function DirectoryPage() {
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>CALIFICACIÓN MÍNIMA</label>
+            <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>CALIFICACION MÍNIMA</label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', marginBottom: '0.375rem', cursor: 'pointer' }}>
               <input type="radio" name="rating" checked={minRating === 4.5} onChange={() => setMinRating(4.5)} style={{ accentColor: 'var(--secondary)' }} /> 4.5+ Estrellas
             </label>
@@ -249,7 +249,7 @@ export function DirectoryPage() {
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>VERIFICACIÓN</label>
+            <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>VERIFICACION</label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', cursor: 'pointer' }}>
               <input
                 type="checkbox"
@@ -275,14 +275,14 @@ export function DirectoryPage() {
 
         {/* Results */}
         <div>
-          {/* Banner de zona — reemplaza el mapa */}
+          {/* Banner de zona - reemplaza el mapa */}
           <div className="directory-map-banner" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem', background: 'var(--secondary-container)', borderRadius: 'var(--radius-xl)', marginBottom: '1.5rem', border: '1px solid rgba(16,185,129,0.2)' }}>
             <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px', color: 'var(--secondary)' }}>location_on</span>
             <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-secondary-container)' }}>
-              Mostrando profesionales verificados en <strong>CDMX y área metropolitana</strong> exploras
+              Mostrando profesionales verificados en <strong>CDMX y área metropolitana</strong> 
             </p>
             <button style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--secondary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
-              Ver en mapa →
+              Ver en mapa
             </button>
           </div>
 
@@ -306,7 +306,7 @@ export function DirectoryPage() {
           {/* Professional Cards Grid */}
           <div className="directory-results-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '1.25rem' }}>
             {professionals.map(p => (
-              <div key={p.id} className="pro-card" style={{ cursor: 'pointer' }}>
+              <div key={p.id} className="pro-card" style={{ cursor: 'pointer', width: '100%', maxWidth: '420px', margin: '0 auto' }}>
                   <Link to={`/profile/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
                     <div style={{ position: 'relative' }}>
@@ -327,6 +327,9 @@ export function DirectoryPage() {
                       <p style={{ fontSize: '0.6875rem', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{p.title}</p>
                       <p style={{ fontSize: '0.6875rem', marginTop: '0.125rem', color: p.isVerified ? 'var(--secondary)' : '#b45309', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {p.isVerified ? 'Verificado' : 'En revisión'}
+                      </p>
+                      <p style={{ fontSize: '0.6875rem', marginTop: '0.125rem', color: '#15803d', fontWeight: 700 }}>
+                        {p.isVerified ? 'Verificado con INE y Cédula' : ''}
                       </p>
                       <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -355,4 +358,6 @@ export function DirectoryPage() {
     </>
   );
 }
+
+
 

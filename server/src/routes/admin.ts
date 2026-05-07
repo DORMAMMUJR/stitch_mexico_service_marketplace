@@ -125,7 +125,7 @@ router.get('/appointments/upcoming', async (_req: any, res: any, next: any) => {
   try {
     const appointments = await prisma.appointment.findMany({
       where: {
-        status: 'SCHEDULED',
+        status: { in: ['PENDING_PAYMENT', 'SCHEDULED'] },
         scheduledAt: { gte: new Date() },
       },
       include: {
@@ -147,6 +147,33 @@ router.get('/appointments/upcoming', async (_req: any, res: any, next: any) => {
     });
 
     res.json(normalized);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/professionals/active
+router.get('/professionals/active', async (_req: any, res: any, next: any) => {
+  try {
+    const professionals = await prisma.professional.findMany({
+      where: { isVerified: true },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        user: { select: { name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+
+    res.json(professionals.map((p) => ({
+      id: p.id,
+      name: p.user?.name || 'Profesional',
+      email: p.user?.email || null,
+      title: p.title || '',
+      category: p.category,
+    })));
   } catch (error) {
     next(error);
   }

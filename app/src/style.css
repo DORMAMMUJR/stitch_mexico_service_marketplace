@@ -670,6 +670,19 @@ img { display: block; max-width: 100%; }
   letter-spacing: 0.01em;
 }
 
+.transfer-proof-card {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.transfer-proof-card input[type="file"] {
+  border: 1px dashed rgba(6, 78, 59, 0.28);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: var(--radius-md);
+  padding: 0.625rem;
+  color: var(--on-surface-variant);
+}
+
 .profile-chat-header {
   background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
 }
@@ -804,6 +817,20 @@ img { display: block; max-width: 100%; }
   .layout-profile,
   .layout-bento {
     gap: 1rem;
+  }
+
+  .profile-hero-card {
+    padding: 1rem !important;
+  }
+
+  .profile-hero-card img {
+    width: 5.5rem !important;
+    height: 5.5rem !important;
+  }
+
+  .profile-booking-card,
+  .profile-chat-widget {
+    padding: 1rem !important;
   }
 
   .availability-row {

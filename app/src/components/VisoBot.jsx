@@ -218,7 +218,7 @@ export function VisoBot() {
             </button>
           </div>
 
-          <div ref={messagesContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: 'var(--surface-container-lowest)' }}>
+          <div ref={messagesContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '1rem 1rem 5rem', background: 'var(--surface-container-lowest)' }}>
             {messages.map(renderBubble)}
             {isTyping && (
               <div style={{ padding: '0.75rem 1rem', background: 'var(--surface-container-low)', borderRadius: '1rem', width: 'fit-content' }}>
@@ -227,7 +227,7 @@ export function VisoBot() {
             )}
           </div>
 
-          <div style={{ padding: '1rem', borderTop: '1px solid var(--outline-variant)', background: 'var(--surface)' }}>
+          <div style={{ position: 'sticky', bottom: 0, padding: '1rem', borderTop: '1px solid var(--outline-variant)', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', zIndex: 10 }}>
             <form
               onSubmit={(e) => {
                 e.preventDefault();

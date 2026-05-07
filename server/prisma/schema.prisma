@@ -330,6 +330,7 @@ model Appointment {
 }
 
 enum AppointmentStatus {
+  PENDING_PAYMENT
   SCHEDULED
   COMPLETED
   CANCELLED

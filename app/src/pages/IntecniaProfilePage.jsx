@@ -95,7 +95,7 @@ export function IntecniaProfilePage() {
         </div>
       )}
 
-      <div className="container layout-profile profile-pro-grid" style={{ paddingTop: '1.5rem', paddingBottom: '3rem' }}>
+      <div className="container layout-profile profile-pro-grid" style={{ paddingTop: '1.5rem', paddingBottom: '8rem' }}>
         <section>
           <article className="card glass-card profile-hero-card" style={{ padding: '1.5rem', marginBottom: '1rem' }}>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>

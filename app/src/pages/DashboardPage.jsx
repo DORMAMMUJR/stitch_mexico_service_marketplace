@@ -308,24 +308,45 @@ export function DashboardPage() {
         </div>
 
         {activeTab === 'overview' && (
-          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-            <div className="card glass-card" style={{ padding: '1rem' }}>
+          <section style={{ display: 'grid', gap: '0.875rem' }}>
+            <div className="dashboard-kpi-grid">
+            <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
               <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas totales</p>
               <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{appointments.length}</p>
             </div>
 
             {isProfessional && (
               <>
-                <div className="card glass-card" style={{ padding: '1rem' }}>
+                <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
                   <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Vistas de perfil</p>
                   <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.profileViews}</p>
                 </div>
-                <div className="card glass-card" style={{ padding: '1rem' }}>
+                <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
                   <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Interacciones</p>
                   <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.totalInteractions}</p>
                 </div>
+                <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas agendadas</p>
+                  <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.appointmentsScheduled}</p>
+                </div>
               </>
             )}
+            </div>
+            <div className="card glass-card" style={{ padding: '1rem' }}>
+              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>Actividad reciente</h3>
+              {appointments.slice(0, 4).length === 0 ? (
+                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>Sin actividad reciente.</p>
+              ) : (
+                <div style={{ display: 'grid', gap: '0.5rem' }}>
+                  {appointments.slice(0, 4).map((app) => (
+                    <div key={app.id} style={{ padding: '0.625rem 0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)' }}>
+                      <p style={{ color: 'var(--on-surface)', fontWeight: 600, fontSize: '0.875rem' }}>{app.dateLabel} · {app.timeLabel}</p>
+                      <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem' }}>{app.status}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </section>
         )}
 

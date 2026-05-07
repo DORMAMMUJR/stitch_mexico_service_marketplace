@@ -17,7 +17,15 @@ export function ChatWidget({ professionalName, professionalId }) {
   };
 
   return (
-    <div className="card glass-card chat-sticky-desktop profile-chat-widget" style={{ position: 'sticky', top: '5rem', display: 'flex', flexDirection: 'column', height: '560px' }}>
+    <div
+      className="card glass-card profile-chat-widget"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '520px',
+        overflow: 'hidden',
+      }}
+    >
       <div className="profile-chat-header" style={{ padding: '1rem 1.125rem', borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span className="material-symbols-outlined" style={{ color: 'var(--secondary-container)' }}>smart_toy</span>
@@ -28,7 +36,19 @@ export function ChatWidget({ professionalName, professionalId }) {
         </div>
       </div>
 
-      <div id="chat-messages" className="chat-messages profile-chat-body" style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div
+        id="chat-messages"
+        className="chat-messages profile-chat-body"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          padding: '1rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+        }}
+      >
         {messages.map((msg) => (
           <div key={msg.id} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
             {msg.sender === 'bot' && (
@@ -71,7 +91,16 @@ export function ChatWidget({ professionalName, professionalId }) {
         )}
       </div>
 
-      <div className="chat-input-area profile-chat-input-area" style={{ padding: '0.875rem', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+      <div
+        className="chat-input-area profile-chat-input-area"
+        style={{
+          position: 'sticky',
+          bottom: 0,
+          padding: '0.875rem',
+          borderTop: '1px solid rgba(0,0,0,0.04)',
+          zIndex: 2,
+        }}
+      >
         <div className="profile-chat-input-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.875rem' }}>
           <input 
             type="text" 

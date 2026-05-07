@@ -29,7 +29,7 @@ export function ReservationDirectPage() {
         )}
 
         {!isLoading && profile && (
-          <div style={{ width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+          <div style={{ width: '100%', maxWidth: 'min(980px, 100%)', margin: '0 auto' }}>
             <div className="card glass-card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
               <h1 style={{ fontFamily: 'Manrope', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.25rem' }}>
                 Reserva con {profile.name}

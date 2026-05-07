@@ -209,6 +209,24 @@ export function ClientDashboard() {
 
         {activeTab === 'overview' && (
           <div className="animate-in slide-in-bottom">
+            <div className="dashboard-kpi-grid" style={{ marginBottom: '1rem' }}>
+              <div className="card glass-card dashboard-surface-1" style={{ padding: '0.875rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas</p>
+                <p style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{appointments.length}</p>
+              </div>
+              <div className="card glass-card dashboard-surface-2" style={{ padding: '0.875rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Órdenes</p>
+                <p style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{orders.length}</p>
+              </div>
+              <div className="card glass-card dashboard-surface-1" style={{ padding: '0.875rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Pendientes</p>
+                <p style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{appointments.filter((a) => a.status === 'PENDING_PAYMENT' || a.status === 'SCHEDULED').length}</p>
+              </div>
+              <div className="card glass-card dashboard-surface-2" style={{ padding: '0.875rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Completadas</p>
+                <p style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{orders.filter((o) => o.status === 'COMPLETADO').length}</p>
+              </div>
+            </div>
             <div className="card client-dashboard-card" style={{ marginBottom: '2rem' }}>
               <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Tus Solicitudes de Servicio</h2>
           

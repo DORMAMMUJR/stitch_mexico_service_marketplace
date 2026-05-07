@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 
-// �"?�"? Categorías mejoradas �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
+// Categorias mejoradas
 const CATEGORIES = [
   { label: 'Psicólogos y Salud', icon: 'psychology', key: 'HEALTH_WELLNESS', desc: 'Bienestar mental y físico' },
   { label: 'Abogados y Asesoría Legal', icon: 'gavel', key: 'LEGAL', desc: 'Contratos, litigios y más' },
@@ -26,7 +26,7 @@ const CATEGORY_MAP = {
   'GENERAL_MAINTENANCE': 'Reparaciones del Hogar',
 };
 
-// �"?�"? Tarjetas de placeholder �?" visibles solo cuando no hay profesionales reales �"?�"?
+// Tarjetas de placeholder visibles solo cuando no hay profesionales reales
 // Flag IS_PLACEHOLDER: true identifica estos datos como ficticios en todo el codebase
 const PLACEHOLDER_PROFESSIONALS = [
   {
@@ -103,7 +103,7 @@ function ProfessionalSkeleton() {
   );
 }
 
-// �"?�"? Botón flotante del chat �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
+// Boton flotante del chat
 function FloatingChatButton() {
   const [visible, setVisible] = useState(false);
 
@@ -189,15 +189,15 @@ export function HomePage() {
       <NavbarIntecnia activePage="home" />
       <main style={{ paddingBottom: '8rem' }}>
 
-      {/* �"?�"? HERO �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"? */}
-      <section className="hero-gradient" style={{ padding: '6rem 1.5rem 5rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+      {/* HERO */}
+      <section className="hero-gradient" style={{ padding: '4.5rem 1.5rem 3.25rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         {/* Badge de confianza */}
         <div className="animate-in stagger-1" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius-full)', padding: '0.375rem 1rem', marginBottom: '1.5rem' }}>
           <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#4ade80' }}>verified</span>
           <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--on-primary)', letterSpacing: '0.05em' }}>PLATAFORMA VERIFICADA · CDMX</span>
         </div>
 
-        {/* Título principal �?" Enfoque en resultado y eliminación de riesgo */}
+        {/* Titulo principal: enfoque en resultado y eliminacion de riesgo */}
         <h1 className="animate-in stagger-2" style={{ fontFamily: 'Manrope', fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, maxWidth: '850px', margin: '0 auto 1.25rem', color: 'var(--on-primary)' }}>
           Encuentra profesionales confiables en minutos<br />
           <span style={{ color: '#fbbf24' }}>con validación real y contratación clara</span>
@@ -208,7 +208,7 @@ export function HomePage() {
         </p>
 
         {/* Buscador */}
-        <form onSubmit={handleSearch} className="hero-search-container animate-in stagger-4" style={{ maxWidth: '640px', margin: '0 auto 1.25rem', borderRadius: 'var(--radius-xl)', padding: '0.375rem', background: 'var(--surface)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+        <form onSubmit={handleSearch} className="hero-search-container animate-in stagger-4" style={{ maxWidth: '640px', margin: '0 auto 0.875rem', borderRadius: 'var(--radius-xl)', padding: '0.375rem', background: 'var(--surface)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, padding: '0 1.25rem' }}>
             <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: '24px' }}>search</span>
             <input
@@ -229,7 +229,7 @@ export function HomePage() {
         </form>
 
         {/* Acciones Rápidas (Zero Friction) */}
-        <div className="animate-in stagger-5" style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '2.5rem' }}>
+        <div className="animate-in stagger-5" style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.625rem', marginBottom: '1.5rem' }}>
           {[
             { icon: '>>', text: 'Necesito plomero urgente' },
             { icon: '>>', text: 'Asesoria legal hoy' },
@@ -263,7 +263,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* �"?�"? ESTADÍSTICAS �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"? */}
+      {/* ESTADISTICAS */}
       <div style={{ background: 'var(--surface-container-lowest)', borderBottom: '1px solid var(--outline-variant)' }}>
         <div className="container home-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 0, padding: 0 }}>
           {[
@@ -282,7 +282,7 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* �"?�"? TESTIMONIOS CORTOS �?" Ultra reales �"?�"? */}
+      {/* TESTIMONIOS CORTOS */}
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--outline-variant)', padding: '1.5rem' }}>
         <div className="container" style={{ display: 'flex', gap: '1.5rem', overflowX: 'auto', justifyContent: 'center', flexWrap: 'wrap' }}>
           {[
@@ -296,14 +296,14 @@ export function HomePage() {
               </div>
               <div>
                   <p style={{ fontSize: '0.875rem', color: '#431407', fontStyle: 'italic', marginBottom: '0.25rem', lineHeight: 1.4 }}>{t.text}</p>
-                  <p style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 800 }}>�?" {t.name}</p>
+                  <p style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 800 }}>- {t.name}</p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* �"?�"? POR QU�? ELEGIRNOS VS FACEBOOK (Generador de confianza fuerte) �"?�"? */}
+      {/* POR QUE ELEGIRNOS VS FACEBOOK */}
       <section style={{ padding: '5rem 1.5rem', background: '#fff7ed' }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
@@ -329,7 +329,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* �"?�"? C�"MO TE AYUDAMOS (El Bot como Protagonista) �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"? */}
+      {/* COMO TE AYUDAMOS */}
       <section style={{ padding: '5rem 1.5rem', background: 'var(--surface)' }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
@@ -364,7 +364,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* �"?�"? CATEGORÍAS �?" más humanas, con hover animado �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"? */}
+      {/* CATEGORIAS */}
       <section style={{ padding: '5rem 1.5rem', background: 'var(--surface-container-lowest)' }}>
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -397,12 +397,12 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* �"?�"? PROFESIONALES DESTACADOS (Con Señales de Confianza Reales) �"?�"? */}
+      {/* PROFESIONALES DESTACADOS */}
       <section style={{ padding: '5rem 1.5rem', background: 'var(--surface)' }}>
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <p className="text-label-md" style={{ color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.5rem', fontWeight: 800 }}><span className="material-symbols-outlined icon-filled" style={{ fontSize: '14px', verticalAlign: 'middle', marginRight: '4px' }}>verified</span>VERIFICADOS PRIMERO (Y EN REVISI�N)</p>
+              <p className="text-label-md" style={{ color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.5rem', fontWeight: 800 }}><span className="material-symbols-outlined icon-filled" style={{ fontSize: '14px', verticalAlign: 'middle', marginRight: '4px' }}>verified</span>VERIFICADOS PRIMERO (Y EN REVISION)</p>
               <h2 className="text-headline-md" style={{ color: 'var(--primary)', fontWeight: 800 }}>Especialistas Destacados</h2>
             </div>
           </div>
@@ -416,7 +416,7 @@ export function HomePage() {
               {/* Banner informativo */}
               <div style={{ textAlign: 'center', padding: '1.5rem', background: 'var(--surface-container)', borderRadius: 'var(--radius-xl)', border: '1px dashed var(--outline-variant)', marginBottom: '1.5rem' }}>
                 <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>
-                  �Ys? Estamos creciendo �?" estos son ejemplos de lo que encontrarás aquí
+                  Estamos creciendo - estos son ejemplos de lo que encontraras aqui
                 </p>
               </div>
               {/* Placeholder cards enriquecidas con señales de confianza */}
@@ -494,23 +494,23 @@ export function HomePage() {
                           {pro.isVerified ? (
                             <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#10b981', verticalAlign: 'middle', marginLeft: '4px' }} title="Verificado">verified</span>
                           ) : (
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#f59e0b', verticalAlign: 'middle', marginLeft: '4px' }} title="En revisi�n">schedule</span>
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#f59e0b', verticalAlign: 'middle', marginLeft: '4px' }} title="En revision">schedule</span>
                           )}
                         </p>
                         <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{pro.title || CATEGORY_MAP[pro.category] || pro.category}</p>
                         <p style={{ fontSize: '0.6875rem', marginTop: '0.125rem', color: pro.isVerified ? 'var(--secondary)' : '#b45309', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {pro.isVerified ? 'Verificado' : 'En revisi�n'}
+                          {pro.isVerified ? 'Verificado' : 'En revision'}
                         </p>
                     </div>
                   </div>
                   
-                  {/* SE�'ALES DE CONFIANZA FUERTES */}
+                  {/* SENALES DE CONFIANZA FUERTES */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f8fafc', padding: '0.875rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#334155', fontWeight: 700 }}>
                       <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#10b981' }}>badge</span>
                       {pro.isVerified
                         ? 'Verificado con INE y Cédula.'
-                        : 'Perfil en revisi�n documental (se mostrar� como verificado al aprobarse).'}
+                        : 'Perfil en revision documental (se mostrara como verificado al aprobarse).'}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#334155', fontWeight: 600 }}>
                       <span style={{ width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%', display: 'inline-block', boxShadow: '0 0 0 2px #dcfce7' }}></span>
@@ -536,7 +536,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* �"?�"? TESTIMONIOS COMPLETOS CON HISTORIA �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"? */}
+      {/* TESTIMONIOS COMPLETOS CON HISTORIA */}
       <section style={{ padding: '5rem 1.5rem', background: '#f8fafc' }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
@@ -566,7 +566,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* �"?�"? CTA FINAL �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"? */}
+      {/* CTA FINAL */}
       <section style={{ padding: '6rem 1.5rem', background: '#0f172a', textAlign: 'center' }}>
         <div className="container" style={{ maxWidth: '700px' }}>
           <span className="material-symbols-outlined icon-filled" style={{ fontSize: '56px', color: '#10b981', marginBottom: '1.5rem', display: 'block' }}>shield_lock</span>
@@ -595,7 +595,7 @@ export function HomePage() {
           </div>
           {/* Señales de confianza finales */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
-            {['�o" Gratis para el cliente', '�o" Perfiles 100% verificados', '�o" Cancela cuando quieras'].map(item => (
+            {['Gratis para el cliente', 'Perfiles 100% verificados', 'Cancela cuando quieras'].map(item => (
               <span key={item} style={{ fontSize: '0.875rem', color: '#cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>{item}</span>
             ))}
           </div>

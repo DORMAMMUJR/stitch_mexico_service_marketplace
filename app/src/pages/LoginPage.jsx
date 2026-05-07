@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastContext';
@@ -10,14 +10,14 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login, user } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     if (!email) {
-      showToast('Por favor, ingresa tu correo electrónico para recuperar la contraseña.', 'info');
+      showToast('Por favor, ingresa tu correo electronico para recuperar la contrasena.', 'info');
       return;
     }
 
@@ -31,7 +31,7 @@ export function LoginPage() {
       });
 
       if (res.ok) {
-        showToast(`Se ha enviado un enlace de recuperación a ${email}`, 'success');
+        showToast(`Se ha enviado un enlace de recuperacion a ${email}`, 'success');
       } else {
         throw new Error('No se pudo enviar la solicitud');
       }
@@ -56,10 +56,10 @@ export function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Error al iniciar sesión');
+        throw new Error(data.error || 'Error al iniciar sesion');
       }
 
-      login(null, data.user); // El token viene en la cookie HttpOnly, no en el body de la respuesta
+      login(null, data.user);
 
       const returnUrl = sessionStorage.getItem('returnUrl');
       if (returnUrl) {
@@ -109,7 +109,7 @@ export function LoginPage() {
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Correo Electrónico</label>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Correo Electronico</label>
               <input
                 type="email"
                 value={email}
@@ -122,16 +122,16 @@ export function LoginPage() {
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contraseña</label>
-                <a href="#" onClick={handleForgotPassword} style={{ fontSize: '0.8125rem', color: 'var(--secondary)', textDecoration: 'none', fontWeight: 500, cursor: 'pointer' }}>¿Olvidaste tu contraseña?</a>
+                <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contrasena</label>
+                <a href="#" onClick={handleForgotPassword} style={{ fontSize: '0.8125rem', color: 'var(--secondary)', textDecoration: 'none', fontWeight: 500, cursor: 'pointer' }}>Olvidaste tu contrasena?</a>
               </div>
               <div style={{ position: 'relative' }}>
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   style={{ width: '100%', padding: '0.875rem 2.5rem 0.875rem 1rem', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', color: 'var(--on-surface)', fontSize: '0.9375rem', transition: 'all 0.2s' }}
-                  placeholder="••••••••"
+                  placeholder="********"
                   required
                 />
                 <button
@@ -152,15 +152,14 @@ export function LoginPage() {
                   Ingresando...
                 </>
               ) : (
-                'Iniciar Sesión'
+                'Iniciar Sesion'
               )}
             </button>
-
           </form>
 
           <div style={{ textAlign: 'center', marginTop: '2rem' }}>
             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-              ¿No tienes cuenta? <Link to="/register" style={{ color: 'var(--secondary)', fontWeight: 600, textDecoration: 'none' }}>Crea una gratis</Link>
+              No tienes cuenta? <Link to="/register" style={{ color: 'var(--secondary)', fontWeight: 600, textDecoration: 'none' }}>Crea una gratis</Link>
             </p>
           </div>
         </div>

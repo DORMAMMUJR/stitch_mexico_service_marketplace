@@ -37,6 +37,7 @@ export function DirectoryPage() {
   const [minRating, setMinRating] = useState(0);
   const [verifiedOnly, setVerifiedOnly] = useState(searchParams.get('verifiedOnly') === 'true');
   const { showToast } = useToast();
+  const avatarFallback = '/default-avatar.png';
 
   // Leer category y query de la URL (vienen del Hero o de las categorías)
   const queryFromUrl = searchParams.get('q') || '';
@@ -309,8 +310,15 @@ export function DirectoryPage() {
               <div key={p.id} className="pro-card" style={{ cursor: 'pointer', width: '100%', maxWidth: '420px', margin: '0 auto' }}>
                   <Link to={`/profile/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
-                    <div style={{ position: 'relative' }}>
-                      <img src={p.avatarUrl || '/default-avatar.png'} alt={p.name} style={{ width: '3.5rem', height: '3.5rem', borderRadius: 'var(--radius-lg)', objectFit: 'cover', background: 'var(--surface-container)' }} />
+                    <div className="directory-avatar" style={{ position: 'relative' }}>
+                      <img
+                        src={p.avatarUrl || avatarFallback}
+                        alt={p.name}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = avatarFallback;
+                        }}
+                      />
                       {p.isVerified ? (
                         <span className="material-symbols-outlined icon-filled" style={{ position: 'absolute', bottom: '-2px', right: '-2px', fontSize: '14px', color: 'var(--secondary)', background: 'var(--surface-container-lowest)', borderRadius: '50%', padding: '1px' }}>verified</span>
                       ) : (

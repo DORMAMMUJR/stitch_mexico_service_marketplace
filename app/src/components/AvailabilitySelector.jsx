@@ -183,7 +183,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
   };
 
   return (
-    <div className="card glass-card profile-booking-card" style={{ padding: '1.25rem' }}>
+    <div className="card glass-card profile-booking-card" style={{ padding: '1.25rem', width: '100%', minWidth: 0 }}>
       <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '1rem' }}>
         Agendar Consulta
       </h3>
@@ -241,7 +241,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
               <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--on-surface-variant)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
                 Horarios Disponibles
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '0.5rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))', gap: '0.5rem', marginBottom: '1rem', width: '100%' }}>
                 {slotsForSelectedDate
                   .filter((slot) => !bookedSlots.has(slot.iso))
                   .map((slot) => {

@@ -176,7 +176,7 @@ export function IntecniaProfilePage() {
           </article>
         </section>
 
-        <aside className="profile-side-col" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0, overflow: 'hidden' }}>
+        <aside className="profile-side-col" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
           <div className="profile-sticky-panel" style={{ display: 'grid', gap: '1rem', minWidth: 0 }}>
             <div onClickCapture={protectPrivateAction}>
               <AvailabilitySelector

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useParams } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
@@ -15,7 +15,7 @@ export function ReservationDirectPage() {
   return (
     <>
       <NavbarIntecnia activePage="directory" />
-      <div className="container" style={{ paddingTop: '1.5rem', paddingBottom: '8rem' }}>
+      <div className="container pb-32 max-md:pb-36" style={{ paddingTop: '1.5rem', paddingBottom: '8rem' }}>
         {isLoading && (
           <div className="card glass-card" style={{ padding: '1.25rem', textAlign: 'center' }}>
             Cargando especialista...
@@ -46,3 +46,4 @@ export function ReservationDirectPage() {
     </>
   );
 }
+

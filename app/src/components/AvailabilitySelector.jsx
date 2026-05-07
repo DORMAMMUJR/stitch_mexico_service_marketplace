@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+Ôªøimport React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -159,9 +159,9 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
       });
 
       setBookedSlots((prev) => new Set([...prev, selectedSlot]));
-      setMessage({ type: 'success', text: 'Solicitud registrada con pago pendiente de validaciÛn.' });
+      setMessage({ type: 'success', text: 'Solicitud registrada con pago pendiente de validaci√≥n.' });
       onBooked?.(
-        `Tu solicitud quedÛ registrada para ${new Date(selectedSlot).toLocaleDateString('es-MX', {
+        `Tu solicitud qued√≥ registrada para ${new Date(selectedSlot).toLocaleDateString('es-MX', {
           weekday: 'long',
           day: '2-digit',
           month: 'long',
@@ -187,19 +187,6 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
       <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '1rem' }}>
         Agendar Consulta
       </h3>
-
-      {pricingLoading ? (
-        <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '1rem' }}>Cargando costos...</p>
-      ) : pricing ? (
-        <div style={{ marginBottom: '1rem', padding: '0.875rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', background: 'var(--surface-container-lowest)' }}>
-          <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 700 }}>Pago por transferencia bancaria</p>
-          <div style={{ display: 'grid', gap: '0.25rem', fontSize: '0.875rem' }}>
-            <p><strong>Servicio:</strong> ${Number(pricing.basePrice).toLocaleString('es-MX')} {pricing.currency}</p>
-            <p><strong>ComisiÛn plataforma (10%):</strong> ${Number(pricing.commission).toLocaleString('es-MX')} {pricing.currency}</p>
-            <p style={{ fontWeight: 800, color: 'var(--primary)' }}><strong>Total a transferir:</strong> ${Number(pricing.total).toLocaleString('es-MX')} {pricing.currency}</p>
-          </div>
-        </div>
-      ) : null}
 
       <div className="profile-booking-days" style={{ display: 'flex', gap: '0.75rem', overflowX: 'auto', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
         {availLoading ? (
@@ -243,11 +230,11 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
         <>
           {!selectedDayHasAvailability ? (
             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '1.5rem', textAlign: 'center' }}>
-              El profesional no tiene horarios disponibles este dÌa.
+              El profesional no tiene horarios disponibles este d√≠a.
             </p>
           ) : slotsForSelectedDate.length === 0 ? (
             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '1.5rem', textAlign: 'center' }}>
-              No hay horarios disponibles para este dÌa.
+              No hay horarios disponibles para este d√≠a.
             </p>
           ) : (
             <>
@@ -287,6 +274,18 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
 
       {selectedSlot && bookingStep === 'payment_transfer' && (
         <div className="transfer-proof-card" style={{ marginBottom: '1rem', padding: '0.875rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', background: 'var(--surface-container-lowest)' }}>
+          {pricingLoading ? (
+            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>Cargando costos...</p>
+          ) : pricing ? (
+            <div style={{ marginBottom: '0.75rem', padding: '0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'var(--surface)' }}>
+              <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 700 }}>Pago por transferencia bancaria</p>
+              <div style={{ display: 'grid', gap: '0.25rem', fontSize: '0.875rem' }}>
+                <p><strong>Servicio:</strong> ${Number(pricing.basePrice).toLocaleString('es-MX')} {pricing.currency}</p>
+                <p><strong>Comisi√≥n plataforma (10%):</strong> ${Number(pricing.commission).toLocaleString('es-MX')} {pricing.currency}</p>
+                <p style={{ fontWeight: 800, color: 'var(--primary)' }}><strong>Total a transferir:</strong> ${Number(pricing.total).toLocaleString('es-MX')} {pricing.currency}</p>
+              </div>
+            </div>
+          ) : null}
           <p style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '0.625rem', color: 'var(--primary)' }}>
             Paso 2: Pago por Transferencia
           </p>
@@ -294,12 +293,22 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
           <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setTransferProofFile(e.target.files?.[0] || null)} style={{ marginBottom: '0.5rem', width: '100%' }} />
           <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>Sube foto del comprobante (PNG/JPG/WEBP). Este archivo es obligatorio.</p>
           {transferProofFile && <p style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginBottom: '0.5rem', fontWeight: 600 }}>Archivo listo: {transferProofFile.name}</p>}
-          <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center' }} onClick={handleConfirmTransferStep}>Ya transferÌ</button>
+          <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center' }} onClick={handleConfirmTransferStep}>Ya transfer√≠</button>
         </div>
       )}
 
       {selectedSlot && bookingStep === 'confirm_submit' && (
         <div className="transfer-proof-card" style={{ marginBottom: '1rem', padding: '0.875rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', background: 'var(--surface-container-lowest)' }}>
+          {pricing && (
+            <div style={{ marginBottom: '0.75rem', padding: '0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'var(--surface)' }}>
+              <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 700 }}>Pago por transferencia bancaria</p>
+              <div style={{ display: 'grid', gap: '0.25rem', fontSize: '0.875rem' }}>
+                <p><strong>Servicio:</strong> ${Number(pricing.basePrice).toLocaleString('es-MX')} {pricing.currency}</p>
+                <p><strong>Comisi√≥n plataforma (10%):</strong> ${Number(pricing.commission).toLocaleString('es-MX')} {pricing.currency}</p>
+                <p style={{ fontWeight: 800, color: 'var(--primary)' }}><strong>Total a transferir:</strong> ${Number(pricing.total).toLocaleString('es-MX')} {pricing.currency}</p>
+              </div>
+            </div>
+          )}
           <p style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Paso 3: Confirmar solicitud</p>
           <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>
             Horario: {new Date(selectedSlot).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
@@ -322,12 +331,13 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
         className="btn btn-primary profile-booking-submit"
         style={{ width: '100%', justifyContent: 'center', opacity: bookingStep === 'confirm_submit' && !isLoading ? 1 : 0.5 }}
       >
-        {isLoading || transferProofUploading ? 'Procesando...' : isAuthenticated ? 'Confirmar y crear cita' : 'Inicia SesiÛn para Agendar'}
+        {isLoading || transferProofUploading ? 'Procesando...' : isAuthenticated ? 'Confirmar y crear cita' : 'Inicia Sesi√≥n para Agendar'}
       </button>
 
       <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', textAlign: 'center', marginTop: '1rem' }}>
-        La cita se guarda solo despuÈs de confirmar "Ya transferÌ".
+        La cita se guarda solo despu√©s de confirmar "Ya transfer√≠".
       </p>
     </div>
   );
 }
+

@@ -25,6 +25,7 @@ export function VisoBot() {
   const [inputValue, setInputValue] = useState('');
   const [service, setService] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const messagesContainerRef = useRef(null);
 
   const addBotMessage = (text, options = null) => {
@@ -52,6 +53,13 @@ export function VisoBot() {
       QUICK_SERVICES.map((s) => ({ label: s, value: `service:${s}` }))
     );
   }, [isOpen, messages.length]);
+
+  useEffect(() => {
+    const syncViewport = () => setIsMobile(window.innerWidth <= 768);
+    syncViewport();
+    window.addEventListener('resize', syncViewport);
+    return () => window.removeEventListener('resize', syncViewport);
+  }, []);
 
   const routeToDirectory = (query) => {
     navigate(`/directory?q=${encodeURIComponent(query || service || '')}`);
@@ -195,9 +203,10 @@ export function VisoBot() {
           className="visobot-chat-panel"
           style={{
             position: 'fixed',
-            bottom: '6.5rem',
-            right: '1.5rem',
-            width: 'min(380px, calc(100vw - 2rem))',
+            bottom: isMobile ? '5.25rem' : '6.5rem',
+            right: isMobile ? '0.5rem' : '1.5rem',
+            left: isMobile ? '0.5rem' : 'auto',
+            width: isMobile ? 'calc(100vw - 1rem)' : 'min(380px, calc(100vw - 2rem))',
             height: 'min(600px, 75vh)',
             background: 'var(--surface)',
             borderRadius: 'var(--radius-xl)',
@@ -218,7 +227,7 @@ export function VisoBot() {
             </button>
           </div>
 
-          <div ref={messagesContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '1rem 1rem 5rem', background: 'var(--surface-container-lowest)' }}>
+          <div ref={messagesContainerRef} style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '1rem 1rem 6.5rem' : '1rem 1rem 5rem', background: 'var(--surface-container-lowest)' }}>
             {messages.map(renderBubble)}
             {isTyping && (
               <div style={{ padding: '0.75rem 1rem', background: 'var(--surface-container-low)', borderRadius: '1rem', width: 'fit-content' }}>
@@ -227,7 +236,32 @@ export function VisoBot() {
             )}
           </div>
 
-          <div style={{ position: 'sticky', bottom: 0, padding: '1rem', borderTop: '1px solid var(--outline-variant)', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', zIndex: 10 }}>
+          <div
+            className={isMobile ? 'fixed bottom-0 left-0 w-full z-50 bg-white/90 backdrop-blur-md p-4' : ''}
+            style={
+              isMobile
+                ? {
+                    position: 'fixed',
+                    bottom: 0,
+                    left: 0,
+                    width: '100%',
+                    zIndex: 50,
+                    background: 'rgba(255,255,255,0.9)',
+                    backdropFilter: 'blur(12px)',
+                    padding: '1rem',
+                    borderTop: '1px solid var(--outline-variant)',
+                  }
+                : {
+                    position: 'sticky',
+                    bottom: 0,
+                    padding: '1rem',
+                    borderTop: '1px solid var(--outline-variant)',
+                    background: 'rgba(255,255,255,0.8)',
+                    backdropFilter: 'blur(12px)',
+                    zIndex: 10,
+                  }
+            }
+          >
             <form
               onSubmit={(e) => {
                 e.preventDefault();

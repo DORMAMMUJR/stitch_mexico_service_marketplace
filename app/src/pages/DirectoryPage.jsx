@@ -170,7 +170,7 @@ export function DirectoryPage() {
       </div>
 
       {/* Main Content */}
-      <div className="container layout-directory" style={{ paddingBottom: '8rem' }}>
+      <div className="container layout-directory pb-32 max-md:pb-36" style={{ paddingBottom: '8rem' }}>
         {/* Filters Sidebar */}
         <aside className="card hide-mobile" style={{ padding: '1.5rem', height: 'fit-content', position: 'sticky', top: '5rem' }}>
           <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.0625rem', color: 'var(--secondary)', marginBottom: '1.5rem' }}>Filtros</h3>

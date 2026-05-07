@@ -334,8 +334,10 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
         {isLoading || transferProofUploading ? 'Procesando...' : isAuthenticated ? 'Confirmar y crear cita' : 'Inicia Sesión para Agendar'}
       </button>
 
-      <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', textAlign: 'center', marginTop: '1rem' }}>
-        La cita se guarda solo después de confirmar "Ya transferí".
+      <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', textAlign: 'center', marginTop: '1rem', lineHeight: 1.35, whiteSpace: 'normal', overflowWrap: 'anywhere', maxWidth: '100%' }}>
+        La cita se guarda solo despues de confirmar
+        <br />
+        "Ya transferi".
       </p>
     </div>
   );

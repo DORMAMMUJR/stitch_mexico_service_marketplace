@@ -37,7 +37,7 @@ export function DirectoryPage() {
   const [minRating, setMinRating] = useState(0);
   const [verifiedOnly, setVerifiedOnly] = useState(searchParams.get('verifiedOnly') === 'true');
   const { showToast } = useToast();
-  const avatarFallback = '/default-avatar.png';
+  const avatarFallback = '/default-avatar.svg';
 
   // Leer category y query de la URL (vienen del Hero o de las categorías)
   const queryFromUrl = searchParams.get('q') || '';

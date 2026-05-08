@@ -1,42 +1,65 @@
-import { useState, useEffect, createContext, useContext, useCallback } from 'react';
+﻿import { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { apiFetch } from '../lib/api';
 
 const AuthContext = createContext(null);
+let sessionCheckPromise = null;
+
+async function fetchSessionUser() {
+  if (!sessionCheckPromise) {
+    sessionCheckPromise = apiFetch('/auth/me')
+      .then((data) => data?.user ?? null)
+      .catch(() => null)
+      .finally(() => {
+        setTimeout(() => {
+          sessionCheckPromise = null;
+        }, 0);
+      });
+  }
+
+  return sessionCheckPromise;
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Al montar, verificar si hay una sesión activa con la cookie HttpOnly
+  // Al montar, verificar si hay una sesion activa con la cookie HttpOnly
   useEffect(() => {
+    let cancelled = false;
+
     const checkSession = async () => {
       try {
-        const data = await apiFetch('/auth/me');
-        setUser(data.user);
-      } catch (err) {
-        // No hay sesión activa o cookie expirada
-        setUser(null);
+        const sessionUser = await fetchSessionUser();
+        if (!cancelled) {
+          setUser(sessionUser);
+        }
       } finally {
-        // isLoading solo pasa a false aquí, por lo que PrivateRoute siempre
+        // isLoading solo pasa a false aqui, por lo que PrivateRoute siempre
         // espera la respuesta del servidor antes de tomar decisiones de rol.
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
-    // Leer localStorage SOLO para pre-poblar la UI rápidamente (reduce flash).
-    // NUNCA se usa para autorización — isLoading permanece en `true` hasta
+    // Leer localStorage SOLO para pre-poblar la UI rapidamente (reduce flash).
+    // NUNCA se usa para autorizacion - isLoading permanece en true hasta
     // que checkSession resuelve y sobreescribe este valor con la fuente de verdad.
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser));
-      } catch (e) {
+      } catch {
         // datos corruptos, ignorar
       }
     }
 
     // Verificar con el servidor (fuente de verdad)
     checkSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = useCallback((token, userData) => {
@@ -47,7 +70,7 @@ export function AuthProvider({ children }) {
   // Actualiza campos parciales del usuario (ej. avatarUrl tras subir foto)
   // Uso: updateUser({ avatarUrl: 'https://...' })
   const updateUser = useCallback((partialUpdate) => {
-    setUser(prev => {
+    setUser((prev) => {
       if (!prev) return prev;
       const updated = { ...prev, ...partialUpdate };
       localStorage.setItem('user', JSON.stringify(updated));
@@ -63,7 +86,7 @@ export function AuthProvider({ children }) {
         credentials: 'include',
       });
     } catch (err) {
-      console.error('Error al cerrar sesión:', err);
+      console.error('Error al cerrar sesion:', err);
     } finally {
       localStorage.removeItem('user');
       localStorage.removeItem('token'); // Limpiar cualquier residuo de versiones anteriores

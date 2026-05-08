@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useChat } from '../hooks/useChat';
 
 export function ChatWidget({ professionalName, professionalId }) {
@@ -18,11 +18,12 @@ export function ChatWidget({ professionalName, professionalId }) {
 
   return (
     <div
-      className="card glass-card profile-chat-widget"
+      className="card glass-card profile-chat-widget profile-chat-shell"
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: '520px',
+        height: 'clamp(420px, 68vh, 640px)',
+        minHeight: '420px',
         overflow: 'hidden',
       }}
     >
@@ -47,6 +48,7 @@ export function ChatWidget({ professionalName, professionalId }) {
           display: 'flex',
           flexDirection: 'column',
           gap: '1rem',
+          overflowX: 'hidden',
         }}
       >
         {messages.map((msg) => (
@@ -61,10 +63,13 @@ export function ChatWidget({ professionalName, professionalId }) {
               padding: '0.75rem 1rem', 
               borderRadius: 'var(--radius-lg)', 
               fontSize: '0.875rem',
+              lineHeight: 1.5,
               background: msg.sender === 'bot' ? 'var(--surface-container-low)' : 'var(--secondary)',
               color: msg.sender === 'bot' ? 'var(--on-surface)' : 'white',
               borderBottomRightRadius: msg.sender === 'user' ? '4px' : 'var(--radius-lg)',
               borderBottomLeftRadius: msg.sender === 'bot' ? '4px' : 'var(--radius-lg)',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
             }}>
               {msg.text}
             </div>
@@ -107,7 +112,7 @@ export function ChatWidget({ professionalName, professionalId }) {
             placeholder="Escribe un mensaje..." 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             style={{ flex: 1, background: 'transparent', fontSize: '0.875rem', padding: '0.375rem 0', border: 'none', outline: 'none' }} 
           />
           <button 

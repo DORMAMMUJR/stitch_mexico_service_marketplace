@@ -650,6 +650,10 @@ img { display: block; max-width: 100%; }
   width: 100%;
 }
 
+.profile-mobile-quicknav {
+  display: none;
+}
+
 .profile-sticky-panel {
   position: sticky;
   top: 5.25rem;
@@ -731,6 +735,11 @@ img { display: block; max-width: 100%; }
   width: 100%;
 }
 
+.profile-chat-shell {
+  width: 100%;
+  max-width: 100%;
+}
+
 .layout-bento { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
 .dashboard-header-actions { display: flex; gap: 0.75rem; }
 
@@ -765,7 +774,7 @@ img { display: block; max-width: 100%; }
   .client-dashboard-card { padding: 1rem; }
   .layout-profile { padding: 1rem 1rem 3rem; }
   .chat-sticky-desktop { position: static !important; height: auto !important; min-height: 400px; }
-  .profile-chat-widget { height: 460px !important; }
+  .profile-chat-widget { height: clamp(380px, 60vh, 540px) !important; }
   
   /* Grid Overrides for Mobile */
   .grid-2 { grid-template-columns: 1fr; }
@@ -846,6 +855,28 @@ img { display: block; max-width: 100%; }
     gap: 1rem;
   }
 
+  .profile-mobile-quicknav {
+    position: sticky;
+    top: 4.5rem;
+    z-index: 34;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0.625rem;
+    border: 1px solid var(--outline-variant);
+    border-radius: var(--radius-xl);
+    background: rgba(11, 26, 22, 0.88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .profile-mobile-quicknav-btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.625rem;
+  }
+
   .profile-hero-card {
     padding: 1rem !important;
   }
@@ -906,7 +937,7 @@ img { display: block; max-width: 100%; }
 
   /* Chips del hero: reducir tamaÃ±o */
   .hero-chip { font-size: 0.75rem !important; padding: 0.25rem 0.625rem !important; }
-  .profile-chat-widget { height: 420px !important; }
+  .profile-chat-widget { height: clamp(340px, 56vh, 440px) !important; }
 }
 
 /* â”€â”€ Utility â”€â”€ */

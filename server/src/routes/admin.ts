@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcrypt';
 import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
 import { sendEmail, emailTemplates } from '../lib/email';
@@ -16,6 +17,14 @@ function parseAppointmentMeta(notes?: string | null): any {
   }
 }
 
+function isStrongPassword(password: string) {
+  if (password.length < 8) return false;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /\d/.test(password);
+  return hasUpper && hasLower && hasNumber;
+}
+
 // FIX: Guard de ADMIN centralizado — se aplica a TODAS las rutas del router.
 // Elimina la necesidad de repetir el check en cada handler individualmente.
 // Si alguien agrega un nuevo endpoint y olvida el check, igual queda protegido.
@@ -24,6 +33,77 @@ router.use(authenticate, (req: any, res: any, next: any) => {
     return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
   }
   next();
+});
+
+// GET /api/admin/operators
+router.get('/operators', async (_req: any, res: any, next: any) => {
+  try {
+    const operators = await prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+
+    res.json(operators);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/admin/operators
+router.post('/operators', async (req: any, res: any, next: any) => {
+  try {
+    const rawName = String(req.body?.name || '').trim();
+    const normalizedEmail = String(req.body?.email || '').trim().toLowerCase();
+    const rawPassword = String(req.body?.password || '');
+
+    if (!rawName) {
+      return res.status(400).json({ error: 'El nombre es obligatorio' });
+    }
+
+    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: 'Correo electrónico inválido' });
+    }
+
+    if (!isStrongPassword(rawPassword)) {
+      return res.status(400).json({
+        error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número',
+      });
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (existingUser) {
+      return res.status(409).json({ error: 'El correo ya está registrado' });
+    }
+
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
+    const created = await prisma.user.create({
+      data: {
+        name: rawName,
+        email: normalizedEmail,
+        passwordHash,
+        role: 'ADMIN',
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+
+    res.status(201).json(created);
+  } catch (error) {
+    next(error);
+  }
 });
 
 // GET /api/admin/verifications/pending

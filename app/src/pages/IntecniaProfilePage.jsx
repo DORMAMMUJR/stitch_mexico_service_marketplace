@@ -13,6 +13,8 @@ export function IntecniaProfilePage() {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const chatRef = useRef(null);
+  const profileRef = useRef(null);
+  const bookingRef = useRef(null);
 
   const guestId = localStorage.getItem('guest_id') || undefined;
   const { data: profile, isLoading, error } = useProfile(id, user?.id, guestId);
@@ -45,6 +47,8 @@ export function IntecniaProfilePage() {
   };
 
   const scrollToChat = () => chatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const scrollToProfile = () => profileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const scrollToBooking = () => bookingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   if (isLoading) {
     return (
@@ -96,7 +100,13 @@ export function IntecniaProfilePage() {
       )}
 
       <div className="container layout-profile profile-pro-grid pb-32 max-md:pb-36" style={{ paddingTop: '1.5rem', paddingBottom: '8rem' }}>
-        <section>
+        <div className="profile-mobile-quicknav">
+          <button type="button" className="btn btn-outline profile-mobile-quicknav-btn" onClick={scrollToProfile}>Perfil</button>
+          <button type="button" className="btn btn-outline profile-mobile-quicknav-btn" onClick={scrollToBooking}>Agenda</button>
+          <button type="button" className="btn btn-primary profile-mobile-quicknav-btn" onClick={scrollToChat}>Chat</button>
+        </div>
+
+        <section ref={profileRef}>
           <article className="card glass-card profile-hero-card" style={{ padding: '1.5rem', marginBottom: '1rem' }}>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
               <div style={{ position: 'relative' }}>
@@ -178,7 +188,7 @@ export function IntecniaProfilePage() {
 
         <aside className="profile-side-col" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
           <div className="profile-sticky-panel" style={{ display: 'grid', gap: '1rem', minWidth: 0 }}>
-            <div onClickCapture={protectPrivateAction}>
+            <div ref={bookingRef} onClickCapture={protectPrivateAction}>
               <AvailabilitySelector
                 professionalId={id}
                 onBooked={(text) => setBookingBanner(text)}

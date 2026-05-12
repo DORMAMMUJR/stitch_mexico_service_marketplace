@@ -25,6 +25,7 @@ export function ChatWidget({ professionalName, professionalId }) {
         height: 'clamp(420px, 68vh, 640px)',
         minHeight: '420px',
         overflow: 'hidden',
+        minWidth: 0,
       }}
     >
       <div className="profile-chat-header" style={{ padding: '1rem 1.125rem', borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -99,11 +100,11 @@ export function ChatWidget({ professionalName, professionalId }) {
       <div
         className="chat-input-area profile-chat-input-area"
         style={{
-          position: 'sticky',
-          bottom: 0,
+          position: 'relative',
           padding: '0.875rem',
           borderTop: '1px solid rgba(0,0,0,0.04)',
           zIndex: 2,
+          flexShrink: 0,
         }}
       >
         <div className="profile-chat-input-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.875rem' }}>

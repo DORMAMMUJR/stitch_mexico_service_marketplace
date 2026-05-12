@@ -177,7 +177,7 @@ export function IntecniaProfilePage() {
                   </div>
 
                   <div className="profile-hero-actions">
-                    <button onClick={scrollToChat} className="btn btn-primary">
+                    <button onClick={scrollToChat} className="btn btn-primary profile-msg-btn">
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>forum</span>
                       Mensaje
                     </button>

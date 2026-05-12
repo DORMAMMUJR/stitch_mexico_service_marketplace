@@ -27,13 +27,48 @@ const FILTER_TO_CATEGORY = {
   'Educación y Tutorías': 'GENERAL_MAINTENANCE',
 };
 
+const PRICE_RANGES = [
+  { label: 'Todos', min: 0, max: 5000 },
+  { label: '$0 - $500', min: 0, max: 500 },
+  { label: '$500 - $1,000', min: 500, max: 1000 },
+  { label: '$1,000 - $2,000', min: 1000, max: 2000 },
+  { label: '$2,000+', min: 2000, max: 5000 },
+];
+
+const PLACEHOLDER_PROFESSIONALS = [
+  {
+    id: 'placeholder-legal-1',
+    IS_PLACEHOLDER: true,
+    name: 'Lic. Daniela Ruiz',
+    title: 'Consultora Legal',
+    category: 'LEGAL',
+    rating: 4.9,
+    reviewCount: 27,
+    price: 850,
+    isVerified: true,
+    avatarUrl: null,
+  },
+  {
+    id: 'placeholder-tech-2',
+    IS_PLACEHOLDER: true,
+    name: 'Ing. Marco Salinas',
+    title: 'Especialista en Soporte TI',
+    category: 'IT_SECURITY',
+    rating: 4.8,
+    reviewCount: 19,
+    price: 1200,
+    isVerified: true,
+    avatarUrl: null,
+  },
+];
+
 export function DirectoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [professionals, setProfessionals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
   const [priceMin, setPriceMin] = useState(0);
-  const [priceCap, setPriceCap] = useState(2000);
+  const [priceCap, setPriceCap] = useState(5000);
   const [minRating, setMinRating] = useState(0);
   const [verifiedOnly, setVerifiedOnly] = useState(searchParams.get('verifiedOnly') === 'true');
   const { showToast } = useToast();
@@ -42,6 +77,8 @@ export function DirectoryPage() {
   // Leer category y query de la URL (vienen del Hero o de las categorías)
   const queryFromUrl = searchParams.get('q') || '';
   const categoryFromUrl = searchParams.get('category') || '';
+  const showingPlaceholders = !isLoading && professionals.length === 0;
+  const resultsToRender = showingPlaceholders ? PLACEHOLDER_PROFESSIONALS : professionals;
 
   // Estado de categoría inicializado desde la URL
   const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl);
@@ -98,8 +135,7 @@ export function DirectoryPage() {
   }, [searchTerm, selectedCategory, priceMin, priceCap, minRating, verifiedOnly]);
 
   const handleCategoryChange = (e) => {
-    const label = e.target.value;
-    setSelectedCategory(FILTER_TO_CATEGORY[label] || '');
+    setSelectedCategory(e.target.value);
   };
 
   return (
@@ -168,6 +204,18 @@ export function DirectoryPage() {
             </button>
           ))}
         </div>
+        <div className="directory-quick-filters" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+          {PRICE_RANGES.map((range) => (
+            <button
+              key={range.label}
+              onClick={() => { setPriceMin(range.min); setPriceCap(range.max); }}
+              className={`btn ${priceMin === range.min && priceCap === range.max ? 'btn-primary' : 'btn-outline'}`}
+              style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+            >
+              {range.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Main Content */}
@@ -178,27 +226,21 @@ export function DirectoryPage() {
 
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>CATEGORÍA</label>
-            <select onChange={handleCategoryChange} defaultValue="" style={{ width: '100%', padding: '0.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--on-surface)' }}>
+            <select value={selectedCategory} onChange={handleCategoryChange} style={{ width: '100%', padding: '0.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--on-surface)' }}>
               <option value="">Todas las categorías</option>
-              <option>Salud y Bienestar</option>
-              <option>Consultoría Legal</option>
-              <option>Contabilidad y Finanzas</option>
-              <option>Tecnología y Desarrollo</option>
-              <option>Ingeniería</option>
-              <option>Educación y Tutorías</option>
+              <option value="HEALTH_WELLNESS">Salud y Bienestar</option>
+              <option value="LEGAL">Consultoría Legal</option>
+              <option value="FINANCE_TAX">Contabilidad y Finanzas</option>
+              <option value="IT_SECURITY">Tecnología y Desarrollo</option>
+              <option value="ENGINEERING">Ingeniería</option>
+              <option value="GENERAL_MAINTENANCE">Educación y Tutorías</option>
             </select>
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.75rem' }}>RANGO DE PRECIOS (MXN)</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-              {[
-                { label: 'Cualquier precio', min: 0, max: 5000 },
-                { label: '$0 - $600', min: 0, max: 600 },
-                { label: '$600 - $1,200', min: 600, max: 1200 },
-                { label: '$1,200 - $2,000', min: 1200, max: 2000 },
-                { label: '$2,000 - $5,000', min: 2000, max: 5000 },
-              ].map(opt => (
+              {PRICE_RANGES.map(opt => (
                 <button
                   key={opt.label}
                   onClick={() => { setPriceMin(opt.min); setPriceCap(opt.max); }}
@@ -214,25 +256,8 @@ export function DirectoryPage() {
                 </button>
               ))}
             </div>
-            <div style={{ marginTop: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                <input type="number" step="200" min="0" max={priceCap} value={priceMin} onChange={(e) => setPriceMin(Math.max(0, Math.min(Number(e.target.value || 0), priceCap)))} className="input-field" />
-                <input type="number" step="200" min={priceMin} max="5000" value={priceCap} onChange={(e) => setPriceCap(Math.max(priceMin, Math.min(Number(e.target.value || 0), 5000)))} className="input-field" />
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="5000"
-                step="200"
-                value={priceCap}
-                onChange={(e) => setPriceCap(Number(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--secondary)' }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.35rem' }}>
-                <span>$0</span>
-                <span>${priceMin.toLocaleString('es-MX')} - ${priceCap.toLocaleString('es-MX')} MXN</span>
-                <span>$5,000</span>
-              </div>
+            <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
+              Rango activo: ${priceMin.toLocaleString('es-MX')} - ${priceCap.toLocaleString('es-MX')} MXN
             </div>
           </div>
 
@@ -271,20 +296,16 @@ export function DirectoryPage() {
             </div>
           </div>
 
-          <button onClick={(e) => { e.preventDefault(); setSelectedCategory(''); setPriceMin(0); setPriceCap(2000); setMinRating(0); setVerifiedOnly(false); showToast('Filtros reiniciados', 'info'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Limpiar Filtros</button>
+          <button onClick={(e) => { e.preventDefault(); setSelectedCategory(''); setPriceMin(0); setPriceCap(5000); setMinRating(0); setVerifiedOnly(false); showToast('Filtros reiniciados', 'info'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Limpiar Filtros</button>
         </aside>
 
         {/* Results */}
         <div>
-          {/* Banner de zona - reemplaza el mapa */}
-          <div className="directory-map-banner" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem', background: 'var(--secondary-container)', borderRadius: 'var(--radius-xl)', marginBottom: '1.5rem', border: '1px solid rgba(16,185,129,0.2)' }}>
-            <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px', color: 'var(--secondary)' }}>location_on</span>
-            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-secondary-container)' }}>
-              Mostrando profesionales verificados en <strong>CDMX y área metropolitana</strong> 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', marginBottom: '1.5rem', border: '1px solid var(--outline-variant)' }}>
+            <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px', color: 'var(--secondary)' }}>view_module</span>
+            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-surface)' }}>
+              Vista principal: listado de especialistas con datos clave y precio visible.
             </p>
-            <button style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--secondary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
-              Ver en mapa
-            </button>
           </div>
 
           {/* Loading State */}
@@ -295,20 +316,23 @@ export function DirectoryPage() {
             </div>
           )}
 
-          {/* Empty State */}
-          {!isLoading && professionals.length === 0 && (
-            <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--on-surface-variant)', marginBottom: '1rem', display: 'block' }}>person_search</span>
-              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>No se encontraron profesionales</h3>
-              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>Intenta ajustar los filtros o buscar con otros términos.</p>
+          {/* Empty State + Placeholder */}
+          {showingPlaceholders && (
+            <div className="card" style={{ textAlign: 'center', padding: '1.5rem', marginBottom: '1rem' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', display: 'block' }}>person_search</span>
+              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.375rem' }}>Directorio en actualización</h3>
+              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>Mostrando especialistas de ejemplo mientras llegan más perfiles reales.</p>
             </div>
           )}
 
           {/* Professional Cards Grid */}
           <div className="directory-results-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '1.25rem' }}>
-            {professionals.map(p => (
+            {resultsToRender.map((p) => {
+              const profilePath = p.IS_PLACEHOLDER ? '/register?role=professional' : `/profile/${p.id}`;
+              const chatPath = p.IS_PLACEHOLDER ? '/register?role=professional' : `/profile/${p.id}?tab=chat`;
+              return (
               <div key={p.id} className="pro-card" style={{ cursor: 'pointer', width: '100%', maxWidth: '420px', margin: '0 auto' }}>
-                  <Link to={`/profile/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+                  <Link to={profilePath} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
                     <div className="directory-avatar" style={{ position: 'relative' }}>
                       <img
@@ -327,7 +351,14 @@ export function DirectoryPage() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1rem', color: 'var(--primary)' }}>{p.name}</h3>
+                        <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1rem', color: 'var(--primary)' }}>
+                          {p.name}
+                          {p.IS_PLACEHOLDER && (
+                            <span style={{ marginLeft: '0.5rem', fontSize: '0.625rem', fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '0.125rem 0.35rem', borderRadius: 'var(--radius-full)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                              Demo
+                            </span>
+                          )}
+                        </h3>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--on-tertiary-container)' }}>
                           <span className="material-symbols-outlined icon-filled" style={{ fontSize: '14px' }}>star</span> {p.rating}
                         </span>
@@ -347,17 +378,21 @@ export function DirectoryPage() {
                           <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>category</span> {CATEGORY_MAP[p.category] || p.category}
                         </span>
                       </div>
+                      <p style={{ fontSize: '0.8125rem', marginTop: '0.375rem', color: 'var(--primary)', fontWeight: 700 }}>
+                        Desde ${Number(p.price || 2000).toLocaleString('es-MX')} MXN
+                      </p>
                     </div>
                   </div>
                   </Link>
                   <div className="directory-card-actions" style={{ display: 'flex', gap: '0.75rem' }}>
-                    <Link to={`/profile/${p.id}?tab=chat`} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem', textDecoration: 'none' }}>
+                    <Link to={chatPath} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem', textDecoration: 'none' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chat</span> Mensaje
                     </Link>
-                    <Link to={`/profile/${p.id}`} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem', textDecoration: 'none' }}>Ver Perfil</Link>
+                    <Link to={profilePath} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem', textDecoration: 'none' }}>{p.IS_PLACEHOLDER ? 'Ver ejemplo' : 'Ver Perfil'}</Link>
                   </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { prisma } from '../lib/db';
 import { env } from '../config/env';
 import { sendEmail, emailTemplates } from '../lib/email';
+import { logger } from '../lib/logger';
 
 const router = Router();
 
@@ -27,7 +28,10 @@ const registerLimiter = rateLimit({
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getJwtKey() {
-  return env.JWT_PRIVATE_KEY || 'secret_fallback_key';
+  if (!env.JWT_PRIVATE_KEY) {
+    throw new Error('JWT_PRIVATE_KEY no está configurada');
+  }
+  return env.JWT_PRIVATE_KEY;
 }
 
 function getJwtAlgorithm(key: string): 'RS256' | 'HS256' {
@@ -37,7 +41,7 @@ function getJwtAlgorithm(key: string): 'RS256' | 'HS256' {
 // ─── POST /api/auth/register ─────────────────────────────────────────────────
 router.post('/register', registerLimiter, async (req, res, next) => {
   try {
-    const { email, password, name, phone, role, guest_id, acceptedTerms, acceptedPrivacy } = req.body;
+    const { email, password, name, phone, role, guest_id, acceptedTerms, acceptedPrivacy, privacyConsentedAt } = req.body;
 
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const fullName = String(name || '').trim();
@@ -67,6 +71,11 @@ router.post('/register', registerLimiter, async (req, res, next) => {
 
     const passwordHash = await bcrypt.hash(passwordValue, 10);
     const userRole = role === 'PROFESSIONAL' ? 'PROFESSIONAL' : 'CLIENT';
+    const parsedPrivacyConsentedAt = privacyConsentedAt ? new Date(privacyConsentedAt) : new Date();
+
+    if (Number.isNaN(parsedPrivacyConsentedAt.getTime())) {
+      return res.status(400).json({ error: 'privacyConsentedAt debe ser una fecha válida' });
+    }
 
     const user = await prisma.user.create({
       data: {
@@ -76,7 +85,7 @@ router.post('/register', registerLimiter, async (req, res, next) => {
         phone: phoneValue,
         role: userRole,
         termsConsentedAt: new Date(),
-        privacyConsentedAt: new Date(),
+        privacyConsentedAt: parsedPrivacyConsentedAt,
       },
     });
 
@@ -112,7 +121,9 @@ router.post('/register', registerLimiter, async (req, res, next) => {
       to: normalizedEmail,
       subject: `Bienvenido a Intecnia, ${fullName}`,
       html: emailTemplates.welcome(fullName, userRole)
-    }).catch(console.error);
+    }).catch((error) => {
+      logger.error({ err: error, email: normalizedEmail }, 'No se pudo enviar correo de bienvenida');
+    });
 
     res.status(201).json({ message: 'Usuario creado exitosamente', userId: user.id });
   } catch (error) {
@@ -142,11 +153,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     const privateKey = getJwtKey();
     const algorithm = getJwtAlgorithm(privateKey);
 
-    // FIX: Usar JWT_ACCESS_EXPIRY del env en lugar de hardcodear '7d'
-    // El token y la cookie deben tener la misma duración.
-    // JWT_ACCESS_EXPIRY default es '15m' pero para sesiones de usuario
-    // usamos 7d como fallback explícito si el env no se cambió del default.
-    const accessExpiry = env.JWT_ACCESS_EXPIRY === '15m' ? '7d' : env.JWT_ACCESS_EXPIRY;
+    const accessExpiry = '7d';
     const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
 
     const token = jwt.sign(
@@ -201,7 +208,10 @@ router.get('/me', (req, res, next) => {
   }
 
   try {
-    const key = (env.JWT_PUBLIC_KEY || env.JWT_PRIVATE_KEY || 'secret_fallback_key') as string;
+    const key = (env.JWT_PUBLIC_KEY || env.JWT_PRIVATE_KEY) as string | undefined;
+    if (!key) {
+      return res.status(500).json({ error: 'Configuración JWT incompleta en el servidor' });
+    }
     const algorithms = key.includes('BEGIN') ? ['RS256'] : ['HS256'];
     const payload = jwt.verify(token, key, { algorithms: algorithms as any }) as any;
 

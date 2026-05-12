@@ -12,6 +12,7 @@
 import { NotificationType } from '@prisma/client';
 import { prisma } from './db';
 import { sendEmail } from './email';
+import { logger } from './logger';
 
 interface NotifyUserParams {
   userId: string;
@@ -45,7 +46,7 @@ export async function notifyUser(params: NotifyUserParams): Promise<void> {
       },
     });
   } catch (err) {
-    console.error('[notifyUser] Error creando notificación en BD:', err);
+    logger.error({ err, userId, type }, '[notifyUser] Error creando notificación en BD');
   }
 
   // 2. Enviar email si se proveyeron los datos
@@ -53,7 +54,7 @@ export async function notifyUser(params: NotifyUserParams): Promise<void> {
     try {
       await sendEmail({ to: email, subject: emailSubject, html: emailHtml });
     } catch (err) {
-      console.error('[notifyUser] Error enviando email:', err);
+      logger.error({ err, userId, email }, '[notifyUser] Error enviando email');
     }
   }
 }
@@ -70,7 +71,7 @@ export async function notifyAdmins(params: Omit<NotifyUserParams, 'userId'>): Pr
     });
 
     if (admins.length === 0) {
-      console.warn('[notifyAdmins] No hay usuarios ADMIN registrados en el sistema.');
+      logger.warn('[notifyAdmins] No hay usuarios ADMIN registrados en el sistema.');
       return;
     }
 
@@ -84,6 +85,6 @@ export async function notifyAdmins(params: Omit<NotifyUserParams, 'userId'>): Pr
       )
     );
   } catch (err) {
-    console.error('[notifyAdmins] Error notificando admins:', err);
+    logger.error({ err }, '[notifyAdmins] Error notificando admins');
   }
 }

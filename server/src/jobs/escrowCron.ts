@@ -1,8 +1,9 @@
 import cron from 'node-cron';
 import { EscrowStateMachine } from '../lib/escrow';
+import { logger } from '../lib/logger';
 
 export function startEscrowCron() {
-  console.log('⏰ Iniciando cron job de Escrow...');
+  logger.info('Iniciando cron job de Escrow');
 
   // Ejecutar inmediatamente al arrancar (para no perder órdenes si el server estuvo caído)
   runEscrowRelease();
@@ -14,11 +15,11 @@ export function startEscrowCron() {
 }
 
 async function runEscrowRelease() {
-  console.log('🔄 Ejecutando revisión de Escrow Automático...');
+  logger.info('Ejecutando revisión de Escrow automático');
   try {
     await EscrowStateMachine.processAutoReleases();
-    console.log('✅ Revisión de Escrow completada.');
+    logger.info('Revisión de Escrow completada');
   } catch (err) {
-    console.error('❌ Error en cron de Escrow:', err);
+    logger.error({ err }, 'Error en cron de Escrow');
   }
 }

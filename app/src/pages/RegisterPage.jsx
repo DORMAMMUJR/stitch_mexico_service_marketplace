@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
@@ -16,23 +16,35 @@ export function RegisterPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const requestedRole = searchParams.get('role') === 'professional' || searchParams.get('intent') === 'publish'
-    ? 'PROFESSIONAL'
-    : 'CLIENT';
+
+  const requestedRole =
+    searchParams.get('role') === 'professional' || searchParams.get('intent') === 'publish'
+      ? 'PROFESSIONAL'
+      : 'CLIENT';
   const intent = searchParams.get('intent');
+
+  const isFormValid =
+    name.trim() !== '' &&
+    phone.trim() !== '' &&
+    email.trim() !== '' &&
+    password.trim() !== '' &&
+    acceptTerms &&
+    acceptPrivacy;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!acceptTerms || !acceptPrivacy) {
-      setError('Debes aceptar los Términos de Servicio y el Aviso de Privacidad para continuar.');
+
+    if (!isFormValid) {
+      setError('Completa los 4 campos y acepta Terminos y Condiciones y Aviso de Privacidad.');
       return;
     }
+
     setError('');
     setIsLoading(true);
 
     try {
-      // 1. Registro
       const guestId = localStorage.getItem('guest_id');
+
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         credentials: 'include',
@@ -46,7 +58,8 @@ export function RegisterPage() {
           guest_id: guestId,
           acceptedTerms: acceptTerms,
           acceptedPrivacy: acceptPrivacy,
-        })
+          privacyConsentedAt: new Date().toISOString(),
+        }),
       });
 
       const data = await res.json();
@@ -55,25 +68,24 @@ export function RegisterPage() {
         throw new Error(data.error || 'Error al crear la cuenta');
       }
 
-      // 2. Auto-Login
       const loginRes = await fetch('/api/auth/login', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       const loginData = await loginRes.json();
 
       if (loginRes.ok) {
-        login(null, loginData.user); // El token viene en cookie HttpOnly, no en el body
+        login(null, loginData.user);
       }
 
-      // 3. Redirección inteligente
-      const returnUrl = sessionStorage.getItem('returnUrl');
-      if (returnUrl) {
+      const redirectTo = sessionStorage.getItem('redirectTo') || sessionStorage.getItem('returnUrl');
+      if (redirectTo) {
+        sessionStorage.removeItem('redirectTo');
         sessionStorage.removeItem('returnUrl');
-        navigate(returnUrl, { replace: true });
+        navigate(redirectTo, { replace: true });
         return;
       }
 
@@ -85,6 +97,7 @@ export function RegisterPage() {
         navigate('/verification', { replace: true });
         return;
       }
+
       navigate('/mis-solicitudes', { replace: true });
     } catch (err) {
       setError(err.message);
@@ -94,7 +107,18 @@ export function RegisterPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        background: `
+          radial-gradient(circle at 85% 15%, rgba(16, 185, 129, 0.15), transparent 40%),
+          radial-gradient(circle at 10% 80%, rgba(6, 78, 59, 0.2), transparent 45%),
+          var(--surface)
+        `,
+      }}
+    >
       <header className="nav-top">
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '4rem' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
@@ -108,10 +132,10 @@ export function RegisterPage() {
         <div style={{ position: 'absolute', top: '10%', right: '20%', width: '300px', height: '300px', background: 'var(--secondary)', filter: 'blur(120px)', opacity: 0.1, borderRadius: '50%' }}></div>
         <div style={{ position: 'absolute', bottom: '10%', left: '20%', width: '300px', height: '300px', background: 'var(--primary-fixed)', filter: 'blur(120px)', opacity: 0.1, borderRadius: '50%' }}></div>
 
-        <div className="card animate-in stagger-1" style={{ width: '100%', maxWidth: '420px', padding: 'clamp(1.5rem, 5vw, 2.5rem)', position: 'relative', zIndex: 1, backdropFilter: 'blur(16px)', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+        <div className="card glass-card animate-in stagger-1" style={{ width: '100%', maxWidth: '420px', padding: 'clamp(1.5rem, 5vw, 2.5rem)', position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <h1 style={{ fontFamily: 'Manrope', fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Crea tu cuenta</h1>
-            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem' }}>Únete al ecosistema de Intecnia</p>
+            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem' }}>Unete al ecosistema de Intecnia</p>
           </div>
 
           {error && (
@@ -123,50 +147,51 @@ export function RegisterPage() {
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nombre Completo</label>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nombre completo</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                style={{ width: '100%', padding: '0.875rem 1rem', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', color: 'var(--on-surface)', fontSize: '0.9375rem', transition: 'all 0.2s' }}
-                placeholder="Ej. Juan Pérez"
+                className="input-field"
+                placeholder="Ej. Juan Perez"
                 required
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teléfono (WhatsApp)</label>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Telefono</label>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                style={{ width: '100%', padding: '0.875rem 1rem', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', color: 'var(--on-surface)', fontSize: '0.9375rem', transition: 'all 0.2s' }}
+                className="input-field"
                 placeholder="Ej. +52 55 1234 5678"
                 required
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Correo Electrónico</label>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Correo electronico</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                style={{ width: '100%', padding: '0.875rem 1rem', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', color: 'var(--on-surface)', fontSize: '0.9375rem', transition: 'all 0.2s' }}
+                className="input-field"
                 placeholder="tu@email.com"
                 required
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contraseña</label>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contrasena</label>
               <div style={{ position: 'relative' }}>
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  style={{ width: '100%', padding: '0.875rem 2.5rem 0.875rem 1rem', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', color: 'var(--on-surface)', fontSize: '0.9375rem', transition: 'all 0.2s' }}
-                  placeholder="••••••••"
+                  className="input-field"
+                  style={{ paddingRight: '2.5rem' }}
+                  placeholder="********"
                   required
                   minLength="8"
                 />
@@ -179,10 +204,9 @@ export function RegisterPage() {
                   <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{showPassword ? 'visibility_off' : 'visibility'}</span>
                 </button>
               </div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.375rem' }}>Mínimo 8 caracteres.</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.375rem' }}>Minimo 8 caracteres.</p>
             </div>
 
-            {/* Casillas de aceptación legal */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--outline-variant)' }}>
               <label style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', cursor: 'pointer', fontSize: '0.8125rem', color: 'var(--on-surface)', lineHeight: 1.5 }}>
                 <input
@@ -194,9 +218,9 @@ export function RegisterPage() {
                 <span>
                   Acepto los{' '}
                   <Link to="/terms" target="_blank" style={{ color: 'var(--secondary)', fontWeight: 600, textDecoration: 'none' }}>
-                    Términos de Servicio
+                    Terminos y Condiciones
                   </Link>{' '}
-                  de Intecnia *
+                  *
                 </span>
               </label>
 
@@ -208,20 +232,20 @@ export function RegisterPage() {
                   style={{ marginTop: '2px', accentColor: 'var(--secondary)', flexShrink: 0, width: '1rem', height: '1rem' }}
                 />
                 <span>
-                  He leído y acepto el{' '}
+                  Acepto el{' '}
                   <Link to="/privacy" target="_blank" style={{ color: 'var(--secondary)', fontWeight: 600, textDecoration: 'none' }}>
                     Aviso de Privacidad
                   </Link>{' '}
-                  (LFPDPPP) *
+                  *
                 </span>
               </label>
             </div>
 
             <button
               type="submit"
-              disabled={isLoading || !acceptTerms || !acceptPrivacy}
+              disabled={isLoading || !isFormValid}
               className="btn btn-primary"
-              style={{ width: '100%', justifyContent: 'center', padding: '0.875rem', fontSize: '1rem', marginTop: '0.5rem', opacity: (!acceptTerms || !acceptPrivacy) ? 0.5 : 1, transition: 'opacity 0.2s' }}
+              style={{ width: '100%', justifyContent: 'center', padding: '0.875rem', fontSize: '1rem', marginTop: '0.5rem', opacity: !isFormValid ? 0.5 : 1, transition: 'opacity 0.2s' }}
             >
               {isLoading ? (
                 <>
@@ -229,14 +253,14 @@ export function RegisterPage() {
                   Procesando...
                 </>
               ) : (
-                'Crear Cuenta'
+                'Crear cuenta'
               )}
             </button>
           </form>
 
           <div style={{ textAlign: 'center', marginTop: '2rem' }}>
             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-              ¿Ya tienes una cuenta? <Link to="/login" style={{ color: 'var(--secondary)', fontWeight: 600, textDecoration: 'none' }}>Inicia sesión</Link>
+              Ya tienes una cuenta? <Link to="/login" style={{ color: 'var(--secondary)', fontWeight: 600, textDecoration: 'none' }}>Inicia sesion</Link>
             </p>
           </div>
         </div>

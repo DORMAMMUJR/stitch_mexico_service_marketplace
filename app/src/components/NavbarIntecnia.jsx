@@ -1,6 +1,54 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+
+const NOTIFICATION_POLL_MS = 60_000;
+
+const getNotificationIcon = (type) => {
+  const normalizedType = String(type || '').toUpperCase();
+  if (normalizedType.includes('APPOINTMENT')) return 'event';
+  if (normalizedType.includes('MESSAGE') || normalizedType.includes('CHAT')) return 'chat';
+  if (normalizedType.includes('PAYMENT') || normalizedType.includes('ORDER')) return 'payments';
+  return 'notifications';
+};
+
+const formatRelativeTime = (value) => {
+  if (!value) return 'hace un momento';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'hace un momento';
+
+  const diffMs = Date.now() - date.getTime();
+  const absMs = Math.abs(diffMs);
+  const minuteMs = 60_000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+
+  if (absMs < minuteMs) return 'hace unos segundos';
+  if (absMs < hourMs) return `hace ${Math.floor(absMs / minuteMs)} min`;
+  if (absMs < dayMs) return `hace ${Math.floor(absMs / hourMs)} h`;
+  return `hace ${Math.floor(absMs / dayMs)} d`;
+};
+
+const normalizeNotifications = (payload) => {
+  const raw = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.notifications)
+      ? payload.notifications
+      : [];
+
+  return raw.slice(0, 5).map((n, index) => ({
+    id: n?.id ?? `notification-${index}`,
+    type: n?.type || 'GENERIC',
+    title: n?.title || n?.body || n?.message || 'Nueva notificación',
+    createdAt: n?.createdAt || n?.created_at || new Date().toISOString(),
+    read: Boolean(n?.read ?? n?.isRead),
+  }));
+};
+
+const sampleNotifications = () => ([
+  { id: 'sample-1', type: 'MESSAGE', title: 'Tienes un nuevo mensaje', createdAt: new Date(Date.now() - 5 * 60_000).toISOString(), read: false },
+  { id: 'sample-2', type: 'APPOINTMENT', title: 'Cita confirmada para hoy', createdAt: new Date(Date.now() - 25 * 60_000).toISOString(), read: true },
+]);
 
 export function NavbarIntecnia({ activePage, showAuthActions = true }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -12,6 +60,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
+  const notificationsEndpointRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -29,26 +78,66 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
     navigate('/login');
   };
 
+  const fetchNotifications = useCallback(async ({ showLoader = false, fallbackToSample = false } = {}) => {
+    if (!isAuthenticated) {
+      setNotifs([]);
+      return;
+    }
+
+    if (showLoader) setNotifsLoading(true);
+
+    try {
+      const defaultEndpoints = ['/api/notifications?limit=5', '/api/users/me/notifications?limit=5'];
+      const endpoints = notificationsEndpointRef.current
+        ? [notificationsEndpointRef.current, ...defaultEndpoints.filter((endpoint) => endpoint !== notificationsEndpointRef.current)]
+        : defaultEndpoints;
+      let data = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          const res = await fetch(endpoint, { credentials: 'include' });
+          if (!res.ok) continue;
+          data = await res.json();
+          notificationsEndpointRef.current = endpoint;
+          break;
+        } catch {
+          // intentar siguiente endpoint
+        }
+      }
+
+      if (data) {
+        setNotifs(normalizeNotifications(data));
+      } else if (fallbackToSample) {
+        setNotifs(sampleNotifications());
+      }
+    } finally {
+      if (showLoader) setNotifsLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    fetchNotifications();
+    const intervalId = setInterval(() => {
+      fetchNotifications();
+    }, NOTIFICATION_POLL_MS);
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, fetchNotifications]);
+
   const handleNotifToggle = async () => {
     const willOpen = !notifOpen;
     setNotifOpen(willOpen);
-    if (willOpen && notifs.length === 0) {
-      setNotifsLoading(true);
-      try {
-        const res = await fetch('/api/users/me/notifications?limit=5', { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          setNotifs(Array.isArray(data) ? data : data.notifications || []);
-        }
-      } catch (_) {
-        // noop
-      } finally {
-        setNotifsLoading(false);
-      }
+    if (willOpen) {
+      await fetchNotifications({ showLoader: true, fallbackToSample: true });
     }
   };
 
   const dashboardPath = user?.role === 'ADMIN' ? '/admin' : '/dashboard';
+  const publishServicePath = !isAuthenticated
+    ? '/register?role=professional'
+    : user?.role === 'CLIENT'
+      ? '/dashboard/verification'
+      : '/verification';
 
   return (
     <nav className="nav-top">
@@ -61,7 +150,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
           <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }} className="hide-mobile">
             <Link to="/" className={`nav-link ${activePage === 'home' ? 'active' : ''}`}>Inicio</Link>
             <Link to="/directory" className={`nav-link ${activePage === 'directory' ? 'active' : ''}`}>Directorio</Link>
-            <Link to="/marketplace" className={`nav-link ${activePage === 'marketplace' ? 'active' : ''}`}>Marketplace</Link>
+            <Link to="/marketplace" className={`nav-link ${activePage === 'marketplace' ? 'active' : ''}`}>Inicio</Link>
             <Link to="/categories" className={`nav-link ${activePage === 'categories' ? 'active' : ''}`}>Categorías</Link>
           </div>
         </div>
@@ -73,7 +162,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
                 <Link to="/dashboard" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Dashboard</Link>
               )}
               {user?.role === 'CLIENT' && (
-                <Link to="/verification" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Ofrecer Servicios</Link>
+                <Link to={publishServicePath} className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Ofrecer Servicios</Link>
               )}
               {user?.role === 'ADMIN' && (
                 <Link to="/admin" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Super Admin</Link>
@@ -99,10 +188,11 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
                       position: 'absolute',
                       top: 'calc(100% + 0.75rem)',
                       right: 0,
-                      width: '320px',
+                      width: 'min(320px, calc(100vw - 1rem))',
+                      maxWidth: '320px',
                       maxHeight: '400px',
                       overflowY: 'auto',
-                      background: 'var(--surface-container-lowest)',
+                      background: 'var(--surface-container)',
                       border: '1px solid var(--outline-variant)',
                       borderRadius: 'var(--radius-xl)',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
@@ -146,18 +236,18 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
                               display: 'flex',
                               gap: '0.75rem',
                               alignItems: 'flex-start',
-                              background: n.read ? 'transparent' : 'rgba(45,188,254,0.04)',
+                              background: n.read ? 'transparent' : 'var(--surface-container-low)',
                             }}
                           >
                             <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--secondary)', flexShrink: 0, marginTop: '2px' }}>
-                              {n.type === 'APPOINTMENT' ? 'event' : n.type === 'MESSAGE' ? 'chat' : 'info'}
+                              {getNotificationIcon(n.type)}
                             </span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface)', lineHeight: 1.4, marginBottom: '0.25rem' }}>
-                                {n.body || n.message || n.title}
+                                {n.title}
                               </p>
                               <p style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)' }}>
-                                {n.createdAt ? new Date(n.createdAt).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                                {formatRelativeTime(n.createdAt)}
                               </p>
                             </div>
                             {!n.read && (
@@ -260,6 +350,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
             <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Link to="/login" className="btn" style={{ fontSize: '0.8125rem', color: 'var(--on-surface)' }}>Iniciar Sesión</Link>
               <Link to="/register" className="btn btn-primary" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Regístrate</Link>
+              <Link to="/register?role=professional" className="btn btn-outline" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>Publicar mi servicio</Link>
             </div>
           ) : (
             <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -275,7 +366,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
       <div className={`mobile-menu ${mobileOpen ? 'open' : ''}`}>
         <Link to="/" className="nav-link" onClick={() => setMobileOpen(false)}>Inicio</Link>
         <Link to="/directory" className="nav-link" onClick={() => setMobileOpen(false)}>Directorio</Link>
-        <Link to="/marketplace" className="nav-link" onClick={() => setMobileOpen(false)}>Marketplace</Link>
+        <Link to="/marketplace" className="nav-link" onClick={() => setMobileOpen(false)}>Inicio</Link>
         <Link to="/categories" className="nav-link" onClick={() => setMobileOpen(false)}>Categorías</Link>
 
         {isAuthenticated ? (
@@ -288,7 +379,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
             )}
             {user?.role === 'CLIENT' && (
               <>
-                <Link to="/verification" className="nav-link" onClick={() => setMobileOpen(false)}>Ofrecer Servicios</Link>
+                <Link to={publishServicePath} className="nav-link" onClick={() => setMobileOpen(false)}>Ofrecer Servicios</Link>
                 <Link to="/dashboard" className="nav-link" onClick={() => setMobileOpen(false)}>Mis Citas</Link>
               </>
             )}
@@ -299,6 +390,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
           <>
             <Link to="/login" className="nav-link" onClick={() => setMobileOpen(false)}>Iniciar Sesión</Link>
             <Link to="/register" className="nav-link" style={{ color: 'var(--secondary)' }} onClick={() => setMobileOpen(false)}>Crear Cuenta</Link>
+            <Link to="/register?role=professional" className="nav-link" style={{ color: 'var(--secondary)' }} onClick={() => setMobileOpen(false)}>Publicar mi servicio</Link>
           </>
         ) : (
           <Link to="/register?role=professional" className="nav-link" style={{ color: 'var(--secondary)' }} onClick={() => setMobileOpen(false)}>Publicar servicio</Link>
@@ -307,4 +399,3 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
     </nav>
   );
 }
-

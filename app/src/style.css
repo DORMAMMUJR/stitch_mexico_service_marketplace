@@ -47,8 +47,8 @@
   --on-background: #eef6f2;
 
   /* Outline */
-  --outline: rgba(255, 255, 255, 0.14);
-  --outline-variant: rgba(255, 255, 255, 0.08);
+  --outline: rgba(255, 255, 255, 0.24);
+  --outline-variant: rgba(255, 255, 255, 0.16);
 
   /* Inverse */
   --inverse-surface: #1e293b;
@@ -762,6 +762,13 @@ img { display: block; max-width: 100%; }
   .hide-mobile { display: none !important; }
   .hamburger-btn { display: block; }
   .dashboard-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .grid-sidebar-right { grid-template-columns: 1fr; }
+  .dashboard-main { padding: 2rem 1.5rem; }
+  .layout-profile { grid-template-columns: 1fr; }
+  .profile-sticky-panel { position: static; }
 }
 
 @media (max-width: 768px) {

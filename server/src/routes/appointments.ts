@@ -3,6 +3,7 @@ import { prisma } from '../lib/db';
 import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import { notifyUser } from '../lib/notifications';
 import { uploadPrivateDoc } from '../lib/upload';
+import { logger } from '../lib/logger';
 
 const router = Router();
 
@@ -504,7 +505,7 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
         ${service ? `<p><strong>Servicio:</strong> ${service}</p>` : ''}
         ${notes ? `<p><strong>Notas:</strong> ${notes}</p>` : ''}
       `,
-    }).catch(console.error);
+    }).catch((error) => logger.error({ err: error, appointmentId: appointment.id }, 'Error notificando nueva cita al profesional'));
 
     res.status(201).json({ message: 'Cita creada con estado pending de pago', appointment });
   } catch (error) {
@@ -562,7 +563,7 @@ router.patch('/:id/cancel', authenticate, async (req: any, res: any, next: any) 
         email: appointment.professional.user.email,
         emailSubject: 'Cita cancelada — Intecnia',
         emailHtml: `<p>El cliente ha cancelado la cita agendada. Puedes revisar tu agenda en el dashboard.</p>`,
-      }).catch(console.error);
+      }).catch((error) => logger.error({ err: error, appointmentId: id }, 'Error notificando cancelación al profesional'));
     }
 
     if (isProfessional && appointment.client) {
@@ -575,7 +576,7 @@ router.patch('/:id/cancel', authenticate, async (req: any, res: any, next: any) 
         email: appointment.client.email,
         emailSubject: 'Tu cita fue cancelada — Intecnia',
         emailHtml: `<p>El profesional ha cancelado tu cita. Te recomendamos agendar un nuevo horario.</p>`,
-      }).catch(console.error);
+      }).catch((error) => logger.error({ err: error, appointmentId: id }, 'Error notificando cancelación al cliente'));
     }
 
     res.json({ message: 'Cita cancelada con éxito', appointment: updated });

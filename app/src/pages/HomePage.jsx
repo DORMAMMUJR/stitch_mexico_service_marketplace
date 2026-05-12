@@ -157,6 +157,11 @@ function FloatingChatButton() {
 export function HomePage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+  const publishServicePath = !isAuthenticated
+    ? '/register?role=professional'
+    : user?.role === 'CLIENT'
+      ? '/dashboard/verification'
+      : '/verification';
   const [searchQuery, setSearchQuery] = useState('');
   const [featured, setFeatured] = useState([]);
   const [loadingFeatured, setLoadingFeatured] = useState(true);
@@ -586,7 +591,7 @@ export function HomePage() {
               Conseguir especialista ahora
             </button>
             <Link
-              to={isAuthenticated ? '/verification' : '/register?role=professional&intent=publish'}
+              to={publishServicePath}
               className="btn"
               style={{ background: 'transparent', color: 'white', border: '2px solid #334155', padding: '1rem 2.5rem', fontSize: '1.0625rem', fontWeight: 700 }}
             >

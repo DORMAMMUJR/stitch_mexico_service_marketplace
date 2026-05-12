@@ -4,9 +4,10 @@ import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
 import { EscrowStateMachine } from '../lib/escrow';
 import { validate } from '../middleware/validate';
-import { createOrderSchema, disputeOrderSchema } from '../schemas/orderSchemas';
+import { createOrderSchema, disputeOrderSchema, resolveDisputeSchema } from '../schemas/orderSchemas';
 import { notifyUser } from '../lib/notifications';
 import { env } from '../config/env';
+import { logger } from '../lib/logger';
 
 const router = Router();
 
@@ -21,9 +22,9 @@ const createOrderLimiter = rateLimit({
 });
 
 const checkoutLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: 'Demasiados intentos de pago. Intenta de nuevo en 15 minutos.' },
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  message: { error: 'Demasiados intentos de pago. Intenta de nuevo en 1 hora.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -72,7 +73,7 @@ router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), 
     prisma.professional.findUnique({
       where: { id: professionalId },
       include: { user: { select: { id: true, email: true } } },
-    }).then(prof => {
+    }).then((prof) => {
       if (!prof) return;
       notifyUser({
         userId: prof.userId,
@@ -89,8 +90,12 @@ router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), 
           <p>Precio acordado: $${agreedPrice} MXN</p>
           <a href="${env.APP_URL}/dashboard">Ver orden en mi dashboard</a>
         `,
-      }).catch(console.error);
-    }).catch(console.error);
+      }).catch((error) => {
+        logger.error({ err: error, orderId: order.id, professionalId }, 'Error enviando notificación de orden');
+      });
+    }).catch((error) => {
+      logger.error({ err: error, orderId: order.id, professionalId }, 'Error cargando profesional para notificación');
+    });
 
     res.status(201).json({ message: 'Orden creada exitosamente', order });
   } catch (error) {
@@ -137,7 +142,7 @@ router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res
         description: `Intecnia Order ${order.id}: ${order.description}`,
       },
       {
-        idempotencyKey: `checkout-${order.id}`,
+        idempotencyKey: `checkout-create-intent-order-${order.id}`,
       }
     );
 
@@ -388,7 +393,7 @@ router.patch('/:id/dispute', authenticate, validate(disputeOrderSchema), async (
 // PATCH /api/orders/:id/resolve — Admin resuelve una disputa
 // FIX: Ahora pasa por EscrowStateMachine para mantener consistencia de estados
 // ═══════════════════════════════════════════════════════════════════════════════
-router.patch('/:id/resolve', authenticate, async (req: any, res: any, next: any) => {
+router.patch('/:id/resolve', authenticate, validate(resolveDisputeSchema), async (req: any, res: any, next: any) => {
   try {
     const user = req.user;
     if (user.role !== 'ADMIN') {
@@ -435,9 +440,9 @@ router.patch('/:id/resolve', authenticate, async (req: any, res: any, next: any)
 
     // Si la resolución favorece al profesional, ejecutar el payout real
     if (newStatus === 'PAYOUT_INICIADO') {
-      EscrowStateMachine.executePayout(id).catch(err =>
-        console.error(`Error ejecutando payout post-disputa para orden ${id}:`, err)
-      );
+      EscrowStateMachine.executePayout(id).catch((err) => {
+        logger.error({ err, orderId: id }, 'Error ejecutando payout post-disputa');
+      });
     }
 
     res.json({ message: `Disputa resuelta: ${resolution}`, order: updated });
@@ -523,7 +528,7 @@ router.get('/stripe-connect/status', authenticate, async (req: any, res: any, ne
     try {
       stripe = getStripe();
     } catch {
-      console.warn('[Stripe] stripe-connect/status: Stripe no configurado, devolviendo estado base.');
+      logger.warn('[Stripe] stripe-connect/status: Stripe no configurado, devolviendo estado base.');
       return res.json({ connected: false, payoutsEnabled: false, stripeConfigured: false });
     }
 

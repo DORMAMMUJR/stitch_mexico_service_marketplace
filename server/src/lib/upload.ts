@@ -29,6 +29,7 @@ import multerS3 from 'multer-s3';
 import { S3Client } from '@aws-sdk/client-s3';
 import path from 'path';
 import fs from 'fs';
+import { logger } from './logger';
 
 // ─── Detección de AWS ─────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ const hasAWS =
 let s3: S3Client | null = null;
 
 if (hasAWS) {
-  console.log('☁️  AWS configurado. Usando S3 para almacenamiento.');
+  logger.info('AWS configurado. Usando S3 para almacenamiento');
   s3 = new S3Client({
     region: process.env.AWS_REGION!,
     credentials: {
@@ -50,7 +51,7 @@ if (hasAWS) {
     },
   });
 } else {
-  console.log('💾 AWS no detectado. Usando diskStorage local (solo para desarrollo).');
+  logger.info('AWS no detectado. Usando diskStorage local (solo desarrollo)');
 }
 
 // ─── Factories ────────────────────────────────────────────────────────────────

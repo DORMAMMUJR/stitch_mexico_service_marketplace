@@ -49,19 +49,21 @@ app.use(pinoHttp({ logger }));
 import { env } from './config/env';
 
 const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:4173',
-  'http://localhost:3000',
-  // Agregar dominios de producción desde .env
-  ...(env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : []),
+  ...(env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean) : []),
 ];
+const localDevOrigins = ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:3000'];
+const isProductionEnv = env.NODE_ENV === 'production';
+const effectiveAllowedOrigins = isProductionEnv
+  ? allowedOrigins
+  : Array.from(new Set([...localDevOrigins, ...allowedOrigins]));
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.some(o => origin === o)) {
+    if (effectiveAllowedOrigins.includes(origin)) {
       return callback(null, true);
     }
+    logger.warn({ origin, env: env.NODE_ENV }, 'CORS bloqueado');
     callback(new Error(`CORS bloqueado para: ${origin}`));
   },
   credentials: true,
@@ -77,7 +79,7 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
   try {
     stripe = getStripe();
   } catch {
-    console.warn('[Stripe] Webhook recibido pero Stripe no está configurado. Ignorando.');
+    logger.warn('[Stripe] Webhook recibido pero Stripe no está configurado. Ignorando.');
     return res.status(503).json({ error: 'Stripe no está configurado en este entorno.' });
   }
 
@@ -92,7 +94,7 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
     }
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err: any) {
-    console.error(`❌ Error de firma de Webhook: ${err.message}`);
+    logger.error({ err }, 'Error de firma de Webhook Stripe');
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -102,17 +104,17 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
       const orderId = paymentIntent.metadata.orderId;
 
       if (orderId) {
-        console.log(`💰 Pago completado para la orden: ${orderId}. Cambiando estado a FONDOS_EN_ESCROW...`);
+        logger.info({ orderId }, 'Pago completado. Transición a FONDOS_EN_ESCROW');
         await EscrowStateMachine.transition(orderId, 'FONDOS_EN_ESCROW', {
           stripePaymentIntentId: paymentIntent.id,
         });
       } else {
-        console.warn('⚠️ PaymentIntent succeeded pero no tiene orderId en metadata.');
+        logger.warn('PaymentIntent succeeded pero no tiene orderId en metadata.');
       }
     }
     res.json({ received: true });
   } catch (err) {
-    console.error('Error procesando el evento de Stripe:', err);
+    logger.error({ err }, 'Error procesando evento de Stripe');
     res.status(500).end();
   }
 });
@@ -257,7 +259,7 @@ Mantén respuestas cortas.`;
 
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text();
-      console.error('OpenAI error:', errText);
+      logger.error({ errText }, 'OpenAI error');
       return res.status(502).json({ error: 'Error al contactar OpenAI' });
     }
 
@@ -307,10 +309,15 @@ Sentry.setupExpressErrorHandler(app);
 app.use(globalErrorHandler);
 
 app.listen(Number(port), '0.0.0.0', () => {
-  console.log(`🚀 Intecnia corriendo en http://localhost:${port}`);
-  console.log(`   ENV: ${process.env.NODE_ENV}`);
-  console.log(`   Frontend: ${frontendDist}`);
-  console.log(`   ORM: Prisma Client (producción)`);
+  logger.info(
+    {
+      port: Number(port),
+      env: process.env.NODE_ENV,
+      frontendDist,
+      orm: 'Prisma Client',
+    },
+    'Intecnia backend iniciado'
+  );
 
   // ✅ AGREGAR AQUÍ:
   startEscrowCron();

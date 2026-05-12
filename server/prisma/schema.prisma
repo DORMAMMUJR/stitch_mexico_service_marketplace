@@ -134,6 +134,8 @@ model Order {
   @@index([clientId])
   @@index([professionalId])
   @@index([status])
+  @@index([clientId, status, createdAt])
+  @@index([professionalId, status, createdAt])
   @@index([status, completedAt]) // Para el cron job de escrow
 }
 
@@ -188,6 +190,7 @@ model Notification {
 
   @@index([userId, read]) // Para contar no-leídas eficientemente
   @@index([userId])
+  @@index([userId, createdAt])
 }
 
 model RefreshToken {
@@ -213,13 +216,16 @@ model Message {
   receiverId     String
   content        String
   read           Boolean  @default(false)
+  deletedFor     String[] @default([])
   createdAt      DateTime @default(now())
 
   sender         User     @relation("SentMessages", fields: [senderId], references: [id])
   receiver       User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
 
   @@index([conversationId])
+  @@index([conversationId, createdAt])
   @@index([receiverId])
+  @@index([receiverId, read, createdAt])
 }
 
 enum Role {

@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
+import { Role, OrderStatus } from '@prisma/client';
 import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
 import { sendEmail, emailTemplates } from '../lib/email';
 import { notifyUser } from '../lib/notifications';
+import { logger } from '../lib/logger';
 
 const router = Router();
 
@@ -25,6 +27,29 @@ function isStrongPassword(password: string) {
   return hasUpper && hasLower && hasNumber;
 }
 
+function toPositiveInt(value: unknown, fallback: number) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (Number.isNaN(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
+const SALES_COMPLETED_STATUSES: OrderStatus[] = ['PAYOUT_COMPLETADO', 'COMPLETADO'];
+const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
+  'DRAFT',
+  'PAGO_PENDIENTE',
+  'FONDOS_EN_ESCROW',
+  'EN_PROGRESO',
+  'EN_DISPUTA',
+  'PAYOUT_INICIADO',
+  'PAYOUT_FALLIDO',
+];
+
+function parseRole(value: unknown): Role | null {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  const allowedRoles: Role[] = ['CLIENT', 'PROFESSIONAL', 'ADMIN'];
+  return allowedRoles.includes(normalized as Role) ? (normalized as Role) : null;
+}
+
 // FIX: Guard de ADMIN centralizado — se aplica a TODAS las rutas del router.
 // Elimina la necesidad de repetir el check en cada handler individualmente.
 // Si alguien agrega un nuevo endpoint y olvida el check, igual queda protegido.
@@ -33,6 +58,321 @@ router.use(authenticate, (req: any, res: any, next: any) => {
     return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
   }
   next();
+});
+
+// GET /api/admin/stats
+router.get('/stats', async (_req: any, res: any, next: any) => {
+  try {
+    const [totalUsers, verifiedProfessionals, completedSalesAggregate, ordersByStatus] = await Promise.all([
+      prisma.user.count(),
+      prisma.professional.count({ where: { isVerified: true } }),
+      prisma.order.aggregate({
+        where: { status: { in: SALES_COMPLETED_STATUSES } },
+        _sum: { agreedPrice: true },
+      }),
+      prisma.order.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+    ]);
+
+    const statusCounts = ordersByStatus.reduce((acc, row) => {
+      acc[row.status] = row._count._all;
+      return acc;
+    }, {} as Record<OrderStatus, number>);
+
+    const totalOrders = ordersByStatus.reduce((sum, row) => sum + row._count._all, 0);
+    const activeOrders = ACTIVE_ORDER_STATUSES.reduce((sum, status) => sum + (statusCounts[status] || 0), 0);
+    const completedOrders = SALES_COMPLETED_STATUSES.reduce((sum, status) => sum + (statusCounts[status] || 0), 0);
+
+    res.json({
+      totalUsers,
+      verifiedProfessionals,
+      totalSalesVolume: completedSalesAggregate._sum.agreedPrice
+        ? Number(completedSalesAggregate._sum.agreedPrice)
+        : 0,
+      orders: {
+        total: totalOrders,
+        active: activeOrders,
+        completed: completedOrders,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/users?page=1&limit=20&search=correo
+router.get('/users', async (req: any, res: any, next: any) => {
+  try {
+    const page = toPositiveInt(req.query?.page, 1);
+    const limit = Math.min(toPositiveInt(req.query?.limit, 20), 100);
+    const searchRaw = String(req.query?.search || '').trim();
+
+    const where = searchRaw
+      ? {
+          OR: [
+            { name: { contains: searchRaw, mode: 'insensitive' as const } },
+            { email: { contains: searchRaw, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
+
+    const [total, users] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+          deletionRequestedAt: true,
+          professional: {
+            select: {
+              id: true,
+              title: true,
+              category: true,
+              isVerified: true,
+              verificationStatus: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    res.json({
+      items: users.map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        deletionRequestedAt: user.deletionRequestedAt,
+        professional: user.professional
+          ? {
+              id: user.professional.id,
+              title: user.professional.title,
+              category: user.professional.category,
+              isVerified: user.professional.isVerified,
+              verificationStatus: user.professional.verificationStatus,
+            }
+          : null,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/admin/users/:id
+router.delete('/users/:id', async (req: any, res: any, next: any) => {
+  try {
+    const targetUserId = String(req.params?.id || '').trim();
+    const currentAdminId = req.user?.userId;
+
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'ID de usuario invalido' });
+    }
+
+    if (targetUserId === currentAdminId) {
+      return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta ADMIN' });
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        id: true,
+        role: true,
+        email: true,
+        deletionRequestedAt: true,
+        professional: { select: { id: true } },
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    if (existing.deletionRequestedAt) {
+      return res.json({
+        message: 'El usuario ya estaba desactivado',
+        userId: targetUserId,
+        deletionRequestedAt: existing.deletionRequestedAt,
+      });
+    }
+
+    if (existing.role === 'ADMIN') {
+      const activeAdmins = await prisma.user.count({
+        where: {
+          role: 'ADMIN',
+          deletionRequestedAt: null,
+        },
+      });
+      if (activeAdmins <= 1) {
+        return res.status(409).json({ error: 'No se puede desactivar al ultimo administrador activo' });
+      }
+    }
+
+    const deactivationDate = new Date();
+    const blockedPasswordHash = await bcrypt.hash(`deactivated:${targetUserId}:${deactivationDate.toISOString()}`, 10);
+
+    const softDeleted = await prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: targetUserId },
+        data: {
+          deletionRequestedAt: deactivationDate,
+          passwordHash: blockedPasswordHash,
+        },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          deletionRequestedAt: true,
+        },
+      });
+
+      await tx.refreshToken.deleteMany({ where: { userId: targetUserId } });
+
+      if (existing.professional?.id) {
+        await tx.professional.update({
+          where: { id: existing.professional.id },
+          data: {
+            isVerified: false,
+            verificationStatus: 'REJECTED',
+          },
+        });
+      }
+
+      return updatedUser;
+    });
+
+    logger.info(
+      {
+        adminId: currentAdminId,
+        targetUserId,
+        targetEmail: existing.email,
+        softDeleteField: 'deletionRequestedAt',
+      },
+      'Admin realizo soft delete de usuario',
+    );
+
+    res.json({
+      message: 'Usuario desactivado correctamente (soft delete)',
+      user: softDeleted,
+      authRevoked: true,
+      schemaSuggestion: 'Para bloqueo global y filtro de directorio mas directo, considera agregar User.isActive Boolean @default(true).',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/admin/users/:id/role
+router.patch('/users/:id/role', async (req: any, res: any, next: any) => {
+  try {
+    const targetUserId = String(req.params?.id || '').trim();
+    const currentAdminId = req.user?.userId;
+    const nextRole = parseRole(req.body?.role);
+
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'ID de usuario invalido' });
+    }
+
+    if (!nextRole) {
+      return res.status(400).json({ error: 'Rol invalido. Usa: CLIENT, PROFESSIONAL o ADMIN.' });
+    }
+
+    if (targetUserId === currentAdminId && nextRole !== 'ADMIN') {
+      return res.status(400).json({ error: 'No puedes retirarte el rol ADMIN a ti mismo' });
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        id: true,
+        role: true,
+        email: true,
+        deletionRequestedAt: true,
+        professional: { select: { id: true } },
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    if (existing.deletionRequestedAt) {
+      return res.status(409).json({ error: 'No se puede cambiar el rol de un usuario desactivado' });
+    }
+
+    if (existing.role === 'ADMIN' && nextRole !== 'ADMIN') {
+      const activeAdmins = await prisma.user.count({
+        where: {
+          role: 'ADMIN',
+          deletionRequestedAt: null,
+        },
+      });
+      if (activeAdmins <= 1) {
+        return res.status(409).json({ error: 'No se puede degradar al ultimo administrador activo' });
+      }
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      if (nextRole === 'PROFESSIONAL' && !existing.professional) {
+        await tx.professional.create({
+          data: {
+            userId: targetUserId,
+            title: '',
+            category: 'GENERAL_MAINTENANCE',
+            currency: 'MXN',
+          },
+        });
+      }
+
+      return tx.user.update({
+        where: { id: targetUserId },
+        data: { role: nextRole },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          updatedAt: true,
+        },
+      });
+    });
+
+    logger.info(
+      {
+        adminId: currentAdminId,
+        targetUserId,
+        targetEmail: existing.email,
+        previousRole: existing.role,
+        nextRole,
+      },
+      'Admin modifico el rol de un usuario',
+    );
+
+    res.json({
+      message: 'Rol actualizado correctamente',
+      user: updated,
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // GET /api/admin/operators
@@ -152,7 +492,7 @@ router.patch('/verifications/:id/approve', async (req: any, res: any, next: any)
           to: updatedProf.user.email,
           subject: '¡Verificación Aprobada! - Intecnia',
           html: emailTemplates.verificationApproved(updatedProf.user.name)
-        }).catch(console.error);
+        }).catch((error) => logger.error({ err: error, userId: updatedProf.userId }, 'Error enviando email de verificación aprobada'));
       }
       return doc;
     });
@@ -192,7 +532,7 @@ router.patch('/verifications/:id/reject', async (req: any, res: any, next: any) 
       to: doc.professional.user.email,
       subject: 'Actualizacion requerida en tu Verificacion - Intecnia',
       html: emailTemplates.verificationRejected(doc.professional.user.name, reason.trim())
-    }).catch(console.error);
+    }).catch((error) => logger.error({ err: error, userId: doc.professional.userId }, 'Error enviando email de verificación rechazada'));
 
     res.json({ message: 'Documento rechazado. Se notificara al profesional.', document: doc });
   } catch (error) {
@@ -301,7 +641,7 @@ router.patch('/appointments/:id/meeting-link', async (req: any, res: any, next: 
         email: appointment.client.email,
         emailSubject: 'Link de tu cita — Intecnia',
         emailHtml: `<p>Tu cita ya tiene link de videollamada:</p><p><a href="${meetingLink.trim()}">${meetingLink.trim()}</a></p>`,
-      }).catch(console.error);
+      }).catch((error) => logger.error({ err: error, appointmentId: appointment.id }, 'Error notificando cliente sobre link de cita'));
     }
 
     notifyUser({
@@ -313,7 +653,7 @@ router.patch('/appointments/:id/meeting-link', async (req: any, res: any, next: 
       email: appointment.professional.user.email,
       emailSubject: 'Link actualizado — Intecnia',
       emailHtml: `<p>Se actualizó el link de la cita:</p><p><a href="${meetingLink.trim()}">${meetingLink.trim()}</a></p>`,
-    }).catch(console.error);
+    }).catch((error) => logger.error({ err: error, appointmentId: appointment.id }, 'Error notificando profesional sobre link de cita'));
 
     res.json({ message: 'Link de cita actualizado y enviado', appointment: { ...updated, meetingLink: meetingLink.trim() } });
   } catch (error) {

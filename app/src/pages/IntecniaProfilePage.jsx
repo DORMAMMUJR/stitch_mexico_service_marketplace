@@ -42,7 +42,7 @@ export function IntecniaProfilePage() {
     if (isAuthenticated) return;
     e.stopPropagation();
     e.preventDefault();
-    sessionStorage.setItem('returnUrl', window.location.pathname);
+    sessionStorage.setItem('redirectTo', `${window.location.pathname}${window.location.search}${window.location.hash}`);
     navigate('/login');
   };
 
@@ -206,4 +206,5 @@ export function IntecniaProfilePage() {
     </>
   );
 }
+
 

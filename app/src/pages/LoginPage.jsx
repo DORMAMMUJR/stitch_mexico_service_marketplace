@@ -61,16 +61,18 @@ export function LoginPage() {
 
       login(null, data.user);
 
-      const returnUrl = sessionStorage.getItem('returnUrl');
-      if (returnUrl) {
+      const redirectTo = sessionStorage.getItem('redirectTo') || sessionStorage.getItem('returnUrl');
+      if (redirectTo) {
+        sessionStorage.removeItem('redirectTo');
         sessionStorage.removeItem('returnUrl');
-        navigate(returnUrl, { replace: true });
+        navigate(redirectTo, { replace: true });
         return;
       }
 
       const role = data.user?.role;
       if (role === 'PROFESSIONAL') navigate('/dashboard', { replace: true });
       else if (role === 'CLIENT') navigate('/mis-solicitudes', { replace: true });
+      else if (role === 'ADMIN') navigate('/admin', { replace: true });
       else navigate('/', { replace: true });
     } catch (err) {
       setError(err.message);
@@ -80,7 +82,18 @@ export function LoginPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        background: `
+          radial-gradient(circle at 12% 22%, rgba(16, 185, 129, 0.14), transparent 38%),
+          radial-gradient(circle at 88% 78%, rgba(6, 78, 59, 0.2), transparent 40%),
+          var(--surface)
+        `,
+      }}
+    >
       <header className="nav-top">
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '4rem' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
@@ -94,7 +107,7 @@ export function LoginPage() {
         <div style={{ position: 'absolute', top: '10%', left: '20%', width: '300px', height: '300px', background: 'var(--secondary)', filter: 'blur(120px)', opacity: 0.1, borderRadius: '50%' }}></div>
         <div style={{ position: 'absolute', bottom: '10%', right: '20%', width: '300px', height: '300px', background: 'var(--primary-fixed)', filter: 'blur(120px)', opacity: 0.1, borderRadius: '50%' }}></div>
 
-        <div className="card animate-in stagger-1" style={{ width: '100%', maxWidth: '420px', padding: 'clamp(1.25rem, 4vw, 2rem)', position: 'relative', zIndex: 1, backdropFilter: 'blur(16px)', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+        <div className="card glass-card animate-in stagger-1" style={{ width: '100%', maxWidth: '420px', padding: 'clamp(1.25rem, 4vw, 2rem)', position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <h1 style={{ fontFamily: 'Manrope', fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Bienvenido de nuevo</h1>
             <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem' }}>Ingresa tus credenciales para continuar</p>
@@ -114,7 +127,7 @@ export function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                style={{ width: '100%', padding: '0.875rem 1rem', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', color: 'var(--on-surface)', fontSize: '0.9375rem', transition: 'all 0.2s' }}
+                className="input-field"
                 placeholder="tu@email.com"
                 required
               />
@@ -130,7 +143,8 @@ export function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  style={{ width: '100%', padding: '0.875rem 2.5rem 0.875rem 1rem', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', color: 'var(--on-surface)', fontSize: '0.9375rem', transition: 'all 0.2s' }}
+                  className="input-field"
+                  style={{ paddingRight: '2.5rem' }}
                   placeholder="********"
                   required
                 />

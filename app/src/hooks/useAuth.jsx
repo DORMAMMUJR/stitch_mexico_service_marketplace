@@ -67,12 +67,12 @@ export function AuthProvider({ children }) {
     setUser(userData);
   }, []);
 
-  // Actualiza campos parciales del usuario (ej. avatarUrl tras subir foto)
-  // Uso: updateUser({ avatarUrl: 'https://...' })
-  const updateUser = useCallback((partialUpdate) => {
+  // Actualiza campos parciales del usuario en tiempo real (ej. avatarUrl)
+  const updateUser = useCallback((newData = {}) => {
+    if (!newData || typeof newData !== 'object') return;
     setUser((prev) => {
       if (!prev) return prev;
-      const updated = { ...prev, ...partialUpdate };
+      const updated = { ...prev, ...newData };
       localStorage.setItem('user', JSON.stringify(updated));
       return updated;
     });

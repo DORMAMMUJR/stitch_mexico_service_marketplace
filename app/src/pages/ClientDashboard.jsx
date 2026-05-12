@@ -16,6 +16,11 @@ export function ClientDashboard() {
   const { user, isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const publishServicePath = !isAuthenticated
+    ? '/register?role=professional'
+    : user?.role === 'CLIENT'
+      ? '/dashboard/verification'
+      : '/verification';
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -35,7 +40,11 @@ export function ClientDashboard() {
     .then(([apptsData, ordersData]) => {
       if (Array.isArray(apptsData)) {
         const normalizedAppointments = [...apptsData]
-          .sort((a, b) => new Date(b.scheduledAt || b.createdAt || 0) - new Date(a.scheduledAt || a.createdAt || 0))
+          .sort((a, b) => {
+            const aTime = a?.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
+            const bTime = b?.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
+            return bTime - aTime;
+          })
           .map(app => ({
             ...app,
             dateLabel: app.scheduledAt ? new Date(app.scheduledAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Fecha pendiente',
@@ -54,7 +63,7 @@ export function ClientDashboard() {
     })
     .catch(console.error)
     .finally(() => setLoading(false));
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, user?.name, user?.phone]);
 
   const handleDispute = async (orderId) => {
     const reason = window.prompt('Por favor, indica el motivo de la disputa:');
@@ -171,7 +180,7 @@ export function ClientDashboard() {
             </h1>
             <p style={{ color: 'var(--on-surface-variant)', fontSize: '1rem' }}>Gestiona tus solicitudes y comunícate con tus profesionales.</p>
           </div>
-          <Link to="/verification" className="btn btn-primary" style={{ flexShrink: 0, fontSize: '0.875rem' }}>
+          <Link to={publishServicePath} className="btn btn-primary" style={{ flexShrink: 0, fontSize: '0.875rem' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_business</span>
             Publicar mi servicio
           </Link>
@@ -228,7 +237,7 @@ export function ClientDashboard() {
               </div>
             </div>
             <div className="card client-dashboard-card" style={{ marginBottom: '2rem' }}>
-              <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Tus Solicitudes de Servicio</h2>
+              <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)', marginBottom: '1.5rem' }}>Historial de citas</h2>
           
           {appointments.length === 0 ? (
             <div style={{ padding: '3rem', textAlign: 'center', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--outline-variant)' }}>

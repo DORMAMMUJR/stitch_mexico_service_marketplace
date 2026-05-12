@@ -12,6 +12,7 @@ import { VerificationPage } from './pages/VerificationPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminPanel } from './pages/AdminPanel';
+import { SettingsPaymentsPage } from './pages/SettingsPaymentsPage';
 import { ReservationDirectPage } from './pages/ReservationDirectPage';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
@@ -71,6 +72,31 @@ ReactDOM.createRoot(document.getElementById('app')).render(
               <Route path="/verification" element={
                 <PrivateRoute allowedRoles={['PROFESSIONAL', 'CLIENT']}>
                   <VerificationPage />
+                </PrivateRoute>
+              } />
+              <Route path="/dashboard/verification" element={
+                <PrivateRoute allowedRoles={['PROFESSIONAL', 'CLIENT']}>
+                  <VerificationPage />
+                </PrivateRoute>
+              } />
+              <Route path="/settings" element={
+                <PrivateRoute allowedRoles={['PROFESSIONAL', 'CLIENT']}>
+                  <SettingsPaymentsPage />
+                </PrivateRoute>
+              } />
+              <Route path="/settings/payments" element={
+                <PrivateRoute allowedRoles={['PROFESSIONAL', 'CLIENT']}>
+                  <SettingsPaymentsPage />
+                </PrivateRoute>
+              } />
+              <Route path="/ajustes" element={
+                <PrivateRoute allowedRoles={['PROFESSIONAL', 'CLIENT']}>
+                  <SettingsPaymentsPage />
+                </PrivateRoute>
+              } />
+              <Route path="/ajustes/pagos" element={
+                <PrivateRoute allowedRoles={['PROFESSIONAL', 'CLIENT']}>
+                  <SettingsPaymentsPage />
                 </PrivateRoute>
               } />
 

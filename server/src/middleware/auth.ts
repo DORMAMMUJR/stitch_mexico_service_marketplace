@@ -25,8 +25,8 @@ declare global {
   }
 }
 
-function getVerificationKey(): string {
-  return (env.JWT_PUBLIC_KEY || env.JWT_PRIVATE_KEY || 'secret_fallback_key') as string;
+function getVerificationKey(): string | null {
+  return (env.JWT_PUBLIC_KEY || env.JWT_PRIVATE_KEY || null) as string | null;
 }
 
 function getAlgorithms(key: string): ('RS256' | 'HS256')[] {
@@ -48,6 +48,10 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
 
   try {
     const key = getVerificationKey();
+    if (!key) {
+      res.status(500).json({ error: 'Configuración JWT incompleta en el servidor' });
+      return;
+    }
     const payload = jwt.verify(token, key, {
       algorithms: getAlgorithms(key),
     }) as unknown as JwtPayload;
@@ -79,6 +83,10 @@ export const optionalAuthenticate = (req: Request, res: Response, next: NextFunc
 
   try {
     const key = getVerificationKey();
+    if (!key) {
+      res.status(500).json({ error: 'Configuración JWT incompleta en el servidor' });
+      return;
+    }
     const payload = jwt.verify(token, key, {
       algorithms: getAlgorithms(key),
     }) as unknown as JwtPayload;

@@ -14,7 +14,7 @@ const envSchema = z.object({
   APP_URL: z.string().default('http://localhost:5173'),
 
   // ─── Auth (opcional hasta implementar módulo de auth) ───────────
-  JWT_PRIVATE_KEY: z.string().min(1, 'JWT_PRIVATE_KEY es requerida'),
+  JWT_PRIVATE_KEY: z.string().optional(),
   JWT_PUBLIC_KEY: z.string().optional(),
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
@@ -44,6 +44,14 @@ const parsedEnv = envSchema.safeParse(process.env);
 
 if (!parsedEnv.success) {
   console.error('❌ Invalid environment variables:', parsedEnv.error.format());
+  process.exit(1);
+}
+
+if (
+  parsedEnv.data.NODE_ENV === 'production' &&
+  (!parsedEnv.data.JWT_PRIVATE_KEY || parsedEnv.data.JWT_PRIVATE_KEY.trim() === '')
+) {
+  console.error('❌ JWT_PRIVATE_KEY es obligatoria en producción');
   process.exit(1);
 }
 

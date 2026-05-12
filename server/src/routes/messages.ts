@@ -28,6 +28,7 @@ router.get('/conversations', async (req, res, next) => {
     const allMessages = await prisma.message.findMany({
       where: {
         OR: [{ senderId: myId }, { receiverId: myId }],
+        NOT: { deletedFor: { has: myId } },
       },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -66,7 +67,8 @@ router.get('/conversations', async (req, res, next) => {
       where: { 
         receiverId: myId, 
         read: false,
-        conversationId: { in: Array.from(seen) }
+        conversationId: { in: Array.from(seen) },
+        NOT: { deletedFor: { has: myId } },
       },
       _count: {
         id: true
@@ -103,7 +105,10 @@ router.get('/:conversationId', async (req, res, next) => {
 
   try {
     const messages = await prisma.message.findMany({
-      where: { conversationId },
+      where: {
+        conversationId,
+        NOT: { deletedFor: { has: myId } },
+      },
       orderBy: { createdAt: 'asc' },
       include: {
         sender: { select: { id: true, name: true, avatarUrl: true } },
@@ -112,7 +117,12 @@ router.get('/:conversationId', async (req, res, next) => {
 
     // Marcar como leídos los mensajes que el usuario recibió
     await prisma.message.updateMany({
-      where: { conversationId, receiverId: myId, read: false },
+      where: {
+        conversationId,
+        receiverId: myId,
+        read: false,
+        NOT: { deletedFor: { has: myId } },
+      },
       data: { read: true },
     });
 
@@ -177,8 +187,28 @@ router.delete('/:conversationId', async (req, res, next) => {
   }
 
   try {
-    await prisma.message.deleteMany({ where: { conversationId } });
-    res.json({ message: 'Conversación eliminada' });
+    const messages = await prisma.message.findMany({
+      where: {
+        conversationId,
+        NOT: { deletedFor: { has: myId } },
+      },
+      select: { id: true, deletedFor: true },
+    });
+
+    if (messages.length === 0) {
+      return res.json({ message: 'La conversación ya estaba oculta para este usuario' });
+    }
+
+    await prisma.$transaction(
+      messages.map((message) =>
+        prisma.message.update({
+          where: { id: message.id },
+          data: { deletedFor: { set: [...message.deletedFor, myId] } },
+        })
+      )
+    );
+
+    res.json({ message: 'Conversación ocultada para este usuario' });
   } catch (err) {
     next(err);
   }

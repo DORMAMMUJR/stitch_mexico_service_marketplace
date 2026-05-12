@@ -1,22 +1,47 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { ChatWindow } from '../components/ChatWindow';
 import { useToast } from '../components/ToastContext';
 import { useAuth } from '../hooks/useAuth';
 
+function normalizeAppointments(list) {
+  if (!Array.isArray(list)) return [];
+
+  return [...list]
+    .sort((a, b) => {
+      const aTime = a?.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
+      const bTime = b?.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
+      return bTime - aTime;
+    })
+    .map((app) => ({
+      ...app,
+      dateLabel: app.scheduledAt
+        ? new Date(app.scheduledAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+        : 'Fecha pendiente',
+      timeLabel: app.scheduledAt
+        ? new Date(app.scheduledAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+        : 'Hora por confirmar',
+    }));
+}
+
 export function DashboardPage() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const isProfessional = user?.role === 'PROFESSIONAL';
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [appointments, setAppointments] = useState([]);
+  const [selectedClientAppointment, setSelectedClientAppointment] = useState(null);
+  const [hasActivePayments, setHasActivePayments] = useState(false);
 
   const [dashboardData, setDashboardData] = useState({
     profileViews: 0,
-    totalInteractions: 0,
     appointmentsScheduled: 0,
+    completedAppointments: 0,
+    totalRevenue: 0,
   });
 
   const [profileForm, setProfileForm] = useState({
@@ -41,7 +66,7 @@ export function DashboardPage() {
 
   const tabs = useMemo(() => {
     const base = [
-      { id: 'overview', label: 'Resumen', icon: 'dashboard' },
+      { id: 'overview', label: 'Tablero', icon: 'dashboard' },
       { id: 'appointments', label: 'Citas', icon: 'event' },
       { id: 'messages', label: 'Mensajes', icon: 'forum' },
       { id: 'profile', label: 'Perfil', icon: 'person' },
@@ -71,7 +96,6 @@ export function DashboardPage() {
 
     if (isProfessional) {
       requests.push(
-        fetch('/api/professionals/me/dashboard', { credentials: 'include' }).then((res) => res.json()).catch(() => ({})),
         fetch('/api/professionals/me', { credentials: 'include' }).then((res) => res.json()).catch(() => ({})),
         fetch('/api/professionals/me/availability', { credentials: 'include' }).then((res) => res.json()).catch(() => [])
       );
@@ -79,21 +103,8 @@ export function DashboardPage() {
 
     Promise.all(requests)
       .then((result) => {
-        const [appointmentsJson, authMeJson, proDashboardJson, proProfileJson, proAvailabilityJson] = result;
-
-        const normalizedAppointments = Array.isArray(appointmentsJson)
-          ? [...appointmentsJson]
-              .sort((a, b) => new Date(b.scheduledAt || b.createdAt || 0) - new Date(a.scheduledAt || a.createdAt || 0))
-              .map((app) => ({
-                ...app,
-                dateLabel: app.scheduledAt
-                  ? new Date(app.scheduledAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
-                  : 'Fecha pendiente',
-                timeLabel: app.scheduledAt
-                  ? new Date(app.scheduledAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
-                  : 'Hora por confirmar',
-              }))
-          : [];
+        const [appointmentsJson, authMeJson, proProfileJson, proAvailabilityJson] = result;
+        const normalizedAppointments = normalizeAppointments(appointmentsJson);
 
         setAppointments(normalizedAppointments);
 
@@ -103,10 +114,12 @@ export function DashboardPage() {
 
         if (isProfessional) {
           setDashboardData({
-            profileViews: proDashboardJson?.profileViews || 0,
-            totalInteractions: proDashboardJson?.totalInteractions || 0,
-            appointmentsScheduled: proDashboardJson?.appointmentsScheduled || normalizedAppointments.length,
+            appointmentsScheduled: normalizedAppointments.length,
+            completedAppointments: normalizedAppointments.filter((a) => String(a.status || '').toUpperCase() === 'COMPLETED').length,
+            profileViews: 0,
+            totalRevenue: 0,
           });
+          setHasActivePayments(Boolean(proProfileJson?.stripeAccountId));
 
           setProfileForm({
             name: firstName,
@@ -133,10 +146,12 @@ export function DashboardPage() {
           }
         } else {
           setDashboardData({
-            profileViews: 0,
-            totalInteractions: 0,
             appointmentsScheduled: normalizedAppointments.length,
+            completedAppointments: normalizedAppointments.filter((a) => String(a.status || '').toUpperCase() === 'COMPLETED').length,
+            profileViews: 0,
+            totalRevenue: 0,
           });
+          setHasActivePayments(false);
 
           setProfileForm({
             name: firstName,
@@ -154,7 +169,7 @@ export function DashboardPage() {
         }
       })
       .catch(() => showToast('No se pudieron cargar todos los datos del panel', 'error'))
-      .finally(() => setLoading(false));
+      .finally(() => setIsLoading(false));
   }, [isProfessional, showToast, user?.email, user?.name, user?.phone]);
 
   const handleAvatarChange = async (e) => {
@@ -263,7 +278,7 @@ export function DashboardPage() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
         <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--secondary)', animation: 'spin 1s linear infinite' }}>progress_activity</span>
@@ -310,28 +325,47 @@ export function DashboardPage() {
         {activeTab === 'overview' && (
           <section style={{ display: 'grid', gap: '0.875rem' }}>
             <div className="dashboard-kpi-grid">
-            <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas totales</p>
-              <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{appointments.length}</p>
-            </div>
+              <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas agendadas</p>
+                <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.appointmentsScheduled}</p>
+              </div>
 
-            {isProfessional && (
-              <>
-                <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
+              <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas completadas</p>
+                <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.completedAppointments}</p>
+              </div>
+
+              <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Ingresos</p>
+                <p style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--on-surface-variant)' }}>Proximamente</p>
+              </div>
+
+              {isProfessional && (
+                <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
                   <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Vistas de perfil</p>
                   <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.profileViews}</p>
                 </div>
-                <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Interacciones</p>
-                  <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.totalInteractions}</p>
-                </div>
-                <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas agendadas</p>
-                  <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.appointmentsScheduled}</p>
-                </div>
-              </>
-            )}
+              )}
             </div>
+
+            {isProfessional && (
+              <div className="card glass-card" style={{ padding: '0.875rem 1rem', border: '1px solid var(--outline-variant)' }}>
+                {hasActivePayments ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: 'var(--secondary-container)', color: 'var(--on-secondary-container)', borderRadius: '9999px', padding: '0.35rem 0.7rem', fontSize: '0.8125rem', fontWeight: 700 }}>
+                    Estado de pagos: Activo <span>{'\u2713'}</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => navigate('/settings')}
+                  >
+                    Configurar pagos para recibir depositos {'\u2192'}
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="card glass-card" style={{ padding: '1rem' }}>
               <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>Actividad reciente</h3>
               {appointments.slice(0, 4).length === 0 ? (
@@ -360,10 +394,23 @@ export function DashboardPage() {
                 {appointments.map((app) => {
                   const counterpart = isProfessional ? app.client : app.professional?.user;
                   const counterpartName = counterpart?.name || (isProfessional ? 'Cliente' : 'Profesional');
+                  const counterpartAvatar = counterpart?.avatarUrl || null;
+
                   return (
                     <div key={app.id} className="dashboard-appointment-item" style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                       <div>
-                        <p style={{ fontWeight: 700, color: 'var(--primary)' }}>{counterpartName}</p>
+                        {isProfessional ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedClientAppointment({ name: counterpartName, avatarUrl: counterpartAvatar, scheduledAt: app.scheduledAt })}
+                            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer' }}
+                          >
+                            {counterpartName}
+                          </button>
+                        ) : (
+                          <p style={{ fontWeight: 700, color: 'var(--primary)' }}>{counterpartName}</p>
+                        )}
+
                         <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} - {app.timeLabel}</p>
                         <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{app.status}</p>
                         {app.meetingLink && (
@@ -458,6 +505,47 @@ export function DashboardPage() {
           </section>
         )}
       </main>
+
+      {isProfessional && selectedClientAppointment && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={() => setSelectedClientAppointment(null)}
+            style={{ position: 'absolute', inset: 0, border: 'none', background: 'rgba(0,0,0,0.45)', cursor: 'pointer' }}
+            aria-label="Cerrar"
+          />
+          <aside className="card glass-card" style={{ position: 'relative', width: 'min(420px, 100vw)', height: '100%', borderRadius: 0, borderLeft: '1px solid var(--outline-variant)', padding: '1rem 1.1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)', margin: 0 }}>Detalle del cliente</h3>
+              <button type="button" className="btn btn-outline" onClick={() => setSelectedClientAppointment(null)}>Cerrar</button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', padding: '0.875rem', borderRadius: 'var(--radius-lg)', background: 'var(--surface-container-low)' }}>
+              {selectedClientAppointment.avatarUrl ? (
+                <img
+                  src={selectedClientAppointment.avatarUrl}
+                  alt={selectedClientAppointment.name}
+                  style={{ width: '3rem', height: '3rem', borderRadius: '50%', objectFit: 'cover' }}
+                />
+              ) : (
+                <div style={{ width: '3rem', height: '3rem', borderRadius: '50%', background: 'var(--secondary-container)', color: 'var(--on-secondary-container)', display: 'grid', placeItems: 'center', fontWeight: 700 }}>
+                  {selectedClientAppointment.name?.charAt(0)?.toUpperCase() || 'C'}
+                </div>
+              )}
+
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, color: 'var(--primary)' }}>{selectedClientAppointment.name}</p>
+                <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--on-surface-variant)' }}>
+                  {selectedClientAppointment.scheduledAt
+                    ? new Date(selectedClientAppointment.scheduledAt).toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : 'Sin fecha confirmada'}
+                </p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
+

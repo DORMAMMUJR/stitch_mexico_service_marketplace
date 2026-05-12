@@ -9,6 +9,7 @@ import { Prisma, OrderStatus, Order } from '@prisma/client';
 import { prisma } from './db';
 import { getStripe } from './stripe';
 import { notifyAdmins } from './notifications';
+import { logger } from './logger';
 
 const PLATFORM_FEE_RATE = 0.10;
 const MAX_PAYOUT_ATTEMPTS = 5;
@@ -113,12 +114,12 @@ export class EscrowStateMachine {
     try {
       stripe = getStripe();
     } catch {
-      console.warn(`⚠️  Payout: Stripe no configurado. Orden ${orderId} requiere payout manual.`);
+      logger.warn({ orderId }, 'Payout: Stripe no configurado. Requiere payout manual.');
 
       await this.transition(orderId, 'PAYOUT_FALLIDO', {
         error: 'STRIPE_NOT_CONFIGURED',
         message: 'Stripe no está configurado en este entorno. Payout manual requerido.',
-      }).catch(e => console.error('Error marcando PAYOUT_FALLIDO (sin Stripe):', e));
+      }).catch((e) => logger.error({ err: e, orderId }, 'Error marcando PAYOUT_FALLIDO (sin Stripe)'));
 
       return false;
     }
@@ -133,19 +134,17 @@ export class EscrowStateMachine {
     });
 
     if (!order) {
-      console.error(`❌ Payout: orden ${orderId} no encontrada`);
+      logger.error({ orderId }, 'Payout: orden no encontrada');
       return false;
     }
 
     if (!order.professional.stripeAccountId) {
-      console.warn(
-        `⚠️  Payout: profesional de orden ${orderId} no tiene cuenta Stripe Connect.`
-      );
+      logger.warn({ orderId, professionalId: order.professionalId }, 'Payout: profesional sin cuenta Stripe Connect');
 
       await this.transition(orderId, 'PAYOUT_FALLIDO', {
         error: 'NO_STRIPE_ACCOUNT',
         message: 'El profesional no ha completado el onboarding de Stripe.',
-      }).catch(e => console.error('Error marcando PAYOUT_FALLIDO (sin cuenta):', e));
+      }).catch((e) => logger.error({ err: e, orderId }, 'Error marcando PAYOUT_FALLIDO (sin cuenta)'));
 
       return false;
     }
@@ -173,9 +172,14 @@ export class EscrowStateMachine {
         }
       );
 
-      console.log(
-        `✅ Payout exitoso para orden ${orderId}: transfer ${transfer.id} | ` +
-        `$${(transferAmountCents / 100).toFixed(2)} ${currency.toUpperCase()} → profesional`
+      logger.info(
+        {
+          orderId,
+          transferId: transfer.id,
+          transferAmountCents,
+          currency: currency.toUpperCase(),
+        },
+        'Payout exitoso'
       );
 
       await this.transition(orderId, 'PAYOUT_COMPLETADO', {
@@ -187,12 +191,12 @@ export class EscrowStateMachine {
 
       return true;
     } catch (stripeError: any) {
-      console.error(`❌ Payout fallido para orden ${orderId}: ${stripeError.message}`);
+      logger.error({ err: stripeError, orderId }, 'Payout fallido');
 
       await this.transition(orderId, 'PAYOUT_FALLIDO', {
         error:          stripeError.message,
         stripeErrorCode: stripeError.code,
-      }).catch(e => console.error('Error marcando PAYOUT_FALLIDO:', e));
+      }).catch((e) => logger.error({ err: e, orderId }, 'Error marcando PAYOUT_FALLIDO'));
 
       return false;
     }
@@ -214,24 +218,22 @@ export class EscrowStateMachine {
     });
 
     if (ordersToRelease.length === 0) {
-      console.log('   No hay órdenes pendientes de payout.');
+      logger.info('No hay órdenes pendientes de payout');
     } else {
-      console.log(
-        `   Procesando ${ordersToRelease.length} orden(es) para payout automático...`
-      );
+      logger.info({ count: ordersToRelease.length }, 'Procesando órdenes para payout automático');
 
       for (const order of ordersToRelease) {
         try {
           await this.transition(order.id, 'PAYOUT_INICIADO', {
             reason: 'AUTOMATIC_TIMEOUT_72H',
           });
-          console.log(`   📋 Orden ${order.id} → PAYOUT_INICIADO`);
+          logger.info({ orderId: order.id }, 'Orden en PAYOUT_INICIADO');
           await this.executePayout(order.id);
         } catch (error: any) {
           if (error.message?.includes('Invalid transition')) {
-            console.log(`   ⚠️  Orden ${order.id} ya fue procesada por otra instancia.`);
+            logger.warn({ orderId: order.id }, 'Orden ya procesada por otra instancia');
           } else {
-            console.error(`   ❌ Error procesando orden ${order.id}:`, error.message);
+            logger.error({ err: error, orderId: order.id }, 'Error procesando orden para payout');
           }
         }
       }
@@ -246,31 +248,37 @@ export class EscrowStateMachine {
     });
 
     if (failedOrders.length === 0) {
-      console.log('   No hay pagos fallidos pendientes de reintento.');
+      logger.info('No hay pagos fallidos pendientes de reintento');
     } else {
-      console.log(
-        `   🔁 Evaluando ${failedOrders.length} pago(s) fallido(s) para reintento...`
-      );
+      logger.info({ count: failedOrders.length }, 'Evaluando pagos fallidos para reintento');
 
       for (const order of failedOrders) {
         // Verificar si el backoff ya transcurrió antes de reintentar
         if (!isBackoffElapsed(order.lastPayoutAttemptAt, order.payoutAttempts)) {
-          console.log(
-            `   ⏳ Orden ${order.id}: backoff activo ` +
-            `(intento ${order.payoutAttempts}, esperar ${getBackoffHours(order.payoutAttempts)}h)`
+          logger.info(
+            {
+              orderId: order.id,
+              attempt: order.payoutAttempts,
+              waitHours: getBackoffHours(order.payoutAttempts),
+            },
+            'Backoff activo para reintento de payout'
           );
           continue;
         }
 
         try {
           await this.transition(order.id, 'PAYOUT_INICIADO', { reason: 'RETRY' });
-          console.log(
-            `   🔁 Reintentando orden ${order.id} ` +
-            `(intento ${order.payoutAttempts + 1}/${MAX_PAYOUT_ATTEMPTS})`
+          logger.info(
+            {
+              orderId: order.id,
+              attempt: order.payoutAttempts + 1,
+              maxAttempts: MAX_PAYOUT_ATTEMPTS,
+            },
+            'Reintentando payout de orden'
           );
           await this.executePayout(order.id);
         } catch (e: any) {
-          console.error(`   ❌ Retry fallido para orden ${order.id}:`, e.message);
+          logger.error({ err: e, orderId: order.id }, 'Retry de payout fallido');
         }
       }
     }
@@ -285,8 +293,9 @@ export class EscrowStateMachine {
     });
 
     if (exhaustedOrders.length > 0) {
-      console.warn(
-        `   🚨 ${exhaustedOrders.length} orden(es) agotaron ${MAX_PAYOUT_ATTEMPTS} intentos de payout.`
+      logger.warn(
+        { count: exhaustedOrders.length, maxAttempts: MAX_PAYOUT_ATTEMPTS },
+        'Órdenes agotaron intentos de payout'
       );
 
       for (const order of exhaustedOrders) {
@@ -300,7 +309,7 @@ export class EscrowStateMachine {
             currency:      order.currency,
             professionalId: order.professionalId,
           },
-        }).catch(console.error);
+        }).catch((error) => logger.error({ err: error, orderId: order.id }, 'Error notificando payout agotado'));
       }
     }
   }

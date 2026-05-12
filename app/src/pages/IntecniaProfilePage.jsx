@@ -37,6 +37,39 @@ export function IntecniaProfilePage() {
       comment: r.comment,
     }));
   }, [dbReviews]);
+  const specialtyCards = useMemo(() => {
+    if (!profile) return [];
+    const cards = [];
+    if (profile.category) {
+      cards.push({
+        title: 'Categoria principal',
+        value: String(profile.category).replaceAll('_', ' '),
+      });
+    }
+    if (profile.yearsExp) {
+      cards.push({
+        title: 'Experiencia',
+        value: `${profile.yearsExp} anos activos`,
+      });
+    }
+    if (profile.successRate) {
+      cards.push({
+        title: 'Tasa de exito',
+        value: profile.successRate,
+      });
+    }
+    if (profile.projectsCount) {
+      cards.push({
+        title: 'Proyectos completados',
+        value: profile.projectsCount,
+      });
+    }
+    return cards.length ? cards : [{ title: 'Especialidad', value: 'Atencion profesional personalizada' }];
+  }, [profile]);
+  const coverImage = useMemo(() => {
+    if (!Array.isArray(profile?.portfolioItems) || profile.portfolioItems.length === 0) return '';
+    return profile.portfolioItems[0]?.imageUrl || '';
+  }, [profile]);
 
   const protectPrivateAction = (e) => {
     if (isAuthenticated) return;
@@ -99,107 +132,127 @@ export function IntecniaProfilePage() {
         </div>
       )}
 
-      <div className="container layout-profile profile-pro-grid pb-32 max-md:pb-36" style={{ paddingTop: '1.5rem', paddingBottom: '8rem' }}>
+      <div className="container profile-page-shell">
         <div className="profile-mobile-quicknav">
           <button type="button" className="btn btn-outline profile-mobile-quicknav-btn" onClick={scrollToProfile}>Perfil</button>
           <button type="button" className="btn btn-outline profile-mobile-quicknav-btn" onClick={scrollToBooking}>Agenda</button>
           <button type="button" className="btn btn-primary profile-mobile-quicknav-btn" onClick={scrollToChat}>Chat</button>
         </div>
 
-        <section ref={profileRef}>
-          <article className="card glass-card profile-hero-card" style={{ padding: '1.5rem', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              <div style={{ position: 'relative' }}>
-                <img src={prof.avatarUrl} alt={prof.name} style={{ width: '7rem', height: '7rem', borderRadius: '1rem', objectFit: 'cover' }} />
-                {prof.isVerified && (
-                  <span style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '1.8rem', height: '1.8rem', borderRadius: '50%', background: 'var(--surface)', display: 'grid', placeItems: 'center', border: '2px solid rgba(16,185,129,0.35)' }}>
-                    <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: 'var(--secondary)' }}>verified</span>
-                  </span>
-                )}
-              </div>
-
-              <div style={{ flex: 1, minWidth: '250px' }}>
-                <h1 style={{ fontFamily: 'Manrope', fontSize: '1.6rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.15rem' }}>{prof.name}</h1>
-                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.95rem', marginBottom: '0.45rem' }}>{prof.title || 'Especialista profesional'}</p>
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                  {prof.category && <span className="badge">{String(prof.category).replaceAll('_', ' ')}</span>}
-                  {prof.isVerified && <span className="badge badge-green">Verificado</span>}
-                  {prof.biometricDone && <span className="badge">Biometría</span>}
-                  {prof.satVerifiedAt && <span className="badge">SAT</span>}
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <p style={{ fontWeight: 800, color: 'var(--secondary)', fontSize: '0.95rem' }}>
-                    {prof.hourlyRate ? `Desde $${Number(prof.hourlyRate).toLocaleString('es-MX')} ${prof.currency || 'MXN'} / hora` : 'Tarifa por confirmar'}
-                  </p>
-                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>
-                    {prof.rating ? `⭐ ${prof.rating} (${prof.reviewCount || reviews.length} reseñas)` : 'Sin reseñas aún'}
-                  </p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
-                  <button onClick={scrollToChat} className="btn btn-primary">
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>forum</span>
-                    Hablar con asistente
-                  </button>
-                  {prof.meetLink && (
-                    <a href={prof.meetLink} target="_blank" rel="noreferrer" className="btn btn-outline">
-                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>videocam</span>
-                      Link Meet
-                    </a>
+        <div className="layout-profile profile-pro-grid pb-32 max-md:pb-36">
+          <section ref={profileRef} className="profile-main-col">
+            <article className="card glass-card profile-hero-card">
+              <div
+                className="profile-cover-banner"
+                style={coverImage ? { backgroundImage: `linear-gradient(120deg, rgba(10,14,21,0.45), rgba(10,14,21,0.12)), url(${coverImage})` } : undefined}
+              />
+              <div className="profile-hero-content">
+                <div className="profile-avatar-float">
+                  <img src={prof.avatarUrl} alt={prof.name} className="profile-avatar-image" />
+                  {prof.isVerified && (
+                    <span className="profile-avatar-badge">
+                      <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: 'var(--secondary)' }}>verified</span>
+                    </span>
                   )}
                 </div>
-              </div>
-            </div>
-          </article>
 
-          <article className="card glass-card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
-            <h2 style={{ fontFamily: 'Manrope', fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Descripción profesional</h2>
-            <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.7, fontSize: '0.925rem' }}>
-              {prof.bio || 'Este profesional aún no agregó una descripción detallada de sus servicios.'}
-            </p>
-          </article>
+                <div className="profile-identity">
+                  <h1>{prof.name}</h1>
+                  <p className="profile-identity-title">{prof.title || 'Especialista profesional'}</p>
 
-          <article className="card glass-card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
-            <h2 style={{ fontFamily: 'Manrope', fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem', marginBottom: '0.75rem' }}>Reseñas</h2>
-            {reviews.length === 0 ? (
-              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem' }}>Aún no hay reseñas públicas para este perfil.</p>
-            ) : (
-              <div style={{ display: 'grid', gap: '0.65rem' }}>
-                {reviews.slice(0, 6).map((r, idx) => (
-                  <div key={`${r.name}-${idx}`} className="review-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                      <p style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem' }}>{r.name}</p>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{r.date}</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '2px', marginBottom: '0.35rem' }}>
-                      {Array.from({ length: Math.max(1, Number(r.rating || 0)) }).map((_, starIdx) => (
-                        <span key={starIdx} className="material-symbols-outlined icon-filled" style={{ fontSize: '13px', color: '#f59e0b' }}>star</span>
-                      ))}
-                    </div>
-                    <p style={{ fontSize: '0.84rem', color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>{r.comment}</p>
+                  <div className="profile-hero-badges">
+                    {prof.category && <span className="badge">{String(prof.category).replaceAll('_', ' ')}</span>}
+                    {prof.isVerified && <span className="badge badge-green">Verificado</span>}
+                    {prof.biometricDone && <span className="badge">Biometria</span>}
+                    {prof.satVerifiedAt && <span className="badge">SAT</span>}
                   </div>
-                ))}
+
+                  <div className="profile-hero-meta">
+                    <p className="profile-rate">
+                      {prof.hourlyRate ? `Desde $${Number(prof.hourlyRate).toLocaleString('es-MX')} ${prof.currency || 'MXN'} / hora` : 'Tarifa por confirmar'}
+                    </p>
+                    <p className="profile-rating">
+                      {prof.rating ? `⭐ ${prof.rating} (${prof.reviewCount || reviews.length} resenas)` : 'Sin resenas aun'}
+                    </p>
+                  </div>
+
+                  <div className="profile-hero-actions">
+                    <button onClick={scrollToChat} className="btn btn-primary">
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>forum</span>
+                      Mensaje
+                    </button>
+                    {prof.meetLink && (
+                      <a href={prof.meetLink} target="_blank" rel="noreferrer" className="btn btn-outline">
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>videocam</span>
+                        Link Meet
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
-          </article>
-        </section>
+            </article>
 
-        <aside className="profile-side-col" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
-          <div className="profile-sticky-panel" style={{ display: 'grid', gap: '1rem', minWidth: 0 }}>
-            <div ref={bookingRef} onClickCapture={protectPrivateAction}>
-              <AvailabilitySelector
-                professionalId={id}
-                onBooked={(text) => setBookingBanner(text)}
-              />
-            </div>
+            <div className="profile-main-stack">
+              <article className="card glass-card" style={{ padding: '1.5rem' }}>
+                <h2 style={{ fontFamily: 'Manrope', fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Bio</h2>
+                <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.7, fontSize: '0.925rem' }}>
+                  {prof.bio || 'Este profesional aun no agrego una descripcion detallada de sus servicios.'}
+                </p>
+              </article>
 
-            <div ref={chatRef} onClickCapture={protectPrivateAction}>
-              <ChatWidget professionalName={prof.name} professionalId={prof.userId} />
+              <article className="card glass-card" style={{ padding: '1.5rem' }}>
+                <h2 style={{ fontFamily: 'Manrope', fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem', marginBottom: '0.875rem' }}>Especialidades</h2>
+                <div className="profile-specialties-grid">
+                  {specialtyCards.map((card) => (
+                    <div key={card.title} className="profile-specialty-card">
+                      <p className="profile-specialty-label">{card.title}</p>
+                      <p className="profile-specialty-value">{card.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <article className="card glass-card" style={{ padding: '1.5rem' }}>
+                <h2 style={{ fontFamily: 'Manrope', fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem', marginBottom: '0.75rem' }}>Reseñas</h2>
+                {reviews.length === 0 ? (
+                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem' }}>Aun no hay resenas publicas para este perfil.</p>
+                ) : (
+                  <div style={{ display: 'grid', gap: '0.65rem' }}>
+                    {reviews.slice(0, 6).map((r, idx) => (
+                      <div key={`${r.name}-${idx}`} className="review-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                          <p style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem' }}>{r.name}</p>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{r.date}</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '2px', marginBottom: '0.35rem' }}>
+                          {Array.from({ length: Math.max(1, Number(r.rating || 0)) }).map((_, starIdx) => (
+                            <span key={starIdx} className="material-symbols-outlined icon-filled" style={{ fontSize: '13px', color: '#f59e0b' }}>star</span>
+                          ))}
+                        </div>
+                        <p style={{ fontSize: '0.84rem', color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>{r.comment}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
             </div>
-          </div>
-        </aside>
+          </section>
+
+          <aside className="profile-side-col">
+            <div className="profile-sticky-panel">
+              <div ref={bookingRef} onClickCapture={protectPrivateAction}>
+                <AvailabilitySelector
+                  professionalId={id}
+                  onBooked={(text) => setBookingBanner(text)}
+                />
+              </div>
+
+              <div ref={chatRef} onClickCapture={protectPrivateAction}>
+                <ChatWidget professionalName={prof.name} professionalId={prof.userId} />
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
 
       <Footer />

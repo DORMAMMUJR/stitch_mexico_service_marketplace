@@ -617,15 +617,29 @@ img { display: block; max-width: 100%; }
 
 .layout-profile {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 2rem;
   align-items: start;
-  padding: 2rem 1.5rem 4rem;
+  padding: 0;
   overflow: visible;
+  width: 100%;
 }
 
 .layout-profile > section {
   min-width: 0;
+}
+
+.profile-page-shell {
+  padding-top: 1.5rem;
+  padding-bottom: 8rem;
+  overflow-x: clip;
+}
+
+.profile-main-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
 }
 
 .profile-pro-grid {
@@ -635,19 +649,160 @@ img { display: block; max-width: 100%; }
 .profile-hero-card {
   position: relative;
   overflow: hidden;
+  padding: 0 !important;
+  background: var(--surface-container);
 }
 
-.profile-hero-card::before {
-  content: '';
+.profile-cover-banner {
+  width: 100%;
+  height: 240px;
+  background: linear-gradient(140deg, rgba(9, 14, 20, 0.95), rgba(6, 78, 59, 0.62));
+  background-size: cover;
+  background-position: center;
+}
+
+.profile-hero-content {
+  position: relative;
+  padding: 0 1.5rem 1.5rem;
+}
+
+.profile-avatar-float {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), transparent 45%);
+  top: 0;
+  left: 1.5rem;
+  transform: translateY(-50%);
+  width: 7rem;
+  height: 7rem;
+  border-radius: 1rem;
+  border: 4px solid var(--surface-container);
+  overflow: visible;
+  background: var(--surface-container);
+}
+
+.profile-avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--radius-lg) - 2px);
+  object-fit: cover;
+}
+
+.profile-avatar-badge {
+  position: absolute;
+  right: -0.4rem;
+  bottom: -0.4rem;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  background: var(--surface-container);
+  border: 2px solid color-mix(in srgb, var(--secondary) 45%, transparent);
+  display: grid;
+  place-items: center;
+}
+
+.profile-identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 4.2rem;
+}
+
+.profile-identity h1 {
+  margin: 0;
+  font-family: Manrope;
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1.12;
+}
+
+.profile-identity-title {
+  margin: 0;
+  color: var(--on-surface-variant);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.profile-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.profile-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.profile-rate {
+  margin: 0;
+  font-weight: 800;
+  color: var(--secondary);
+  font-size: 0.95rem;
+}
+
+.profile-rating {
+  margin: 0;
+  color: var(--on-surface-variant);
+  font-size: 0.875rem;
+}
+
+.profile-hero-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.profile-hero-actions .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.profile-hero-actions .btn:only-child {
+  grid-column: 1 / -1;
+}
+
+.profile-main-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.profile-specialties-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.profile-specialty-card {
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  background: color-mix(in srgb, var(--surface-container) 76%, transparent);
+  border: 1px solid color-mix(in srgb, var(--secondary) 20%, transparent);
+}
+
+.profile-specialty-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--on-surface-variant);
+}
+
+.profile-specialty-value {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--on-surface);
 }
 
 .profile-side-col {
   min-width: 0;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .profile-mobile-quicknav {
@@ -656,14 +811,18 @@ img { display: block; max-width: 100%; }
 
 .profile-sticky-panel {
   position: sticky;
-  top: 5.25rem;
+  top: 2rem;
   min-width: 0;
+  display: grid;
+  gap: 1rem;
   overflow: visible;
 }
 
 .profile-booking-card,
 .profile-chat-widget {
-  border: 1px solid rgba(6, 78, 59, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface-container) 82%, transparent);
+  box-shadow: 0 22px 46px rgba(6, 9, 13, 0.26);
 }
 
 .profile-booking-card h3,
@@ -740,6 +899,11 @@ img { display: block; max-width: 100%; }
   max-width: 100%;
 }
 
+.profile-side-col .btn {
+  width: 100%;
+  justify-content: center;
+}
+
 .layout-bento { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
 .dashboard-header-actions { display: flex; gap: 0.75rem; }
 
@@ -756,8 +920,6 @@ img { display: block; max-width: 100%; }
   .dashboard-main { margin-left: 0; }
   .dashboard-mobile-tabs { display: flex; }
   .layout-directory { grid-template-columns: 1fr; }
-  .layout-profile { grid-template-columns: 1fr; }
-  .profile-sticky-panel { position: static; }
   .layout-bento { grid-template-columns: 1fr; }
   .hide-mobile { display: none !important; }
   .hamburger-btn { display: block; }
@@ -767,8 +929,53 @@ img { display: block; max-width: 100%; }
 @media (max-width: 900px) {
   .grid-sidebar-right { grid-template-columns: 1fr; }
   .dashboard-main { padding: 2rem 1.5rem; }
-  .layout-profile { grid-template-columns: 1fr; }
-  .profile-sticky-panel { position: static; }
+}
+
+@media (max-width: 1024px) {
+  .layout-profile {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .profile-main-col {
+    order: 1;
+  }
+
+  .profile-side-col {
+    order: 2;
+  }
+
+  .profile-sticky-panel {
+    position: static;
+    top: auto;
+  }
+
+  .profile-cover-banner {
+    height: 220px;
+  }
+
+  .profile-hero-content {
+    padding: 0 1rem 1rem;
+  }
+
+  .profile-avatar-float {
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .profile-identity {
+    align-items: center;
+    text-align: center;
+    padding-top: 4.5rem;
+  }
+
+  .profile-hero-meta {
+    justify-content: center;
+  }
+
+  .profile-hero-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
@@ -779,7 +986,7 @@ img { display: block; max-width: 100%; }
   .dashboard-card { padding: 1rem; }
   .client-dashboard-main { padding: 1.25rem 1rem !important; }
   .client-dashboard-card { padding: 1rem; }
-  .layout-profile { padding: 1rem 1rem 3rem; }
+  .profile-page-shell { padding: 1rem 0 3rem; }
   .chat-sticky-desktop { position: static !important; height: auto !important; min-height: 400px; }
   .profile-chat-widget { height: clamp(380px, 60vh, 540px) !important; }
   

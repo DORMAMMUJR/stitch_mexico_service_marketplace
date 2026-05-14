@@ -5,9 +5,12 @@ import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 import { ChatWindow } from '../components/ChatWindow';
 import { useToast } from '../components/ToastContext';
+import { VideoCallModal } from '../components/VideoCallModal';
 
 export function ClientDashboard() {
   const [appointments, setAppointments] = useState([]);
+  const [joiningVideoMap, setJoiningVideoMap] = useState({});
+  const [activeVideoSession, setActiveVideoSession] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -109,6 +112,57 @@ export function ClientDashboard() {
     } catch (err) {
       setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, _cancelling: false } : a));
       showToast('Error de conexión', 'error');
+    }
+  };
+
+  const handleJoinVideo = async (appointment) => {
+    setJoiningVideoMap((prev) => ({ ...prev, [appointment.id]: true }));
+    try {
+      const sessionRes = await fetch(`/api/appointments/${appointment.id}/video-session`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forceAuto: false }),
+      });
+      const sessionData = await sessionRes.json().catch(() => ({}));
+      if (!sessionRes.ok) throw new Error(sessionData.error || 'No se pudo preparar la videollamada');
+
+      const tokenRes = await fetch(`/api/appointments/${appointment.id}/video-token`, {
+        credentials: 'include',
+      });
+      const tokenData = await tokenRes.json().catch(() => ({}));
+      if (!tokenRes.ok) throw new Error(tokenData.error || 'No se pudo generar acceso seguro');
+
+      await fetch(`/api/appointments/${appointment.id}/video-opened`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: tokenData.token }),
+      }).catch(() => null);
+
+      const provider = tokenData.provider || sessionData?.videoSession?.provider;
+      const joinUrl = tokenData.joinUrl || sessionData?.videoSession?.joinUrl || appointment.meetingLink;
+      const embedAllowed = Boolean(tokenData.embedAllowed || sessionData?.videoSession?.embedAllowed);
+
+      if (!joinUrl) throw new Error('Esta cita aun no tiene link de videollamada');
+
+      setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, meetingLink: joinUrl } : a)));
+
+      if (provider === 'jitsi' && embedAllowed) {
+        setActiveVideoSession({
+          appointmentId: appointment.id,
+          joinUrl,
+          token: tokenData.token,
+        });
+        return;
+      }
+
+      window.open(joinUrl, '_blank', 'noopener,noreferrer');
+      showToast('Abriendo videollamada externa', 'success');
+    } catch (err) {
+      showToast(err.message || 'No se pudo abrir la videollamada', 'error');
+    } finally {
+      setJoiningVideoMap((prev) => ({ ...prev, [appointment.id]: false }));
     }
   };
 
@@ -229,7 +283,7 @@ export function ClientDashboard() {
               </div>
               <div className="card glass-card dashboard-surface-1" style={{ padding: '0.875rem' }}>
                 <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Pendientes</p>
-                <p style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{appointments.filter((a) => a.status === 'PENDING_PAYMENT' || a.status === 'SCHEDULED').length}</p>
+                <p style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{appointments.filter((a) => a.status === 'PENDING_PAYMENT' || a.status === 'SCHEDULED' || a.status === 'IN_PROGRESS').length}</p>
               </div>
               <div className="card glass-card dashboard-surface-2" style={{ padding: '0.875rem' }}>
                 <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Completadas</p>
@@ -260,20 +314,21 @@ export function ClientDashboard() {
                         {app.service && <span style={{display: 'block', marginBottom: '0.25rem', fontWeight: 600}}>{app.service}</span>}
                         {app.dateLabel} a las {app.timeLabel}
                       </p>
-                      {app.meetingLink && (
-                        <a
-                          href={app.meetingLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ fontSize: '0.75rem', color: 'var(--secondary)', fontWeight: 700 }}
+                      {['SCHEDULED', 'IN_PROGRESS'].includes(app.status) && (
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() => handleJoinVideo(app)}
+                          disabled={Boolean(joiningVideoMap[app.id])}
+                          style={{ marginTop: '0.375rem', fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
                         >
-                          Abrir videollamada
-                        </a>
+                          {joiningVideoMap[app.id] ? 'Conectando...' : 'Entrar a videollamada'}
+                        </button>
                       )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <span className={`badge ${app.status === 'SCHEDULED' ? 'badge-blue' : ''}`}>{app.status}</span>
+                    <span className={`badge ${['SCHEDULED', 'IN_PROGRESS'].includes(app.status) ? 'badge-blue' : ''}`}>{app.status}</span>
                     {app.status === 'SCHEDULED' && (
                       <button
                         onClick={() => handleCancelAppointment(app.id)}
@@ -378,6 +433,13 @@ export function ClientDashboard() {
           </div>
         )}
       </main>
+
+      {activeVideoSession && (
+        <VideoCallModal
+          session={activeVideoSession}
+          onClose={() => setActiveVideoSession(null)}
+        />
+      )}
 
       <Footer />
     </div>

@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -7,13 +7,13 @@ import { useAvailability } from '../hooks/useAvailability';
 export function AvailabilitySelector({ professionalId, onBooked }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [bookingStep, setBookingStep] = useState('select_slot');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [bookedSlots, setBookedSlots] = useState(new Set());
 
   const [pricing, setPricing] = useState(null);
   const [pricingLoading, setPricingLoading] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
   const [transferReference, setTransferReference] = useState('');
   const [transferProofFile, setTransferProofFile] = useState(null);
   const [transferProofUrl, setTransferProofUrl] = useState('');
@@ -30,7 +30,12 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
       setPricingLoading(true);
       try {
         const data = await api.get(`/appointments/pricing/${professionalId}`);
-        if (mounted) setPricing(data);
+        if (mounted) {
+          setPricing(data);
+          if (Array.isArray(data?.paymentMethods) && data.paymentMethods.includes('BANK_TRANSFER')) {
+            setPaymentMethod('BANK_TRANSFER');
+          }
+        }
       } catch (err) {
         if (mounted) setMessage({ type: 'error', text: err.message || 'No se pudo cargar el precio del servicio.' });
       } finally {
@@ -61,6 +66,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
 
     const [startHour, startMin] = block.startTime.split(':').map(Number);
     const [endHour, endMin] = block.endTime.split(':').map(Number);
+    const slotIntervalMinutes = Number(block.slotIntervalMinutes) || 30;
 
     const slots = [];
     let current = new Date(selectedDate);
@@ -80,7 +86,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
           slots.push({ label, iso: current.toISOString() });
         }
       }
-      current = new Date(current.getTime() + 30 * 60 * 1000);
+      current = new Date(current.getTime() + slotIntervalMinutes * 60 * 1000);
     }
 
     return slots;
@@ -95,38 +101,42 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
   const handleDateSelect = (date) => {
     setSelectedDate(date);
     setSelectedSlot(null);
-    setBookingStep('select_slot');
     setMessage(null);
   };
 
   const handleSlotSelect = (slotIso) => {
     setSelectedSlot(slotIso);
-    setBookingStep('payment_transfer');
+    setTransferReference('');
+    setTransferProofFile(null);
+    setTransferProofUrl('');
+    setPaymentMethod('BANK_TRANSFER');
     setMessage(null);
   };
 
-  const handleConfirmTransferStep = () => {
+  const ensureAuthenticated = () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return false;
+    }
+    return true;
+  };
+
+  const handleTransferBooking = async () => {
+    if (!ensureAuthenticated()) return;
+    if (!selectedSlot) return;
+
+    if (!pricing) {
+      setMessage({ type: 'error', text: 'No se pudo validar el precio. Intenta de nuevo.' });
+      return;
+    }
+
     if (!transferReference.trim()) {
       setMessage({ type: 'error', text: 'Ingresa la referencia de transferencia.' });
       return;
     }
-    if (!transferProofFile) {
+
+    if (!transferProofFile && !transferProofUrl) {
       setMessage({ type: 'error', text: 'Sube la foto del comprobante de transferencia.' });
-      return;
-    }
-    setMessage(null);
-    setBookingStep('confirm_submit');
-  };
-
-  const handleBooking = async () => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-
-    if (!selectedSlot) return;
-    if (!pricing) {
-      setMessage({ type: 'error', text: 'No se pudo validar el precio. Intenta de nuevo.' });
       return;
     }
 
@@ -151,7 +161,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
       await api.post('/appointments', {
         professionalId,
         scheduledAt: selectedSlot,
-        notes: 'Cita agendada desde el perfil profesional.',
+        notes: 'Solicitud desde perfil profesional (transferencia).',
         paymentMethod: 'BANK_TRANSFER',
         transferReference: transferReference.trim(),
         transferProofUrl: proofUrl,
@@ -159,9 +169,9 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
       });
 
       setBookedSlots((prev) => new Set([...prev, selectedSlot]));
-      setMessage({ type: 'success', text: 'Solicitud registrada con pago pendiente de validación.' });
+      setMessage({ type: 'success', text: 'Solicitud enviada. La cita se confirma cuando el profesional valide el pago.' });
       onBooked?.(
-        `Tu solicitud quedó registrada para ${new Date(selectedSlot).toLocaleDateString('es-MX', {
+        `Solicitud enviada para ${new Date(selectedSlot).toLocaleDateString('es-MX', {
           weekday: 'long',
           day: '2-digit',
           month: 'long',
@@ -172,7 +182,6 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
       setTransferReference('');
       setTransferProofFile(null);
       setTransferProofUrl('');
-      setBookingStep('select_slot');
       refetchAvailability();
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
@@ -181,6 +190,42 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
       setIsLoading(false);
     }
   };
+
+  const handleCardCheckout = async () => {
+    if (!ensureAuthenticated()) return;
+    if (!selectedSlot) return;
+
+    if (!pricing) {
+      setMessage({ type: 'error', text: 'No se pudo validar el precio. Intenta de nuevo.' });
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      const checkout = await api.post('/appointments/checkout', {
+        professionalId,
+        scheduledAt: selectedSlot,
+        notes: 'Solicitud desde perfil profesional (tarjeta).',
+        pricingSnapshot: {
+          total: pricing.total,
+          currency: pricing.currency,
+        },
+      });
+
+      if (!checkout?.checkoutUrl) {
+        throw new Error('No fue posible iniciar el pago con tarjeta.');
+      }
+
+      window.location.href = checkout.checkoutUrl;
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+      setIsLoading(false);
+    }
+  };
+
+  const canSubmitTransfer = Boolean(transferReference.trim()) && Boolean(transferProofFile || transferProofUrl);
 
   return (
     <div className="card glass-card profile-booking-card" style={{ padding: '1.25rem', width: '100%', minWidth: 0 }}>
@@ -230,11 +275,11 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
         <>
           {!selectedDayHasAvailability ? (
             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '1.5rem', textAlign: 'center' }}>
-              El profesional no tiene horarios disponibles este día.
+              El profesional no tiene horarios disponibles este dia.
             </p>
           ) : slotsForSelectedDate.length === 0 ? (
             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '1.5rem', textAlign: 'center' }}>
-              No hay horarios disponibles para este día.
+              No hay horarios disponibles para este dia.
             </p>
           ) : (
             <>
@@ -272,50 +317,71 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
         </>
       )}
 
-      {selectedSlot && bookingStep === 'payment_transfer' && (
+      {selectedSlot && (
         <div className="transfer-proof-card" style={{ marginBottom: '1rem', padding: '0.875rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', background: 'var(--surface-container-lowest)' }}>
           {pricingLoading ? (
             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>Cargando costos...</p>
           ) : pricing ? (
             <div style={{ marginBottom: '0.75rem', padding: '0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'var(--surface)' }}>
-              <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 700 }}>Pago por transferencia bancaria</p>
+              <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 700 }}>Resumen de pago</p>
               <div style={{ display: 'grid', gap: '0.25rem', fontSize: '0.875rem' }}>
                 <p><strong>Servicio:</strong> ${Number(pricing.basePrice).toLocaleString('es-MX')} {pricing.currency}</p>
-                <p><strong>Comisión plataforma (10%):</strong> ${Number(pricing.commission).toLocaleString('es-MX')} {pricing.currency}</p>
-                <p style={{ fontWeight: 800, color: 'var(--primary)' }}><strong>Total a transferir:</strong> ${Number(pricing.total).toLocaleString('es-MX')} {pricing.currency}</p>
+                <p><strong>Comision plataforma (10%):</strong> ${Number(pricing.commission).toLocaleString('es-MX')} {pricing.currency}</p>
+                <p style={{ fontWeight: 800, color: 'var(--primary)' }}><strong>Total:</strong> ${Number(pricing.total).toLocaleString('es-MX')} {pricing.currency}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
+                  Garantía de asistencia: {pricing?.paymentGuarantee?.requiredPercent || 100}% pagado al agendar.
+                </p>
               </div>
             </div>
           ) : null}
-          <p style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '0.625rem', color: 'var(--primary)' }}>
-            Paso 2: Pago por Transferencia
-          </p>
-          <input className="input-field" placeholder="Referencia de transferencia" value={transferReference} onChange={(e) => setTransferReference(e.target.value)} style={{ marginBottom: '0.5rem' }} />
-          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setTransferProofFile(e.target.files?.[0] || null)} style={{ marginBottom: '0.5rem', width: '100%' }} />
-          <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>Sube foto del comprobante (PNG/JPG/WEBP). Este archivo es obligatorio.</p>
-          {transferProofFile && <p style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginBottom: '0.5rem', fontWeight: 600 }}>Archivo listo: {transferProofFile.name}</p>}
-          <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center' }} onClick={handleConfirmTransferStep}>Ya transferí</button>
-        </div>
-      )}
 
-      {selectedSlot && bookingStep === 'confirm_submit' && (
-        <div className="transfer-proof-card" style={{ marginBottom: '1rem', padding: '0.875rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', background: 'var(--surface-container-lowest)' }}>
-          {pricing && (
-            <div style={{ marginBottom: '0.75rem', padding: '0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'var(--surface)' }}>
-              <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 700 }}>Pago por transferencia bancaria</p>
-              <div style={{ display: 'grid', gap: '0.25rem', fontSize: '0.875rem' }}>
-                <p><strong>Servicio:</strong> ${Number(pricing.basePrice).toLocaleString('es-MX')} {pricing.currency}</p>
-                <p><strong>Comisión plataforma (10%):</strong> ${Number(pricing.commission).toLocaleString('es-MX')} {pricing.currency}</p>
-                <p style={{ fontWeight: 800, color: 'var(--primary)' }}><strong>Total a transferir:</strong> ${Number(pricing.total).toLocaleString('es-MX')} {pricing.currency}</p>
-              </div>
-            </div>
+          <p style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Metodo de pago</p>
+          <div style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr', marginBottom: '0.75rem' }}>
+            <button
+              type="button"
+              className={`btn ${paymentMethod === 'BANK_TRANSFER' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setPaymentMethod('BANK_TRANSFER')}
+              disabled={isLoading}
+              style={{ justifyContent: 'center' }}
+            >
+              Transferencia
+            </button>
+            <button
+              type="button"
+              className={`btn ${paymentMethod === 'STRIPE_CARD' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setPaymentMethod('STRIPE_CARD')}
+              disabled={isLoading}
+              style={{ justifyContent: 'center' }}
+            >
+              Tarjeta
+            </button>
+          </div>
+
+          {paymentMethod === 'BANK_TRANSFER' ? (
+            <>
+              <input className="input-field" placeholder="Referencia de transferencia" value={transferReference} onChange={(e) => setTransferReference(e.target.value)} style={{ marginBottom: '0.5rem' }} />
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setTransferProofFile(e.target.files?.[0] || null)} style={{ marginBottom: '0.5rem', width: '100%' }} />
+              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>Sube foto del comprobante (PNG/JPG/WEBP). Este archivo es obligatorio.</p>
+              {transferProofFile && <p style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginBottom: '0.5rem', fontWeight: 600 }}>Archivo listo: {transferProofFile.name}</p>}
+              <button
+                onClick={handleTransferBooking}
+                disabled={!canSubmitTransfer || isLoading || pricingLoading || transferProofUploading}
+                className="btn btn-primary profile-booking-submit"
+                style={{ width: '100%', justifyContent: 'center', opacity: canSubmitTransfer && !isLoading ? 1 : 0.5 }}
+              >
+                {isLoading || transferProofUploading ? 'Procesando...' : isAuthenticated ? 'Enviar comprobante y solicitar cita' : 'Inicia sesion para agendar'}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleCardCheckout}
+              disabled={isLoading || pricingLoading}
+              className="btn btn-primary profile-booking-submit"
+              style={{ width: '100%', justifyContent: 'center', opacity: !isLoading ? 1 : 0.6 }}
+            >
+              {isLoading ? 'Redirigiendo a pago...' : isAuthenticated ? 'Pagar y confirmar (tarjeta)' : 'Inicia sesion para pagar'}
+            </button>
           )}
-          <p style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Paso 3: Confirmar solicitud</p>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>
-            Horario: {new Date(selectedSlot).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
-          </p>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)' }}>
-            Estado inicial: <strong>PENDING_PAYMENT</strong>
-          </p>
         </div>
       )}
 
@@ -325,21 +391,9 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
         </div>
       )}
 
-      <button
-        onClick={handleBooking}
-        disabled={bookingStep !== 'confirm_submit' || isLoading || pricingLoading || transferProofUploading}
-        className="btn btn-primary profile-booking-submit"
-        style={{ width: '100%', justifyContent: 'center', opacity: bookingStep === 'confirm_submit' && !isLoading ? 1 : 0.5 }}
-      >
-        {isLoading || transferProofUploading ? 'Procesando...' : isAuthenticated ? 'Confirmar y crear cita' : 'Inicia Sesión para Agendar'}
-      </button>
-
-      <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', textAlign: 'center', marginTop: '1rem', lineHeight: 1.35, whiteSpace: 'normal', overflowWrap: 'anywhere', maxWidth: '100%' }}>
-        La cita se guarda solo despues de confirmar
-        <br />
-        "Ya transferi".
+      <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', textAlign: 'center', marginTop: '0.75rem', lineHeight: 1.35, whiteSpace: 'normal', overflowWrap: 'anywhere', maxWidth: '100%' }}>
+        La cita se confirma solo al pago exitoso.
       </p>
     </div>
   );
 }
-

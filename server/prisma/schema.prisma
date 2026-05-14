@@ -7,6 +7,7 @@ datasource db {
 }
 
 model User {
+  isActive Boolean @default(true)
   id                  String    @id @default(cuid())
   email               String    @unique
   passwordHash        String
@@ -40,6 +41,10 @@ model Professional {
   title              String
   bio                String?
   category           Category
+  medicalSpecialty   MedicalSpecialty?
+  consultationModes  ConsultationMode[] @default([])
+  acceptedInsurers   InsuranceProvider[] @default([])
+  slotIntervalMinutes Int      @default(30)
   subcategories      String[]
   hourlyRate         Decimal?  @db.Decimal(10, 2)
   currency           String    @default("MXN")
@@ -215,6 +220,10 @@ model Message {
   senderId       String
   receiverId     String
   content        String
+  encryptedPayload String?
+  contentIsEncrypted Boolean @default(false)
+  contentKeyVersion Int?
+  contentSensitivity MessageSensitivity @default(NORMAL)
   read           Boolean  @default(false)
   deletedFor     String[] @default([])
   createdAt      DateTime @default(now())
@@ -226,6 +235,23 @@ model Message {
   @@index([conversationId, createdAt])
   @@index([receiverId])
   @@index([receiverId, read, createdAt])
+  @@index([contentSensitivity])
+}
+
+model SecurityAuditEvent {
+  id             String   @id @default(cuid())
+  actorUserId    String?
+  targetUserId   String?
+  appointmentId  String?
+  conversationId String?
+  action         String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([actorUserId, createdAt])
+  @@index([appointmentId, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([action, createdAt])
 }
 
 enum Role {
@@ -244,6 +270,39 @@ enum Category {
   HVAC
   GENERAL_MAINTENANCE
   HEALTH_WELLNESS
+}
+
+enum MedicalSpecialty {
+  MEDICINA_GENERAL
+  PEDIATRIA
+  GINECOLOGIA
+  TRAUMATOLOGIA
+  ORTOPEDIA
+  DERMATOLOGIA
+  PSIQUIATRIA
+  PSICOLOGIA
+  CARDIOLOGIA
+  ODONTOLOGIA
+  NUTRICION
+  MEDICINA_INTERNA
+}
+
+enum ConsultationMode {
+  PRESENCIAL
+  DOMICILIO
+  TELEMEDICINA
+}
+
+enum InsuranceProvider {
+  GNP
+  AXA
+  METLIFE
+  MAPFRE
+  ALLIANZ
+  BBVA
+  INBURSA
+  QUALITAS
+  PLAN_PRIVADO
 }
 
 enum OrderStatus {
@@ -338,6 +397,13 @@ model Appointment {
 enum AppointmentStatus {
   PENDING_PAYMENT
   SCHEDULED
+  IN_PROGRESS
   COMPLETED
+  NO_SHOW
   CANCELLED
+}
+
+enum MessageSensitivity {
+  NORMAL
+  CLINICAL
 }

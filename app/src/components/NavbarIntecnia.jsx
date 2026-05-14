@@ -156,6 +156,9 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Link to="/directory" className="btn btn-primary hide-mobile" style={{ borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem' }}>
+            Agendar cita
+          </Link>
           {isAuthenticated ? (
             <>
               {user?.role === 'PROFESSIONAL' && (
@@ -364,6 +367,9 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
       </div>
 
       <div className={`mobile-menu ${mobileOpen ? 'open' : ''}`}>
+        <Link to="/directory" className="nav-link" onClick={() => setMobileOpen(false)} style={{ color: 'var(--secondary)', fontWeight: 700 }}>
+          Agendar cita
+        </Link>
         <Link to="/" className="nav-link" onClick={() => setMobileOpen(false)}>Inicio</Link>
         <Link to="/directory" className="nav-link" onClick={() => setMobileOpen(false)}>Directorio</Link>
         <Link to="/marketplace" className="nav-link" onClick={() => setMobileOpen(false)}>Inicio</Link>

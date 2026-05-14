@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { useParams } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
@@ -35,7 +35,7 @@ export function ReservationDirectPage() {
                 Reserva con {profile.name}
               </h1>
               <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>
-                Selecciona horario y completa el flujo de pago por transferencia.
+                Selecciona horario y completa el pago por transferencia o tarjeta. La cita se confirma al pago exitoso.
               </p>
             </div>
             <AvailabilitySelector professionalId={id} />

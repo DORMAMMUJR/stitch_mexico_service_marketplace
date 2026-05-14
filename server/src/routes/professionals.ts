@@ -3,8 +3,38 @@ import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
 import { uploadPublicImage } from '../lib/upload';
 import { CRITICAL_FIELDS } from '../constants/verificationFields';
+import { resolveSymptomToSpecialty } from '../lib/clinicalCatalog';
 
 const router = Router();
+
+const MEDICAL_SPECIALTIES = new Set([
+  'MEDICINA_GENERAL',
+  'PEDIATRIA',
+  'GINECOLOGIA',
+  'TRAUMATOLOGIA',
+  'ORTOPEDIA',
+  'DERMATOLOGIA',
+  'PSIQUIATRIA',
+  'PSICOLOGIA',
+  'CARDIOLOGIA',
+  'ODONTOLOGIA',
+  'NUTRICION',
+  'MEDICINA_INTERNA',
+]);
+
+const CONSULTATION_MODES = new Set(['PRESENCIAL', 'DOMICILIO', 'TELEMEDICINA']);
+const INSURANCE_PROVIDERS = new Set(['GNP', 'AXA', 'METLIFE', 'MAPFRE', 'ALLIANZ', 'BBVA', 'INBURSA', 'QUALITAS', 'PLAN_PRIVADO']);
+
+function normalizeArrayInput(input: unknown): string[] {
+  if (Array.isArray(input)) return input.map((value) => String(value).trim()).filter(Boolean);
+  if (typeof input === 'string') {
+    return input
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 1. RUTAS ESTÁTICAS Y PROTEGIDAS PRIMERO (Regla de oro de Express)
@@ -129,6 +159,10 @@ router.get('/me', authenticate, async (req: any, res: any, next: any) => {
         title: '',
         bio: null,
         category: 'GENERAL_MAINTENANCE',
+        medicalSpecialty: null,
+        consultationModes: [],
+        acceptedInsurers: [],
+        slotIntervalMinutes: 30,
         hourlyRate: null,
         isVerified: false,
         verificationStatus: 'PENDING',
@@ -168,6 +202,7 @@ router.post('/me/ensure', authenticate, async (req: any, res: any, next: any) =>
         userId,
         title: '',
         category: 'GENERAL_MAINTENANCE',
+        slotIntervalMinutes: 30,
         currency: 'MXN',
       }
     });
@@ -181,8 +216,28 @@ router.post('/me/ensure', authenticate, async (req: any, res: any, next: any) =>
 // PUT /api/professionals/me (Actualizar o crear perfil — upsert)
 router.put('/me', authenticate, async (req: any, res, next) => {
   try {
-    const { title, category, bio, hourlyRate, meetLink } = req.body;
+    const { title, category, bio, hourlyRate, meetLink, medicalSpecialty, consultationModes, acceptedInsurers, slotIntervalMinutes } = req.body;
     const userId = req.user.userId;
+    const normalizedConsultationModes = normalizeArrayInput(consultationModes).map((value) => value.toUpperCase());
+    const normalizedInsurers = normalizeArrayInput(acceptedInsurers).map((value) => value.toUpperCase());
+    const normalizedMedicalSpecialty = medicalSpecialty ? String(medicalSpecialty).trim().toUpperCase() : null;
+    const normalizedSlotInterval = slotIntervalMinutes !== undefined ? Number(slotIntervalMinutes) : undefined;
+
+    if (normalizedMedicalSpecialty && !MEDICAL_SPECIALTIES.has(normalizedMedicalSpecialty)) {
+      return res.status(400).json({ error: 'medicalSpecialty invalida' });
+    }
+
+    if (normalizedConsultationModes.some((mode) => !CONSULTATION_MODES.has(mode))) {
+      return res.status(400).json({ error: 'consultationModes contiene valores invalidos' });
+    }
+
+    if (normalizedInsurers.some((provider) => !INSURANCE_PROVIDERS.has(provider))) {
+      return res.status(400).json({ error: 'acceptedInsurers contiene valores invalidos' });
+    }
+
+    if (normalizedSlotInterval !== undefined && ![20, 30, 45].includes(normalizedSlotInterval)) {
+      return res.status(400).json({ error: 'slotIntervalMinutes debe ser 20, 30 o 45' });
+    }
 
     if (meetLink) {
       try {
@@ -213,6 +268,10 @@ router.put('/me', authenticate, async (req: any, res, next) => {
           userId,
           title: title || '',
           category: (category as any) || 'GENERAL_MAINTENANCE',
+          medicalSpecialty: normalizedMedicalSpecialty as any,
+          consultationModes: normalizedConsultationModes as any,
+          acceptedInsurers: normalizedInsurers as any,
+          slotIntervalMinutes: normalizedSlotInterval || 30,
           bio: bio || null,
           hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
           meetLink: meetLink ? String(meetLink).trim() : null,
@@ -227,7 +286,7 @@ router.put('/me', authenticate, async (req: any, res, next) => {
     }
 
     // 2. Detectar si hay cambios en campos críticos
-    const incomingData: any = { title, category, bio, hourlyRate };
+    const incomingData: any = { title, category, bio, hourlyRate, medicalSpecialty, consultationModes: normalizedConsultationModes, acceptedInsurers: normalizedInsurers, slotIntervalMinutes: normalizedSlotInterval };
     let criticalChanged = false;
 
     for (const field of CRITICAL_FIELDS) {
@@ -242,6 +301,10 @@ router.put('/me', authenticate, async (req: any, res, next) => {
     const updateData: any = {
       title: title || professional.title,
       category: category || professional.category,
+      medicalSpecialty: normalizedMedicalSpecialty !== null ? (normalizedMedicalSpecialty as any) : professional.medicalSpecialty,
+      consultationModes: normalizedConsultationModes.length > 0 ? (normalizedConsultationModes as any) : professional.consultationModes,
+      acceptedInsurers: normalizedInsurers.length > 0 ? (normalizedInsurers as any) : professional.acceptedInsurers,
+      slotIntervalMinutes: normalizedSlotInterval || professional.slotIntervalMinutes || 30,
       bio: bio !== undefined ? bio : professional.bio,
       hourlyRate: hourlyRate ? parseFloat(hourlyRate) : professional.hourlyRate,
       meetLink: req.body.meetLink !== undefined ? String(req.body.meetLink || '').trim() || null : professional.meetLink,
@@ -408,7 +471,7 @@ router.put('/me/availability', authenticate, async (req: any, res: any, next: an
 // GET /api/professionals
 router.get('/', async (req, res, next) => {
   try {
-    const { category, q, maxPrice, minPrice, minRating, verifiedOnly } = req.query;
+    const { category, q, maxPrice, minPrice, minRating, verifiedOnly, insurers, consultationMode, symptom } = req.query;
 
     // Construir los filtros dinámicamente
     const whereClause: any = {};
@@ -422,8 +485,23 @@ router.get('/', async (req, res, next) => {
       whereClause.OR = [
         { title: { contains: searchTerm, mode: 'insensitive' } },
         { bio: { contains: searchTerm, mode: 'insensitive' } },
-        { user: { name: { contains: searchTerm, mode: 'insensitive' } } }
+        { user: { name: { contains: searchTerm, mode: 'insensitive' } } },
       ];
+    }
+
+    const normalizedInsurerFilters = normalizeArrayInput(insurers).map((value) => value.toUpperCase()).filter((value) => INSURANCE_PROVIDERS.has(value));
+    if (normalizedInsurerFilters.length > 0) {
+      whereClause.acceptedInsurers = { hasSome: normalizedInsurerFilters as any };
+    }
+
+    const normalizedModeFilters = normalizeArrayInput(consultationMode).map((value) => value.toUpperCase()).filter((value) => CONSULTATION_MODES.has(value));
+    if (normalizedModeFilters.length > 0) {
+      whereClause.consultationModes = { hasSome: normalizedModeFilters as any };
+    }
+
+    const symptomSpecialty = symptom ? resolveSymptomToSpecialty(String(symptom)) : null;
+    if (symptomSpecialty) {
+      whereClause.medicalSpecialty = symptomSpecialty;
     }
 
     if (maxPrice) {
@@ -461,6 +539,10 @@ router.get('/', async (req, res, next) => {
         avatarUrl: p.user.avatarUrl,
         title: p.title,
         category: p.category,
+        medicalSpecialty: p.medicalSpecialty,
+        consultationModes: p.consultationModes,
+        acceptedInsurers: p.acceptedInsurers,
+        slotIntervalMinutes: p.slotIntervalMinutes || 30,
         hourlyRate: p.hourlyRate,
         isVerified: p.isVerified,
         rating: rating,
@@ -609,6 +691,10 @@ router.get('/:id', async (req, res, next) => {
       hourlyRate: professional.hourlyRate ? Number(professional.hourlyRate) : null,
       currency: professional.currency || 'MXN',
       category: professional.category,
+      medicalSpecialty: professional.medicalSpecialty,
+      consultationModes: professional.consultationModes,
+      acceptedInsurers: professional.acceptedInsurers,
+      slotIntervalMinutes: professional.slotIntervalMinutes || 30,
       meetLink: professional.meetLink,
       portfolioItems: professional.portfolioItems,
     });

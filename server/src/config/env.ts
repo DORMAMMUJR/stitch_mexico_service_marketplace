@@ -16,6 +16,7 @@ const envSchema = z.object({
   // ─── Auth (opcional hasta implementar módulo de auth) ───────────
   JWT_PRIVATE_KEY: z.string().optional(),
   JWT_PUBLIC_KEY: z.string().optional(),
+  CHAT_ENCRYPTION_KEY: z.string().optional(),
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
 

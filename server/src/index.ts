@@ -27,6 +27,8 @@ import { prisma } from './lib/db';
 import { EscrowStateMachine } from './lib/escrow';
 import { authenticate } from './middleware/auth';
 import { startEscrowCron } from './jobs/escrowCron';
+import { notifyUser } from './lib/notifications';
+import { logSecurityAuditEvent } from './lib/securityAudit';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
@@ -34,9 +36,9 @@ const app = express();
 app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
 
-// ✅ AGREGAR AQUÍ — antes de cualquier otro middleware
+// âœ… AGREGAR AQUÃ â€” antes de cualquier otro middleware
 app.use(helmet({
-  contentSecurityPolicy: false, // Desactivar CSP por ahora si sirves el frontend desde aquí
+  contentSecurityPolicy: false, // Desactivar CSP por ahora si sirves el frontend desde aquÃ­
   crossOriginEmbedderPolicy: false,
 }));
 
@@ -45,7 +47,7 @@ app.use(pinoHttp({ logger }));
 
 
 
-// ─── CORS ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ CORS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import { env } from './config/env';
 
 const allowedOrigins = [
@@ -56,6 +58,46 @@ const isProductionEnv = env.NODE_ENV === 'production';
 const effectiveAllowedOrigins = isProductionEnv
   ? allowedOrigins
   : Array.from(new Set([...localDevOrigins, ...allowedOrigins]));
+
+type AppointmentMeta = {
+  requestedScheduledAt?: string | null;
+  payment?: {
+    method?: 'BANK_TRANSFER' | 'STRIPE_CARD';
+    status?: string;
+    stripeSessionId?: string | null;
+    stripePaymentIntentId?: string | null;
+    paidAt?: string | null;
+    releasedAt?: string | null;
+    noShowMarkedAt?: string | null;
+    conflictReason?: string | null;
+  };
+  meetingLink?: string | null;
+  plainNotes?: string | null;
+};
+
+function parseAppointmentMeta(notes?: string | null): AppointmentMeta | null {
+  if (!notes) return null;
+  try {
+    const parsed = JSON.parse(notes);
+    return typeof parsed === 'object' && parsed ? (parsed as AppointmentMeta) : null;
+  } catch {
+    return null;
+  }
+}
+
+function serializeAppointmentMeta(meta: AppointmentMeta): string {
+  return JSON.stringify(meta);
+}
+
+function parseProfessionalSlotInterval(value: unknown): 20 | 30 | 45 {
+  const parsed = Number(value);
+  if (parsed === 20 || parsed === 30 || parsed === 45) return parsed;
+  return 30;
+}
+
+function isValidSlotForInterval(date: Date, intervalMinutes: number): boolean {
+  return date.getSeconds() === 0 && date.getMilliseconds() === 0 && date.getMinutes() % intervalMinutes === 0;
+}
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -69,18 +111,18 @@ app.use(cors({
   credentials: true,
 }));
 
-// ─── Stripe Webhook (Debe ir ANTES de express.json) ──────────────────────────
-// Stripe necesita el raw body para verificar la firma criptográfica.
-// Si STRIPE_SECRET_KEY no está configurada, el endpoint responde 503
+// â”€â”€â”€ Stripe Webhook (Debe ir ANTES de express.json) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Stripe necesita el raw body para verificar la firma criptogrÃ¡fica.
+// Si STRIPE_SECRET_KEY no estÃ¡ configurada, el endpoint responde 503
 // en lugar de tumbar el servidor al arrancar.
 app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
-  // Validación temprana: si Stripe no está configurado, responder limpiamente
+  // ValidaciÃ³n temprana: si Stripe no estÃ¡ configurado, responder limpiamente
   let stripe: any;
   try {
     stripe = getStripe();
   } catch {
-    logger.warn('[Stripe] Webhook recibido pero Stripe no está configurado. Ignorando.');
-    return res.status(503).json({ error: 'Stripe no está configurado en este entorno.' });
+    logger.warn('[Stripe] Webhook recibido pero Stripe no estÃ¡ configurado. Ignorando.');
+    return res.status(503).json({ error: 'Stripe no estÃ¡ configurado en este entorno.' });
   }
 
   const sig = req.headers['stripe-signature'];
@@ -104,12 +146,142 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
       const orderId = paymentIntent.metadata.orderId;
 
       if (orderId) {
-        logger.info({ orderId }, 'Pago completado. Transición a FONDOS_EN_ESCROW');
+        logger.info({ orderId }, 'Pago completado. TransiciÃ³n a FONDOS_EN_ESCROW');
         await EscrowStateMachine.transition(orderId, 'FONDOS_EN_ESCROW', {
           stripePaymentIntentId: paymentIntent.id,
         });
       } else {
         logger.warn('PaymentIntent succeeded pero no tiene orderId en metadata.');
+      }
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as any;
+      const isAppointmentPayment = session.metadata?.kind === 'APPOINTMENT';
+      const appointmentId = session.metadata?.appointmentId;
+
+      if (isAppointmentPayment && appointmentId) {
+        const appointment = await prisma.appointment.findUnique({
+          where: { id: appointmentId },
+          include: {
+            professional: { include: { user: { select: { id: true, email: true, name: true } } } },
+            client: { select: { id: true, email: true, name: true } },
+          },
+        });
+
+        if (!appointment) {
+          logger.warn({ appointmentId, sessionId: session.id }, 'Webhook Stripe cita: appointment no encontrado');
+        } else {
+          const currentMeta = parseAppointmentMeta(appointment.notes) || {};
+          const requestedRaw = currentMeta.requestedScheduledAt || session.metadata?.requestedScheduledAt || null;
+          const requestedScheduledAt = requestedRaw ? new Date(requestedRaw) : null;
+
+          if (!requestedScheduledAt || Number.isNaN(requestedScheduledAt.getTime())) {
+            logger.warn({ appointmentId, sessionId: session.id }, 'Webhook Stripe cita: requestedScheduledAt invalido');
+          } else {
+            const slotIntervalMinutes = parseProfessionalSlotInterval((appointment.professional as any).slotIntervalMinutes);
+            if (!isValidSlotForInterval(requestedScheduledAt, slotIntervalMinutes)) {
+              logger.warn({ appointmentId, slotIntervalMinutes, requestedScheduledAt: requestedScheduledAt.toISOString() }, 'Webhook Stripe cita: slot invalido para intervalo clinico');
+              return res.json({ received: true });
+            }
+            const conflict = await prisma.appointment.findFirst({
+              where: {
+                id: { not: appointment.id },
+                professionalId: appointment.professionalId,
+                scheduledAt: requestedScheduledAt,
+                status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
+              },
+              select: { id: true },
+            });
+
+            if (conflict) {
+              const conflictMeta: AppointmentMeta = {
+                ...currentMeta,
+                payment: {
+                  ...(currentMeta.payment || {}),
+                  method: 'STRIPE_CARD',
+                  status: 'PAID_SLOT_CONFLICT',
+                  stripeSessionId: session.id,
+                  stripePaymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+                  paidAt: new Date().toISOString(),
+                  conflictReason: 'SLOT_ALREADY_CONFIRMED',
+                },
+              };
+
+              await prisma.appointment.update({
+                where: { id: appointment.id },
+                data: { notes: serializeAppointmentMeta(conflictMeta) },
+              });
+
+              logger.warn(
+                { appointmentId: appointment.id, conflictId: conflict.id, requestedScheduledAt: requestedScheduledAt.toISOString() },
+                'Pago Stripe recibido para cita con conflicto de horario. Requiere resolucion manual.'
+              );
+              await logSecurityAuditEvent({
+                action: 'appointment.payment_conflict',
+                appointmentId: appointment.id,
+                targetUserId: appointment.clientId,
+                metadata: { method: 'STRIPE_CARD', status: 'PAID_SLOT_CONFLICT' },
+              });
+            } else {
+              const updatedMeta: AppointmentMeta = {
+                ...currentMeta,
+                requestedScheduledAt: requestedScheduledAt.toISOString(),
+                payment: {
+                  ...(currentMeta.payment || {}),
+                  method: 'STRIPE_CARD',
+                  status: 'PAID_HELD',
+                  stripeSessionId: session.id,
+                  stripePaymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+                  paidAt: new Date().toISOString(),
+                  conflictReason: null,
+                },
+              };
+
+              const scheduledAppointment = await prisma.appointment.update({
+                where: { id: appointment.id },
+                data: {
+                  scheduledAt: requestedScheduledAt,
+                  status: 'SCHEDULED',
+                  notes: serializeAppointmentMeta(updatedMeta),
+                },
+              });
+
+              if (appointment.clientId && appointment.client) {
+                const formattedDate = requestedScheduledAt.toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short' });
+                notifyUser({
+                  userId: appointment.clientId,
+                  type: 'ORDER_STATUS',
+                  title: 'Pago recibido y cita confirmada',
+                  body: `Tu cita para ${formattedDate} fue confirmada.`,
+                  metadata: { appointmentId: scheduledAppointment.id },
+                  email: appointment.client.email,
+                  emailSubject: 'Cita confirmada - Intecnia',
+                  emailHtml: `<p>Recibimos tu pago y tu cita quedo confirmada para ${formattedDate}.</p>`,
+                }).catch((error) => logger.error({ err: error, appointmentId: scheduledAppointment.id }, 'Error notificando confirmacion de cita al cliente'));
+              }
+
+              const formattedDate = requestedScheduledAt.toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short' });
+              notifyUser({
+                userId: appointment.professional.userId,
+                type: 'ORDER_STATUS',
+                title: 'Nueva cita confirmada con pago',
+                body: `Se confirmo una cita para ${formattedDate}.`,
+                metadata: { appointmentId: scheduledAppointment.id },
+                email: appointment.professional.user.email,
+                emailSubject: 'Cita confirmada por pago - Intecnia',
+                emailHtml: `<p>Se confirmo una cita con pago exitoso para ${formattedDate}.</p>`,
+              }).catch((error) => logger.error({ err: error, appointmentId: scheduledAppointment.id }, 'Error notificando confirmacion de cita al profesional'));
+
+              await logSecurityAuditEvent({
+                action: 'appointment.payment_confirmed',
+                appointmentId: scheduledAppointment.id,
+                targetUserId: appointment.clientId,
+                metadata: { method: 'STRIPE_CARD', status: 'PAID_HELD' },
+              });
+            }
+          }
+        }
       }
     }
     res.json({ received: true });
@@ -119,13 +291,13 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
   }
 });
 
-// ─── Middleware Global JSON ──────────────────────────────────────────────────
+// â”€â”€â”€ Middleware Global JSON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.use(express.json());
 app.use(cookieParser());
 
-// ─── Multer Config se ha movido a src/lib/upload.ts ────────────────────────
+// â”€â”€â”€ Multer Config se ha movido a src/lib/upload.ts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// ─── Routers ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Routers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import { authRouter } from './routes/auth';
 import { usersRouter } from './routes/users';
 import { appointmentsRouter } from './routes/appointments';
@@ -135,7 +307,7 @@ import { messagesRouter } from './routes/messages';
 import { adminRouter } from './routes/admin';
 import { verificationRouter } from './routes/verification';
 
-// ─── Servir archivos subidos localmente ──────────────────────────────────────
+// â”€â”€â”€ Servir archivos subidos localmente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -151,11 +323,11 @@ app.use('/api/messages', messagesRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/verification', verificationRouter);
 
-// ─── Servir el build del frontend React ──────────────────────────────────────
+// â”€â”€â”€ Servir el build del frontend React â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const frontendDist = path.join(__dirname, '../public');
 app.use(express.static(frontendDist));
 
-// ─── Healthcheck ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Healthcheck â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/health', async (req, res) => {
   const checks: Record<string, string> = {};
 
@@ -185,18 +357,84 @@ app.get('/health', async (req, res) => {
  * AI Chat Endpoint (OpenAI)
  * Rate Limited: 20 requests/min por IP para proteger la cuota de OpenAI
  */
+type ChatHistoryItem = { sender?: string; text?: string };
+type ChatNextAction = 'BOOK_ON_CALENDAR' | 'HANDOFF_HUMAN' | 'INFO';
+
+const normalizeChatText = (value: unknown) =>
+  String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 1200);
+
+const normalizeForIntent = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const sanitizeChatHistory = (history: unknown): Array<{ sender: 'user' | 'bot'; text: string }> => {
+  if (!Array.isArray(history)) return [];
+
+  return history
+    .slice(-8)
+    .map((item) => {
+      const entry = item as ChatHistoryItem;
+      const sender: 'user' | 'bot' = entry?.sender === 'user' ? 'user' : 'bot';
+      const text = normalizeChatText(entry?.text);
+      return { sender, text };
+    })
+    .filter((entry) => Boolean(entry.text));
+};
+
+const inferNextAction = (userMessage: string, assistantReply: string): ChatNextAction => {
+  const intentText = `${normalizeForIntent(userMessage)} ${normalizeForIntent(assistantReply)}`;
+  const handoffSignals = [
+    'quiero que me contacten',
+    'quiero hablar con',
+    'hablar con',
+    'llamame',
+    'whatsapp',
+    'seguimiento',
+    'contactenme',
+    'contactarme',
+    'te contactara',
+    'te contactara el profesional',
+  ];
+  if (handoffSignals.some((signal) => intentText.includes(signal))) {
+    return 'HANDOFF_HUMAN';
+  }
+
+  const bookingSignals = [
+    'calendario',
+    'agenda',
+    'agendar',
+    'cita',
+    'horario',
+    'reserv',
+    'disponible',
+  ];
+  if (bookingSignals.some((signal) => intentText.includes(signal))) {
+    return 'BOOK_ON_CALENDAR';
+  }
+
+  return 'INFO';
+};
+
 const chatLimiter = rateLimit({
-  windowMs: 60 * 1000,        // 1 minuto
-  max: 20,                    // 20 mensajes por minuto por IP
+  windowMs: 60 * 1000,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados mensajes enviados. Por favor espera un momento antes de continuar.' },
 });
 app.post('/api/chat', chatLimiter, async (req, res, next) => {
   try {
-    const { message, professional, history = [], clientId, professionalId } = req.body;
+    const rawMessage = normalizeChatText(req.body?.message);
+    const rawProfessionalName = normalizeChatText(req.body?.professional);
+    const rawProfessionalId = normalizeChatText(req.body?.professionalId);
+    const history = sanitizeChatHistory(req.body?.history);
 
-    if (!message) {
+    if (!rawMessage) {
       return res.status(400).json({ error: 'El campo message es requerido' });
     }
 
@@ -205,18 +443,37 @@ app.post('/api/chat', chatLimiter, async (req, res, next) => {
       return res.status(500).json({ error: 'OpenAI no configurado en el servidor' });
     }
 
-    const systemPrompt = `Eres el asistente virtual de ${professional || 'un profesional'} en Intecnia, 
-el portal corporativo líder de servicios y proveedores en México.
+    let professionalContext = rawProfessionalName || 'el profesional del perfil';
+    if (rawProfessionalId) {
+      const professionalProfile = await prisma.professional.findUnique({
+        where: { id: rawProfessionalId },
+        include: {
+          user: { select: { name: true } },
+        },
+      });
 
-Tu misión:
-- Responder preguntas sobre los servicios del profesional de forma clara y concisa
-- Ayudar al usuario a agendar una consulta o cita
-- Ser cálido, profesional y usar español mexicano natural
-- NUNCA inventes precios.
-- Si el usuario solicita agendar una cita, pídele la FECHA y HORA específica, y el MOTIVO. Cuando te dé esos datos, usa la herramienta book_appointment para agendarla en la base de datos.
-Mantén respuestas cortas.`;
+      if (professionalProfile) {
+        const name = professionalProfile.user?.name || rawProfessionalName || 'Profesional';
+        const title = professionalProfile.title || 'Especialista';
+        const category = professionalProfile.category ? String(professionalProfile.category).replaceAll('_', ' ') : '';
+        professionalContext = `${name} - ${title}${category ? ` - Categoria: ${category}` : ''}`;
+      }
+    }
 
-    const chatHistory = history.slice(-6).map((m: { sender: string; text: string }) => ({
+    const systemPrompt = `Eres un asistente de conversion de Intecnia para el perfil: ${professionalContext}.
+
+Objetivo principal:
+- Guiar al usuario a reservar en el calendario visible en la parte superior del perfil.
+
+Reglas estrictas:
+- Responde en espanol mexicano claro, maximo 2 frases.
+- Siempre termina con una accion concreta para avanzar a la agenda/calendario.
+- No inventes precios, horarios ni datos que no tengas.
+- Si el usuario pide contacto humano, indica que se enviara su solicitud al profesional.
+- No digas que ya agendaste automaticamente; la cita se confirma desde el calendario del perfil.
+- Si la duda no es de agenda o servicio, redirige con tacto al siguiente paso de reserva.`;
+
+    const chatHistory = history.map((m) => ({
       role: m.sender === 'user' ? 'user' : 'assistant',
       content: m.text,
     }));
@@ -232,28 +489,10 @@ Mantén respuestas cortas.`;
         messages: [
           { role: 'system', content: systemPrompt },
           ...chatHistory,
-          { role: 'user', content: message },
+          { role: 'user', content: rawMessage },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "book_appointment",
-              description: "Agenda una cita real con el profesional. Usa esto solo cuando tengas fecha, hora y motivo.",
-              parameters: {
-                type: "object",
-                properties: {
-                  "date": { "type": "string", "description": "Fecha y hora ISO 8601" },
-                  "notes": { "type": "string", "description": "Motivo de la cita" }
-                },
-                "required": ["date"]
-              }
-            }
-          }
-        ],
-        tool_choice: "auto",
         max_tokens: 300,
-        temperature: 0.7,
+        temperature: 0.45,
       }),
     });
 
@@ -265,40 +504,16 @@ Mantén respuestas cortas.`;
 
     const data = await openaiResponse.json() as any;
     const responseMessage = data.choices?.[0]?.message;
+    const reply = normalizeChatText(responseMessage?.content) || 'Para continuar, usa el calendario del perfil y selecciona un horario disponible para tu cita.';
+    const nextAction = inferNextAction(rawMessage, reply);
 
-    // Handle Tool Call
-    if (responseMessage?.tool_calls) {
-      const toolCall = responseMessage.tool_calls[0];
-      if (toolCall.function.name === 'book_appointment') {
-        const args = JSON.parse(toolCall.function.arguments);
-        
-        if (!clientId || !professionalId) {
-           return res.json({ output: 'Por favor, inicia sesión en tu cuenta para poder agendar una cita real en mi calendario.' });
-        }
-
-        const appointment = await prisma.appointment.create({
-           data: {
-             clientId,
-             professionalId,
-             scheduledAt: new Date(args.date),
-             notes: args.notes,
-           }
-        });
-
-        return res.json({ output: `¡Perfecto! He agendado tu cita para el ${new Date(args.date).toLocaleString()}. ¡Te esperamos!` });
-      }
-    }
-
-    const reply = responseMessage?.content?.trim();
-    res.json({ output: reply || 'En este momento no puedo responder. Por favor intenta de nuevo.' });
+    res.json({ output: reply, nextAction });
 
   } catch (error) {
     next(error);
   }
 });
-
-
-// ─── SPA Fallback ────────────────────────────────────────────────────────────
+// â”€â”€â”€ SPA Fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('*', (req, res) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
@@ -319,6 +534,7 @@ app.listen(Number(port), '0.0.0.0', () => {
     'Intecnia backend iniciado'
   );
 
-  // ✅ AGREGAR AQUÍ:
+  // âœ… AGREGAR AQUÃ:
   startEscrowCron();
 });
+

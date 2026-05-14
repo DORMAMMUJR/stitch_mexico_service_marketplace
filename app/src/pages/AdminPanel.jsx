@@ -190,9 +190,44 @@ export function AdminPanel() {
       if (!res.ok) throw new Error(data.error || 'No se pudo guardar el link');
 
       showToast('Link de cita enviado a cliente y profesional', 'success');
-      setAppointments((prev) => prev.map((a) => (a.id === appointmentId ? { ...a, meetingLink: link } : a)));
+      const nextMeetingLink = data?.appointment?.meetingLink || link;
+      const nextVideoSession = data?.appointment?.videoSession || null;
+      setAppointments((prev) => prev.map((a) => (
+        a.id === appointmentId
+          ? { ...a, meetingLink: nextMeetingLink, videoSession: nextVideoSession }
+          : a
+      )));
+      setLinkDrafts((prev) => ({ ...prev, [appointmentId]: nextMeetingLink }));
     } catch (err) {
       showToast(err.message || 'Error al enviar link', 'error');
+    } finally {
+      setSavingMap((prev) => ({ ...prev, [appointmentId]: false }));
+    }
+  };
+
+  const handleAutoGenerateVideo = async (appointmentId) => {
+    setSavingMap((prev) => ({ ...prev, [appointmentId]: true }));
+    try {
+      const res = await fetch(`/api/appointments/${appointmentId}/video-session`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forceAuto: true, provider: 'jitsi' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo generar sala automatica');
+
+      const nextMeetingLink = data?.meetingLink || data?.videoSession?.joinUrl || '';
+      const nextVideoSession = data?.videoSession || null;
+      setAppointments((prev) => prev.map((a) => (
+        a.id === appointmentId
+          ? { ...a, meetingLink: nextMeetingLink, videoSession: nextVideoSession }
+          : a
+      )));
+      setLinkDrafts((prev) => ({ ...prev, [appointmentId]: nextMeetingLink }));
+      showToast('Sala automatica generada para la cita', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al generar sala automatica', 'error');
     } finally {
       setSavingMap((prev) => ({ ...prev, [appointmentId]: false }));
     }
@@ -535,6 +570,9 @@ export function AdminPanel() {
                     <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem' }}>
                       Cliente: <strong>{appt.client?.name || 'Invitado'}</strong> · Profesional: <strong>{appt.professional?.user?.name || 'N/D'}</strong>
                     </p>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                      Proveedor: <strong>{appt.videoSession?.provider || (appt.meetingLink ? 'externo' : 'sin definir')}</strong>
+                    </p>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <input
@@ -550,6 +588,13 @@ export function AdminPanel() {
                       disabled={!!savingMap[appt.id]}
                     >
                       {savingMap[appt.id] ? 'Enviando...' : 'Guardar y enviar link'}
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => handleAutoGenerateVideo(appt.id)}
+                      disabled={!!savingMap[appt.id]}
+                    >
+                      {savingMap[appt.id] ? 'Generando...' : 'Generar sala automatica'}
                     </button>
                   </div>
                 </div>
@@ -598,3 +643,4 @@ export function AdminPanel() {
     </>
   );
 }
+

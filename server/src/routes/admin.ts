@@ -9,6 +9,19 @@ import { logger } from '../lib/logger';
 
 const router = Router();
 
+type VideoProvider = 'jitsi' | 'zoom' | 'meet';
+
+type AppointmentVideoSession = {
+  provider: VideoProvider;
+  roomName?: string | null;
+  joinUrl?: string | null;
+  embedAllowed?: boolean;
+  status?: 'ACTIVE' | 'EXTERNAL';
+  source?: 'AUTO' | 'MANUAL' | 'LEGACY';
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 function parseAppointmentMeta(notes?: string | null): any {
   if (!notes) return null;
   try {
@@ -17,6 +30,59 @@ function parseAppointmentMeta(notes?: string | null): any {
   } catch {
     return null;
   }
+}
+
+function sanitizeHttpUrl(value: string): string | null {
+  try {
+    const parsed = new URL(value.trim());
+    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function inferVideoProviderFromUrl(url: string): VideoProvider {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes('zoom.us') || host.includes('zoom.com')) return 'zoom';
+    if (host.includes('meet.google')) return 'meet';
+    if (host.includes('jitsi') || host.includes('8x8.vc')) return 'jitsi';
+  } catch {
+    // Ignore parsing errors.
+  }
+  return 'meet';
+}
+
+function normalizeVideoSession(meta: any): AppointmentVideoSession | null {
+  const raw = meta?.videoSession;
+  const meetingLink = typeof meta?.meetingLink === 'string' ? sanitizeHttpUrl(meta.meetingLink) : null;
+  if (raw && typeof raw === 'object') {
+    const joinUrl = typeof raw.joinUrl === 'string' ? sanitizeHttpUrl(raw.joinUrl) : null;
+    const provider = (String(raw.provider || '').toLowerCase() as VideoProvider) || inferVideoProviderFromUrl(joinUrl || meetingLink || '');
+    if (joinUrl || raw.roomName) {
+      return {
+        provider: provider === 'zoom' || provider === 'meet' || provider === 'jitsi' ? provider : inferVideoProviderFromUrl(joinUrl || meetingLink || ''),
+        roomName: typeof raw.roomName === 'string' ? raw.roomName : null,
+        joinUrl,
+        embedAllowed: provider === 'jitsi',
+        status: provider === 'jitsi' ? 'ACTIVE' : 'EXTERNAL',
+        source: raw.source === 'AUTO' || raw.source === 'MANUAL' || raw.source === 'LEGACY' ? raw.source : 'MANUAL',
+        createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : null,
+        updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : null,
+      };
+    }
+  }
+  if (!meetingLink) return null;
+  const provider = inferVideoProviderFromUrl(meetingLink);
+  return {
+    provider,
+    roomName: provider === 'jitsi' ? meetingLink.split('/').filter(Boolean).pop() || null : null,
+    joinUrl: meetingLink,
+    embedAllowed: provider === 'jitsi',
+    status: provider === 'jitsi' ? 'ACTIVE' : 'EXTERNAL',
+    source: 'LEGACY',
+  };
 }
 
 function isStrongPassword(password: string) {
@@ -545,7 +611,7 @@ router.get('/appointments/upcoming', async (_req: any, res: any, next: any) => {
   try {
     const appointments = await prisma.appointment.findMany({
       where: {
-        status: { in: ['PENDING_PAYMENT', 'SCHEDULED'] },
+        status: { in: ['PENDING_PAYMENT', 'SCHEDULED', 'IN_PROGRESS'] },
         scheduledAt: { gte: new Date() },
       },
       include: {
@@ -563,6 +629,7 @@ router.get('/appointments/upcoming', async (_req: any, res: any, next: any) => {
       return {
         ...a,
         meetingLink: meta?.meetingLink ?? null,
+        videoSession: normalizeVideoSession(meta),
       };
     });
 
@@ -604,9 +671,10 @@ router.patch('/appointments/:id/meeting-link', async (req: any, res: any, next: 
   try {
     const { id } = req.params;
     const { meetingLink } = req.body;
+    const sanitizedMeetingLink = typeof meetingLink === 'string' ? sanitizeHttpUrl(meetingLink) : null;
 
-    if (!meetingLink || typeof meetingLink !== 'string' || !/^https?:\/\//i.test(meetingLink.trim())) {
-      return res.status(400).json({ error: 'Debes enviar un link válido (http/https)' });
+    if (!sanitizedMeetingLink) {
+      return res.status(400).json({ error: 'Debes enviar un link valido (http/https)' });
     }
 
     const appointment = await prisma.appointment.findUnique({
@@ -620,10 +688,22 @@ router.patch('/appointments/:id/meeting-link', async (req: any, res: any, next: 
     if (!appointment) return res.status(404).json({ error: 'Cita no encontrada' });
 
     const currentMeta = parseAppointmentMeta(appointment.notes) || {};
+    const provider = inferVideoProviderFromUrl(sanitizedMeetingLink);
+    const nowIso = new Date().toISOString();
     const updatedNotes = JSON.stringify({
       ...currentMeta,
-      meetingLink: meetingLink.trim(),
-      meetingLinkUpdatedAt: new Date().toISOString(),
+      meetingLink: sanitizedMeetingLink,
+      meetingLinkUpdatedAt: nowIso,
+      videoSession: {
+        provider,
+        roomName: provider === 'jitsi' ? sanitizedMeetingLink.split('/').filter(Boolean).pop() || null : null,
+        joinUrl: sanitizedMeetingLink,
+        embedAllowed: provider === 'jitsi',
+        status: provider === 'jitsi' ? 'ACTIVE' : 'EXTERNAL',
+        source: 'MANUAL',
+        createdAt: currentMeta?.videoSession?.createdAt || nowIso,
+        updatedAt: nowIso,
+      },
     });
 
     const updated = await prisma.appointment.update({
@@ -636,11 +716,11 @@ router.patch('/appointments/:id/meeting-link', async (req: any, res: any, next: 
         userId: appointment.clientId,
         type: 'ORDER_STATUS',
         title: 'Link de videollamada asignado',
-        body: `Tu cita ya tiene link: ${meetingLink.trim()}`,
-        metadata: { appointmentId: appointment.id, meetingLink: meetingLink.trim() },
+        body: `Tu cita ya tiene link: ${sanitizedMeetingLink}`,
+        metadata: { appointmentId: appointment.id, meetingLink: sanitizedMeetingLink },
         email: appointment.client.email,
-        emailSubject: 'Link de tu cita — Intecnia',
-        emailHtml: `<p>Tu cita ya tiene link de videollamada:</p><p><a href="${meetingLink.trim()}">${meetingLink.trim()}</a></p>`,
+        emailSubject: 'Link de tu cita - Intecnia',
+        emailHtml: `<p>Tu cita ya tiene link de videollamada:</p><p><a href="${sanitizedMeetingLink}">${sanitizedMeetingLink}</a></p>`,
       }).catch((error) => logger.error({ err: error, appointmentId: appointment.id }, 'Error notificando cliente sobre link de cita'));
     }
 
@@ -649,16 +729,27 @@ router.patch('/appointments/:id/meeting-link', async (req: any, res: any, next: 
       type: 'ORDER_STATUS',
       title: 'Link de videollamada actualizado',
       body: `La cita del ${appointment.scheduledAt?.toLocaleDateString('es-MX') ?? ''} tiene nuevo link.`,
-      metadata: { appointmentId: appointment.id, meetingLink: meetingLink.trim() },
+      metadata: { appointmentId: appointment.id, meetingLink: sanitizedMeetingLink },
       email: appointment.professional.user.email,
-      emailSubject: 'Link actualizado — Intecnia',
-      emailHtml: `<p>Se actualizó el link de la cita:</p><p><a href="${meetingLink.trim()}">${meetingLink.trim()}</a></p>`,
+      emailSubject: 'Link actualizado - Intecnia',
+      emailHtml: `<p>Se actualizo el link de la cita:</p><p><a href="${sanitizedMeetingLink}">${sanitizedMeetingLink}</a></p>`,
     }).catch((error) => logger.error({ err: error, appointmentId: appointment.id }, 'Error notificando profesional sobre link de cita'));
 
-    res.json({ message: 'Link de cita actualizado y enviado', appointment: { ...updated, meetingLink: meetingLink.trim() } });
+    res.json({
+      message: 'Link de cita actualizado y enviado',
+      appointment: {
+        ...updated,
+        meetingLink: sanitizedMeetingLink,
+        videoSession: normalizeVideoSession({
+          ...currentMeta,
+          meetingLink: sanitizedMeetingLink,
+        }),
+      },
+    });
   } catch (error) {
     next(error);
   }
 });
 
 export { router as adminRouter };
+

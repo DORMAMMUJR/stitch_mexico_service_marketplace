@@ -4,6 +4,7 @@ import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { ChatWindow } from '../components/ChatWindow';
 import { useToast } from '../components/ToastContext';
 import { useAuth } from '../hooks/useAuth';
+import { VideoCallModal } from '../components/VideoCallModal';
 
 function normalizeAppointments(list) {
   if (!Array.isArray(list)) return [];
@@ -34,6 +35,8 @@ export function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [appointments, setAppointments] = useState([]);
+  const [joiningVideoMap, setJoiningVideoMap] = useState({});
+  const [activeVideoSession, setActiveVideoSession] = useState(null);
   const [selectedClientAppointment, setSelectedClientAppointment] = useState(null);
   const [hasActivePayments, setHasActivePayments] = useState(false);
 
@@ -203,6 +206,57 @@ export function DashboardPage() {
     } catch (err) {
       setAppointments((prev) => prev.map((a) => (a.id === appointmentId ? { ...a, _cancelling: false } : a)));
       showToast(err.message || 'Error al cancelar', 'error');
+    }
+  };
+
+  const handleJoinVideo = async (appointment) => {
+    setJoiningVideoMap((prev) => ({ ...prev, [appointment.id]: true }));
+    try {
+      const sessionRes = await fetch(`/api/appointments/${appointment.id}/video-session`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forceAuto: false }),
+      });
+      const sessionData = await sessionRes.json().catch(() => ({}));
+      if (!sessionRes.ok) throw new Error(sessionData.error || 'No se pudo preparar la videollamada');
+
+      const tokenRes = await fetch(`/api/appointments/${appointment.id}/video-token`, {
+        credentials: 'include',
+      });
+      const tokenData = await tokenRes.json().catch(() => ({}));
+      if (!tokenRes.ok) throw new Error(tokenData.error || 'No se pudo generar acceso seguro');
+
+      await fetch(`/api/appointments/${appointment.id}/video-opened`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: tokenData.token }),
+      }).catch(() => null);
+
+      const provider = tokenData.provider || sessionData?.videoSession?.provider;
+      const joinUrl = tokenData.joinUrl || sessionData?.videoSession?.joinUrl || appointment.meetingLink;
+      const embedAllowed = Boolean(tokenData.embedAllowed || sessionData?.videoSession?.embedAllowed);
+
+      if (!joinUrl) throw new Error('Esta cita aun no tiene link de videollamada');
+
+      setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, meetingLink: joinUrl } : a)));
+
+      if (provider === 'jitsi' && embedAllowed) {
+        setActiveVideoSession({
+          appointmentId: appointment.id,
+          joinUrl,
+          token: tokenData.token,
+        });
+        return;
+      }
+
+      window.open(joinUrl, '_blank', 'noopener,noreferrer');
+      showToast('Abriendo videollamada externa', 'success');
+    } catch (err) {
+      showToast(err.message || 'No se pudo abrir la videollamada', 'error');
+    } finally {
+      setJoiningVideoMap((prev) => ({ ...prev, [appointment.id]: false }));
     }
   };
 
@@ -413,15 +467,16 @@ export function DashboardPage() {
 
                         <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} - {app.timeLabel}</p>
                         <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{app.status}</p>
-                        {app.meetingLink && (
-                          <a
-                            href={app.meetingLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ fontSize: '0.75rem', color: 'var(--secondary)', fontWeight: 700 }}
+                        {['SCHEDULED', 'IN_PROGRESS'].includes(app.status) && (
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            onClick={() => handleJoinVideo(app)}
+                            disabled={Boolean(joiningVideoMap[app.id])}
+                            style={{ marginTop: '0.375rem', fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
                           >
-                            Abrir videollamada
-                          </a>
+                            {joiningVideoMap[app.id] ? 'Conectando...' : 'Entrar a videollamada'}
+                          </button>
                         )}
                       </div>
                       {app.status === 'SCHEDULED' && (
@@ -544,6 +599,13 @@ export function DashboardPage() {
             </div>
           </aside>
         </div>
+      )}
+
+      {activeVideoSession && (
+        <VideoCallModal
+          session={activeVideoSession}
+          onClose={() => setActiveVideoSession(null)}
+        />
       )}
     </div>
   );

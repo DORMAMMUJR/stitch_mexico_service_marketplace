@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
@@ -26,6 +26,28 @@ const FILTER_TO_CATEGORY = {
   'Ingeniería': 'ENGINEERING',
   'Educación y Tutorías': 'GENERAL_MAINTENANCE',
 };
+
+const MEDICAL_SPECIALTY_LABELS = {
+  MEDICINA_GENERAL: 'Medicina general',
+  PEDIATRIA: 'Pediatría',
+  GINECOLOGIA: 'Ginecología',
+  TRAUMATOLOGIA: 'Traumatología',
+  ORTOPEDIA: 'Ortopedia',
+  DERMATOLOGIA: 'Dermatología',
+  PSIQUIATRIA: 'Psiquiatría',
+  PSICOLOGIA: 'Psicología',
+  CARDIOLOGIA: 'Cardiología',
+  ODONTOLOGIA: 'Odontología',
+  NUTRICION: 'Nutrición',
+  MEDICINA_INTERNA: 'Medicina interna',
+};
+
+const INSURER_OPTIONS = ['GNP', 'AXA', 'METLIFE', 'MAPFRE', 'ALLIANZ', 'BBVA', 'INBURSA', 'QUALITAS', 'PLAN_PRIVADO'];
+const CONSULTATION_MODE_OPTIONS = [
+  { value: 'PRESENCIAL', label: 'Consultorio presencial' },
+  { value: 'DOMICILIO', label: 'Visita a domicilio' },
+  { value: 'TELEMEDICINA', label: 'Telemedicina' },
+];
 
 const PRICE_RANGES = [
   { label: 'Todos', min: 0, max: 5000 },
@@ -71,6 +93,14 @@ export function DirectoryPage() {
   const [priceCap, setPriceCap] = useState(5000);
   const [minRating, setMinRating] = useState(0);
   const [verifiedOnly, setVerifiedOnly] = useState(searchParams.get('verifiedOnly') === 'true');
+  const [symptomTerm, setSymptomTerm] = useState(searchParams.get('symptom') || '');
+  const [consultationMode, setConsultationMode] = useState(searchParams.get('consultationMode') || '');
+  const [selectedInsurers, setSelectedInsurers] = useState(
+    (searchParams.get('insurers') || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
   const { showToast } = useToast();
   const avatarFallback = '/default-avatar.svg';
 
@@ -97,16 +127,33 @@ export function DirectoryPage() {
   }, [queryFromUrl]);
 
   useEffect(() => {
+    setSymptomTerm(searchParams.get('symptom') || '');
+    setConsultationMode(searchParams.get('consultationMode') || '');
+    setSelectedInsurers(
+      (searchParams.get('insurers') || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    );
+  }, [searchParams]);
+
+  useEffect(() => {
     const next = new URLSearchParams(searchParams);
     if (verifiedOnly) {
       next.set('verifiedOnly', 'true');
     } else {
       next.delete('verifiedOnly');
     }
+    if (symptomTerm.trim()) next.set('symptom', symptomTerm.trim());
+    else next.delete('symptom');
+    if (consultationMode) next.set('consultationMode', consultationMode);
+    else next.delete('consultationMode');
+    if (selectedInsurers.length > 0) next.set('insurers', selectedInsurers.join(','));
+    else next.delete('insurers');
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
-  }, [verifiedOnly, searchParams, setSearchParams]);
+  }, [verifiedOnly, symptomTerm, consultationMode, selectedInsurers, searchParams, setSearchParams]);
 
   useEffect(() => {
     const fetchProfessionals = async () => {
@@ -119,6 +166,9 @@ export function DirectoryPage() {
         params.set('maxPrice', String(priceCap));
         if (minRating > 0) params.set('minRating', String(minRating));
         if (verifiedOnly) params.set('verifiedOnly', 'true');
+        if (symptomTerm.trim()) params.set('symptom', symptomTerm.trim());
+        if (consultationMode) params.set('consultationMode', consultationMode);
+        if (selectedInsurers.length > 0) params.set('insurers', selectedInsurers.join(','));
 
         const res = await fetch(`/api/professionals?${params.toString()}`);
         if (res.ok) {
@@ -132,10 +182,14 @@ export function DirectoryPage() {
       }
     };
     fetchProfessionals();
-  }, [searchTerm, selectedCategory, priceMin, priceCap, minRating, verifiedOnly]);
+  }, [searchTerm, selectedCategory, priceMin, priceCap, minRating, verifiedOnly, symptomTerm, consultationMode, selectedInsurers]);
 
   const handleCategoryChange = (e) => {
     setSelectedCategory(e.target.value);
+  };
+
+  const toggleInsurer = (insurer) => {
+    setSelectedInsurers((prev) => (prev.includes(insurer) ? prev.filter((item) => item !== insurer) : [...prev, insurer]));
   };
 
   return (
@@ -182,6 +236,32 @@ export function DirectoryPage() {
             className="input-field directory-search-input"
             style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: '0.5rem 0.25rem' }}
           />
+        </div>
+        <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.75rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>ecg_heart</span>
+          <input
+            type="text"
+            value={symptomTerm}
+            onChange={(e) => setSymptomTerm(e.target.value)}
+            placeholder="Buscar por síntoma (ej: dolor de espalda)"
+            className="input-field directory-search-input"
+            style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: '0.5rem 0.25rem' }}
+          />
+        </div>
+        <div className="directory-quick-filters" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setConsultationMode('')} className={`btn ${consultationMode === '' ? 'btn-primary' : 'btn-outline'}`} style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}>
+            Cualquier modalidad
+          </button>
+          {CONSULTATION_MODE_OPTIONS.map((mode) => (
+            <button
+              key={mode.value}
+              onClick={() => setConsultationMode(mode.value)}
+              className={`btn ${consultationMode === mode.value ? 'btn-primary' : 'btn-outline'}`}
+              style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+            >
+              {mode.label}
+            </button>
+          ))}
         </div>
         <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <input
@@ -288,15 +368,23 @@ export function DirectoryPage() {
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>DISPONIBILIDAD</label>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 500, background: 'rgba(45,188,254,0.1)', color: 'var(--secondary)', cursor: 'pointer' }}>Urgente</span>
-              <span style={{ padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 500, background: 'var(--surface-container-low)', color: 'var(--on-surface-variant)', cursor: 'pointer' }}>Hoy</span>
-              <span style={{ padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 500, background: 'var(--surface-container-low)', color: 'var(--on-surface-variant)', cursor: 'pointer' }}>Fin de semana</span>
+            <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>ASEGURADORAS</label>
+            <div style={{ display: 'grid', gap: '0.375rem', maxHeight: '220px', overflowY: 'auto', paddingRight: '0.25rem' }}>
+              {INSURER_OPTIONS.map((insurer) => (
+                <label key={insurer} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedInsurers.includes(insurer)}
+                    onChange={() => toggleInsurer(insurer)}
+                    style={{ accentColor: 'var(--secondary)' }}
+                  />
+                  {insurer}
+                </label>
+              ))}
             </div>
           </div>
 
-          <button onClick={(e) => { e.preventDefault(); setSelectedCategory(''); setPriceMin(0); setPriceCap(5000); setMinRating(0); setVerifiedOnly(false); showToast('Filtros reiniciados', 'info'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Limpiar Filtros</button>
+          <button onClick={(e) => { e.preventDefault(); setSelectedCategory(''); setPriceMin(0); setPriceCap(5000); setMinRating(0); setVerifiedOnly(false); setSymptomTerm(''); setConsultationMode(''); setSelectedInsurers([]); showToast('Filtros reiniciados', 'info'); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Limpiar Filtros</button>
         </aside>
 
         {/* Results */}
@@ -330,6 +418,7 @@ export function DirectoryPage() {
             {resultsToRender.map((p) => {
               const profilePath = p.IS_PLACEHOLDER ? '/register?role=professional' : `/profile/${p.id}`;
               const chatPath = p.IS_PLACEHOLDER ? '/register?role=professional' : `/profile/${p.id}?tab=chat`;
+              const reservePath = p.IS_PLACEHOLDER ? '/register?role=professional' : `/reserva/${p.id}`;
               return (
               <div key={p.id} className="pro-card" style={{ cursor: 'pointer', width: '100%', maxWidth: '420px', margin: '0 auto' }}>
                   <Link to={profilePath} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
@@ -378,6 +467,26 @@ export function DirectoryPage() {
                           <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>category</span> {CATEGORY_MAP[p.category] || p.category}
                         </span>
                       </div>
+                      {p.medicalSpecialty && (
+                        <p style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: 'var(--on-surface-variant)' }}>
+                          Especialidad: <strong>{MEDICAL_SPECIALTY_LABELS[p.medicalSpecialty] || p.medicalSpecialty}</strong>
+                        </p>
+                      )}
+                      {Array.isArray(p.consultationModes) && p.consultationModes.length > 0 && (
+                        <p style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: 'var(--on-surface-variant)' }}>
+                          Modalidad: {p.consultationModes.map((mode) => CONSULTATION_MODE_OPTIONS.find((opt) => opt.value === mode)?.label || mode).join(' · ')}
+                        </p>
+                      )}
+                      {Array.isArray(p.acceptedInsurers) && p.acceptedInsurers.length > 0 && (
+                        <p style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: 'var(--on-surface-variant)' }}>
+                          Aseguradoras: {p.acceptedInsurers.slice(0, 3).join(', ')}
+                        </p>
+                      )}
+                      {p.slotIntervalMinutes && (
+                        <p style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: 'var(--on-surface-variant)' }}>
+                          Intervalo clínico: {p.slotIntervalMinutes} min
+                        </p>
+                      )}
                       <p style={{ fontSize: '0.8125rem', marginTop: '0.375rem', color: 'var(--primary)', fontWeight: 700 }}>
                         Desde ${Number(p.price || 2000).toLocaleString('es-MX')} MXN
                       </p>
@@ -388,7 +497,10 @@ export function DirectoryPage() {
                     <Link to={chatPath} className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--surface-container)', color: 'var(--on-surface)', fontSize: '0.8125rem', textDecoration: 'none' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chat</span> Mensaje
                     </Link>
-                    <Link to={profilePath} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem', textDecoration: 'none' }}>{p.IS_PLACEHOLDER ? 'Ver ejemplo' : 'Ver Perfil'}</Link>
+                    <Link to={profilePath} className="btn btn-outline" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem', textDecoration: 'none' }}>{p.IS_PLACEHOLDER ? 'Ver ejemplo' : 'Ver perfil'}</Link>
+                    <Link to={reservePath} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.8125rem', textDecoration: 'none' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>calendar_month</span> Agendar cita
+                    </Link>
                   </div>
               </div>
             );

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
+import { canEncryptMessages, decryptMessage, encryptMessage, type EncryptedMessagePayload } from '../lib/messageCrypto';
+import { logSecurityAuditEvent } from '../lib/securityAudit';
 
 const router = Router();
 
@@ -15,6 +17,25 @@ const CONVERSATION_SEPARATOR = '_';
 
 function buildConversationId(id1: string, id2: string): string {
   return [id1, id2].sort().join(CONVERSATION_SEPARATOR);
+}
+
+function isClinicalContent(text: string): boolean {
+  const normalized = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  const markers = ['diagnostico', 'sintoma', 'laboratorio', 'historial clinico', 'radiografia', 'medicamento', 'receta', 'dolor', 'presion arterial'];
+  return markers.some((marker) => normalized.includes(marker));
+}
+
+function decryptMessageContent(message: any): string {
+  if (!message?.contentIsEncrypted || !message?.encryptedPayload) return String(message?.content || '');
+  try {
+    const payload = JSON.parse(String(message.encryptedPayload)) as EncryptedMessagePayload;
+    return decryptMessage(payload) || '[mensaje cifrado no disponible]';
+  } catch {
+    return '[mensaje cifrado no disponible]';
+  }
 }
 
 // ─── GET /api/messages/conversations ────────────────────────────────────────
@@ -52,7 +73,7 @@ router.get('/conversations', async (req, res, next) => {
           conversationId: msg.conversationId,
           contact: other,
           lastMessage: {
-            content: msg.content,
+            content: decryptMessageContent(msg),
             createdAt: msg.createdAt,
             isMine: msg.senderId === myId,
           },
@@ -81,6 +102,12 @@ router.get('/conversations', async (req, res, next) => {
         conversationsMap.get(count.conversationId).unreadCount = count._count.id;
       }
     }
+
+    await logSecurityAuditEvent({
+      action: 'messages.conversations_viewed',
+      actorUserId: myId,
+      metadata: { totalConversations: conversationsMap.size },
+    });
 
     res.json(Array.from(conversationsMap.values()));
   } catch (err) {
@@ -126,7 +153,19 @@ router.get('/:conversationId', async (req, res, next) => {
       data: { read: true },
     });
 
-    res.json(messages);
+    const sanitized = messages.map((message) => ({
+      ...message,
+      content: decryptMessageContent(message),
+    }));
+
+    await logSecurityAuditEvent({
+      action: 'messages.thread_viewed',
+      actorUserId: myId,
+      conversationId,
+      metadata: { messageCount: sanitized.length },
+    });
+
+    res.json(sanitized);
   } catch (err) {
     next(err);
   }
@@ -156,19 +195,39 @@ router.post('/', async (req, res, next) => {
 
     const conversationId = buildConversationId(myId, receiverId);
 
+    const trimmedContent = content.trim();
+    const clinical = isClinicalContent(trimmedContent);
+    const encryptionEnabled = clinical && canEncryptMessages();
+    const encryptedPayload = encryptionEnabled ? encryptMessage(trimmedContent) : null;
+
     const message = await prisma.message.create({
       data: {
         conversationId,
         senderId: myId,
         receiverId,
-        content: content.trim(),
+        content: encryptionEnabled ? '[ENCRYPTED]' : trimmedContent,
+        encryptedPayload: encryptedPayload ? JSON.stringify(encryptedPayload) : null,
+        contentIsEncrypted: Boolean(encryptedPayload),
+        contentKeyVersion: encryptedPayload?.keyVersion || null,
+        contentSensitivity: clinical ? 'CLINICAL' : 'NORMAL',
       },
       include: {
         sender: { select: { id: true, name: true, avatarUrl: true } },
       },
     });
 
-    res.status(201).json(message);
+    await logSecurityAuditEvent({
+      action: 'messages.sent',
+      actorUserId: myId,
+      targetUserId: receiverId,
+      conversationId,
+      metadata: { encrypted: Boolean(encryptedPayload), sensitivity: clinical ? 'CLINICAL' : 'NORMAL' },
+    });
+
+    res.status(201).json({
+      ...message,
+      content: trimmedContent,
+    });
   } catch (err) {
     next(err);
   }

@@ -1,0 +1,11 @@
+{
+  "event_status": "success",
+  "amount_cents": 200000,
+  "currency_code": "mxn",
+  "paid_at": "2026-05-14T12:00:00.000Z",
+  "reference": "TRX-2026-0001",
+  "transaction_id": "provider_abc_123",
+  "metadata": {
+    "appointmentId": "REPLACE_APPOINTMENT_ID"
+  }
+}

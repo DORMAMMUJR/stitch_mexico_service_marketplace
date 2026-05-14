@@ -21,8 +21,8 @@ router.post('/avatar', authenticate, uploadPublicImage.single('avatar'), async (
       return res.status(400).json({ error: 'No se cargó ningún archivo de imagen' });
     }
 
-    // S3 usa file.location, DiskStorage usa file.filename
-    const fileUrl = file.location || `/uploads/${file.filename}`;
+    // S3 usa file.location, DiskStorage usa /uploads/public/<filename>
+    const fileUrl = file.location || `/uploads/public/${file.filename}`;
 
     const user = await prisma.user.update({
       where: { id: userId },

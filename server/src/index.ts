@@ -29,6 +29,8 @@ import { authenticate } from './middleware/auth';
 import { startEscrowCron } from './jobs/escrowCron';
 import { notifyUser } from './lib/notifications';
 import { logSecurityAuditEvent } from './lib/securityAudit';
+import { verifyWebhookSignature } from './middleware/webhookVerify';
+import { adaptBankTransferWebhook } from './lib/bankTransferAdapter';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
@@ -64,12 +66,17 @@ type AppointmentMeta = {
   payment?: {
     method?: 'BANK_TRANSFER' | 'STRIPE_CARD';
     status?: string;
+    reference?: string | null;
+    total?: number;
+    currency?: string;
     stripeSessionId?: string | null;
     stripePaymentIntentId?: string | null;
     paidAt?: string | null;
+    confirmedAt?: string | null;
     releasedAt?: string | null;
     noShowMarkedAt?: string | null;
     conflictReason?: string | null;
+    providerTxId?: string | null;
   };
   meetingLink?: string | null;
   plainNotes?: string | null;
@@ -294,6 +301,177 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
 // â”€â”€â”€ Middleware Global JSON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.use(express.json());
 app.use(cookieParser());
+
+app.post(
+  '/api/webhooks/bank-transfer',
+  (req, res, next) => {
+    if (!env.BANK_TRANSFER_WEBHOOK_SECRET) {
+      return res.status(503).json({ error: 'Webhook bancario no configurado.' });
+    }
+    return verifyWebhookSignature(env.BANK_TRANSFER_WEBHOOK_SECRET)(req, res, next);
+  },
+  async (req, res) => {
+    try {
+      const adaptedWebhook = adaptBankTransferWebhook(req.body);
+      if (!adaptedWebhook.ok) {
+        return res.status(adaptedWebhook.statusCode).json({ error: adaptedWebhook.error });
+      }
+      if (adaptedWebhook.ignored) {
+        return res.json({ received: true, ignored: true, reason: adaptedWebhook.reason });
+      }
+      const { appointmentId, transferReference, amount, currency, paidAt, providerTxId, provider, rawStatus } = adaptedWebhook.data;
+
+      const normalizedAppointmentId = String(appointmentId || '').trim();
+      const normalizedReference = String(transferReference || '').trim();
+      if (!normalizedAppointmentId || normalizedReference.length < 4) {
+        return res.status(400).json({ error: 'appointmentId y transferReference son obligatorios.' });
+      }
+
+      const appointment = await prisma.appointment.findUnique({
+        where: { id: normalizedAppointmentId },
+        include: {
+          professional: { include: { user: { select: { id: true, email: true } } } },
+          client: { select: { id: true, email: true, name: true } },
+        },
+      });
+
+      if (!appointment) {
+        return res.status(404).json({ error: 'Cita no encontrada' });
+      }
+
+      const currentMeta = parseAppointmentMeta(appointment.notes) || {};
+      const expectedPayment = currentMeta.payment || {};
+      if (String(expectedPayment.method || '').toUpperCase() !== 'BANK_TRANSFER') {
+        return res.status(400).json({ error: 'La cita no corresponde a transferencia bancaria.' });
+      }
+
+      if (appointment.status !== 'PENDING_PAYMENT') {
+        return res.json({ received: true, idempotent: true, status: appointment.status });
+      }
+
+      if (String(expectedPayment.reference || '').trim() !== normalizedReference) {
+        return res.status(400).json({ error: 'La referencia no coincide con la solicitud de cita.' });
+      }
+
+      const expectedTotal = Number(expectedPayment.total || 0);
+      const incomingAmount = Number(amount || 0);
+      if (expectedTotal > 0 && incomingAmount > 0 && Math.abs(expectedTotal - incomingAmount) > 0.01) {
+        return res.status(400).json({ error: 'El monto no coincide con la solicitud registrada.' });
+      }
+      if (currency && expectedPayment.currency && String(currency).toUpperCase() !== String(expectedPayment.currency).toUpperCase()) {
+        return res.status(400).json({ error: 'La moneda no coincide con la solicitud registrada.' });
+      }
+
+      const requestedRaw = currentMeta.requestedScheduledAt || null;
+      const requestedScheduledAt = requestedRaw ? new Date(requestedRaw) : null;
+      if (!requestedScheduledAt || Number.isNaN(requestedScheduledAt.getTime())) {
+        return res.status(400).json({ error: 'No existe horario solicitado para confirmar la cita.' });
+      }
+
+      const slotIntervalMinutes = parseProfessionalSlotInterval((appointment.professional as any).slotIntervalMinutes);
+      if (!isValidSlotForInterval(requestedScheduledAt, slotIntervalMinutes)) {
+        return res.status(400).json({ error: 'El horario solicitado no respeta el intervalo clinico configurado.' });
+      }
+
+      const conflict = await prisma.appointment.findFirst({
+        where: {
+          id: { not: appointment.id },
+          professionalId: appointment.professionalId,
+          scheduledAt: requestedScheduledAt,
+          status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
+        },
+        select: { id: true },
+      });
+
+      if (conflict) {
+        const conflictMeta: AppointmentMeta = {
+          ...currentMeta,
+          payment: {
+            ...expectedPayment,
+            method: 'BANK_TRANSFER',
+            status: 'PAID_SLOT_CONFLICT',
+            paidAt: paidAt ? new Date(paidAt).toISOString() : new Date().toISOString(),
+            conflictReason: 'SLOT_ALREADY_CONFIRMED',
+          },
+        };
+
+        await prisma.appointment.update({
+          where: { id: appointment.id },
+          data: { notes: serializeAppointmentMeta(conflictMeta) },
+        });
+
+        await logSecurityAuditEvent({
+          action: 'appointment.payment_conflict',
+          appointmentId: appointment.id,
+          targetUserId: appointment.clientId,
+          metadata: { method: 'BANK_TRANSFER', status: 'PAID_SLOT_CONFLICT', providerTxId: providerTxId || null, provider, rawStatus },
+        });
+
+        return res.json({ received: true, conflict: true });
+      }
+
+      const confirmedMeta: AppointmentMeta = {
+        ...currentMeta,
+        requestedScheduledAt: requestedScheduledAt.toISOString(),
+        payment: {
+          ...expectedPayment,
+          method: 'BANK_TRANSFER',
+          status: 'PAID_HELD',
+          paidAt: paidAt ? new Date(paidAt).toISOString() : new Date().toISOString(),
+          confirmedAt: new Date().toISOString(),
+          conflictReason: null,
+          providerTxId: providerTxId ? String(providerTxId) : undefined,
+        },
+      };
+
+      const scheduledAppointment = await prisma.appointment.update({
+        where: { id: appointment.id },
+        data: {
+          scheduledAt: requestedScheduledAt,
+          status: 'SCHEDULED',
+          notes: serializeAppointmentMeta(confirmedMeta),
+        },
+      });
+
+      if (appointment.clientId && appointment.client) {
+        const formattedDate = requestedScheduledAt.toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short' });
+        notifyUser({
+          userId: appointment.clientId,
+          type: 'ORDER_STATUS',
+          title: 'Pago recibido y cita confirmada',
+          body: `Tu cita para ${formattedDate} fue confirmada.`,
+          metadata: { appointmentId: scheduledAppointment.id },
+          email: appointment.client.email,
+          emailSubject: 'Cita confirmada - Intecnia',
+          emailHtml: `<p>Recibimos tu pago por transferencia y tu cita quedo confirmada para ${formattedDate}.</p>`,
+        }).catch((error) => logger.error({ err: error, appointmentId: scheduledAppointment.id }, 'Error notificando confirmacion de cita al cliente'));
+      }
+
+      notifyUser({
+        userId: appointment.professional.userId,
+        type: 'ORDER_STATUS',
+        title: 'Nueva cita confirmada con pago',
+        body: `Se confirmo una cita para ${requestedScheduledAt.toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short' })}.`,
+        metadata: { appointmentId: scheduledAppointment.id },
+        email: appointment.professional.user.email,
+        emailSubject: 'Cita confirmada por transferencia - Intecnia',
+        emailHtml: `<p>Se confirmo una cita con pago validado por transferencia.</p>`,
+      }).catch((error) => logger.error({ err: error, appointmentId: scheduledAppointment.id }, 'Error notificando confirmacion de cita al profesional'));
+
+      await logSecurityAuditEvent({
+        action: 'appointment.payment_confirmed',
+        appointmentId: scheduledAppointment.id,
+        targetUserId: appointment.clientId,
+        metadata: { method: 'BANK_TRANSFER', status: 'PAID_HELD', providerTxId: providerTxId || null, provider, rawStatus },
+      });
+
+      return res.json({ received: true, appointmentId: scheduledAppointment.id, status: 'SCHEDULED' });
+    } catch (error) {
+      logger.error({ err: error }, 'Error procesando webhook bancario');
+      return res.status(500).json({ error: 'Error interno procesando webhook bancario' });
+    }
+  },
+);
 
 // â”€â”€â”€ Multer Config se ha movido a src/lib/upload.ts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

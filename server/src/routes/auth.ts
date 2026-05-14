@@ -94,7 +94,7 @@ router.post('/register', registerLimiter, async (req, res, next) => {
         data: {
           userId: user.id,
           title: '',
-          category: 'GENERAL_MAINTENANCE',
+          category: 'HEALTH_WELLNESS',
           currency: 'MXN',
         },
       });

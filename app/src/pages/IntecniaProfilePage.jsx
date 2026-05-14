@@ -18,15 +18,60 @@ export function IntecniaProfilePage() {
 
   const guestId = localStorage.getItem('guest_id') || undefined;
   const { data: profile, isLoading, error } = useProfile(id, user?.id, guestId);
-  const { data: dbReviews } = useReviews(id);
+  const { data: dbReviews, refetch: refetchReviews } = useReviews(id);
 
   const [bookingBanner, setBookingBanner] = useState('');
+  const [reviewEligibility, setReviewEligibility] = useState({ canReview: false, reasons: [], completedAppointmentsAvailable: [] });
+  const [reviewEligibilityLoading, setReviewEligibilityLoading] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ appointmentId: '', rating: 5, comment: '' });
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewFeedback, setReviewFeedback] = useState('');
 
   useEffect(() => {
     if (!bookingBanner) return;
     const t = setTimeout(() => setBookingBanner(''), 4200);
     return () => clearTimeout(t);
   }, [bookingBanner]);
+
+  useEffect(() => {
+    const shouldCheck = Boolean(id && isAuthenticated && user?.role === 'CLIENT');
+    if (!shouldCheck) {
+      setReviewEligibility({ canReview: false, reasons: [], completedAppointmentsAvailable: [] });
+      setReviewForm((prev) => ({ ...prev, appointmentId: '' }));
+      return;
+    }
+
+    let active = true;
+    const fetchEligibility = async () => {
+      setReviewEligibilityLoading(true);
+      setReviewFeedback('');
+      try {
+        const res = await fetch(`/api/professionals/${id}/review-eligibility`, { credentials: 'include' });
+        const data = await res.json().catch(() => ({ canReview: false, reasons: ['No se pudo validar elegibilidad'], completedAppointmentsAvailable: [] }));
+        if (!active) return;
+        const available = Array.isArray(data.completedAppointmentsAvailable) ? data.completedAppointmentsAvailable : [];
+        setReviewEligibility({
+          canReview: Boolean(data.canReview),
+          reasons: Array.isArray(data.reasons) ? data.reasons : [],
+          completedAppointmentsAvailable: available,
+        });
+        setReviewForm((prev) => ({
+          ...prev,
+          appointmentId: prev.appointmentId || available[0]?.id || '',
+        }));
+      } catch {
+        if (!active) return;
+        setReviewEligibility({ canReview: false, reasons: ['No se pudo validar elegibilidad'], completedAppointmentsAvailable: [] });
+      } finally {
+        if (active) setReviewEligibilityLoading(false);
+      }
+    };
+
+    fetchEligibility();
+    return () => {
+      active = false;
+    };
+  }, [id, isAuthenticated, user?.role]);
 
   const reviews = useMemo(() => {
     if (!Array.isArray(dbReviews) || dbReviews.length === 0) return [];
@@ -82,6 +127,54 @@ export function IntecniaProfilePage() {
   const scrollToChat = () => chatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const scrollToProfile = () => profileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const scrollToBooking = () => bookingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!reviewForm.appointmentId) {
+      setReviewFeedback('Selecciona una cita completada para publicar la reseña.');
+      return;
+    }
+
+    setSubmittingReview(true);
+    setReviewFeedback('');
+    try {
+      const res = await fetch(`/api/professionals/${id}/reviews`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appointmentId: reviewForm.appointmentId,
+          rating: Number(reviewForm.rating),
+          comment: reviewForm.comment.trim(),
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setReviewFeedback(data.error || 'No se pudo publicar la reseña.');
+        return;
+      }
+
+      setReviewFeedback('Reseña publicada correctamente.');
+      setReviewForm({ appointmentId: '', rating: 5, comment: '' });
+      await refetchReviews();
+      const eligibilityRes = await fetch(`/api/professionals/${id}/review-eligibility`, { credentials: 'include' });
+      const eligibilityData = await eligibilityRes.json().catch(() => null);
+      if (eligibilityData) {
+        const available = Array.isArray(eligibilityData.completedAppointmentsAvailable) ? eligibilityData.completedAppointmentsAvailable : [];
+        setReviewEligibility({
+          canReview: Boolean(eligibilityData.canReview),
+          reasons: Array.isArray(eligibilityData.reasons) ? eligibilityData.reasons : [],
+          completedAppointmentsAvailable: available,
+        });
+        setReviewForm((prev) => ({ ...prev, appointmentId: available[0]?.id || '' }));
+      }
+    } catch {
+      setReviewFeedback('Error de red al publicar la reseña.');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -214,6 +307,60 @@ export function IntecniaProfilePage() {
 
               <article className="card glass-card" style={{ padding: '1.5rem' }}>
                 <h2 style={{ fontFamily: 'Manrope', fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem', marginBottom: '0.75rem' }}>Reseñas</h2>
+                {isAuthenticated && user?.role === 'CLIENT' && (
+                  <div style={{ marginBottom: '1rem', padding: '0.875rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--outline-variant)', background: 'var(--surface-container-low)' }}>
+                    {reviewEligibilityLoading ? (
+                      <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.825rem', margin: 0 }}>Validando elegibilidad para reseña...</p>
+                    ) : reviewEligibility.canReview ? (
+                      <form onSubmit={handleSubmitReview} style={{ display: 'grid', gap: '0.5rem' }}>
+                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--secondary)', fontWeight: 700 }}>Reseña verificada por cita completada</p>
+                        <select
+                          className="input-field"
+                          value={reviewForm.appointmentId}
+                          onChange={(e) => setReviewForm((prev) => ({ ...prev, appointmentId: e.target.value }))}
+                          required
+                        >
+                          <option value="">Selecciona la cita completada</option>
+                          {reviewEligibility.completedAppointmentsAvailable.map((appt) => (
+                            <option key={appt.id} value={appt.id}>
+                              {appt.scheduledAt ? new Date(appt.scheduledAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : appt.id}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          className="input-field"
+                          value={reviewForm.rating}
+                          onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: Number(e.target.value) }))}
+                        >
+                          {[5, 4, 3, 2, 1].map((value) => (
+                            <option key={value} value={value}>
+                              {value} estrella{value !== 1 ? 's' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <textarea
+                          className="input-field"
+                          rows={3}
+                          value={reviewForm.comment}
+                          onChange={(e) => setReviewForm((prev) => ({ ...prev, comment: e.target.value }))}
+                          placeholder="Comparte tu experiencia"
+                        />
+                        <button type="submit" className="btn btn-primary" disabled={submittingReview} style={{ justifySelf: 'start' }}>
+                          {submittingReview ? 'Publicando...' : 'Publicar reseña'}
+                        </button>
+                      </form>
+                    ) : (
+                      <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.825rem', margin: 0 }}>
+                        {reviewEligibility.reasons.length > 0 ? reviewEligibility.reasons.join(' · ') : 'Solo clientes con cita completada pueden reseñar.'}
+                      </p>
+                    )}
+                    {reviewFeedback && (
+                      <p style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem', color: reviewFeedback.toLowerCase().includes('correctamente') ? 'var(--secondary)' : '#f59e0b' }}>
+                        {reviewFeedback}
+                      </p>
+                    )}
+                  </div>
+                )}
                 {reviews.length === 0 ? (
                   <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem' }}>Aun no hay resenas publicas para este perfil.</p>
                 ) : (

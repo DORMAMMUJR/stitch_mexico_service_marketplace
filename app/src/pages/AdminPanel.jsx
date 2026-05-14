@@ -9,6 +9,8 @@ const defaultStats = {
   verifiedProfessionals: 0,
   totalOrders: 0,
   completedRevenue: 0,
+  pendingPaymentAppointments: 0,
+  activeDisputes: 0,
 };
 
 const defaultPagination = {
@@ -48,6 +50,7 @@ export function AdminPanel() {
   const [usersSearchQuery, setUsersSearchQuery] = useState('');
   const [confirmDeleteUser, setConfirmDeleteUser] = useState(null);
   const [deletingUserId, setDeletingUserId] = useState('');
+  const [updatingRoleMap, setUpdatingRoleMap] = useState({});
 
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -113,6 +116,8 @@ export function AdminPanel() {
         verifiedProfessionals: Number(data.verifiedProfessionals || 0),
         totalOrders: Number(data.totalOrders || 0),
         completedRevenue: Number(data.completedRevenue || 0),
+        pendingPaymentAppointments: Number(data.pendingPaymentAppointments || data.appointments?.pendingPayment || 0),
+        activeDisputes: Number(data.activeDisputes || data.disputes?.active || 0),
       });
     } catch (err) {
       setStatsError(err.message || 'Error al cargar estadisticas');
@@ -289,6 +294,30 @@ export function AdminPanel() {
     loadUsers({ page: 1, query });
   };
 
+  const handleUpdateRole = async (userId, role) => {
+    if (!userId || !role) return;
+    setUpdatingRoleMap((prev) => ({ ...prev, [userId]: true }));
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo actualizar el rol');
+      showToast('Rol actualizado correctamente', 'success');
+      await Promise.all([
+        loadUsers({ page: usersPagination.page, query: usersSearchQuery }),
+        loadStats(),
+      ]);
+    } catch (err) {
+      showToast(err.message || 'Error al actualizar rol', 'error');
+    } finally {
+      setUpdatingRoleMap((prev) => ({ ...prev, [userId]: false }));
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!confirmDeleteUser?.id) return;
 
@@ -318,6 +347,8 @@ export function AdminPanel() {
     { key: 'users', label: 'Usuarios Totales', value: stats.totalUsers },
     { key: 'verified', label: 'Profesionales Verificados', value: stats.verifiedProfessionals },
     { key: 'orders', label: 'Ordenes Totales', value: stats.totalOrders },
+    { key: 'pending-payment', label: 'Citas Pendientes de Pago', value: stats.pendingPaymentAppointments },
+    { key: 'disputes', label: 'Disputas Activas', value: stats.activeDisputes },
     {
       key: 'revenue',
       label: 'Ingresos en Ordenes Completadas',
@@ -329,7 +360,7 @@ export function AdminPanel() {
     <>
       <NavbarIntecnia />
       <div className="container" style={{ padding: '3rem 1rem', minHeight: '60vh' }}>
-        <h1 style={{ fontFamily: 'Manrope', color: 'var(--primary)', marginBottom: '0.75rem', fontSize: '2rem', fontWeight: 700 }}>Super Admin Dashboard</h1>
+        <h1 style={{ fontFamily: 'Manrope', color: 'var(--primary)', marginBottom: '0.75rem', fontSize: '2rem', fontWeight: 700 }}>Panel Superadmin</h1>
         <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem' }}>Control total de plataforma, usuarios y operacion.</p>
 
         <div className="card glass-card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
@@ -387,12 +418,13 @@ export function AdminPanel() {
           )}
 
           <div style={{ overflowX: 'auto', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '720px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '920px' }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
                   <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--primary)', fontSize: '0.8rem' }}>Nombre</th>
                   <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--primary)', fontSize: '0.8rem' }}>Correo</th>
                   <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--primary)', fontSize: '0.8rem' }}>Rol</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--primary)', fontSize: '0.8rem' }}>Estado</th>
                   <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--primary)', fontSize: '0.8rem' }}>Verificacion</th>
                   <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--primary)', fontSize: '0.8rem' }}>Registro</th>
                   <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--primary)', fontSize: '0.8rem' }}>Accion</th>
@@ -401,20 +433,37 @@ export function AdminPanel() {
               <tbody>
                 {usersLoading ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: '0.9rem', color: 'var(--on-surface-variant)' }}>Cargando usuarios...</td>
+                    <td colSpan={7} style={{ padding: '0.9rem', color: 'var(--on-surface-variant)' }}>Cargando usuarios...</td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: '0.9rem', color: 'var(--on-surface-variant)' }}>No se encontraron usuarios.</td>
+                    <td colSpan={7} style={{ padding: '0.9rem', color: 'var(--on-surface-variant)' }}>No se encontraron usuarios.</td>
                   </tr>
                 ) : (
                   users.map((user) => (
                     <tr key={user.id} style={{ borderTop: '1px solid var(--outline-variant)' }}>
                       <td style={{ padding: '0.75rem', color: 'var(--on-surface)' }}>{user.name || 'Sin nombre'}</td>
                       <td style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>{user.email}</td>
-                      <td style={{ padding: '0.75rem', color: 'var(--on-surface)' }}>{user.role}</td>
-                      <td style={{ padding: '0.75rem', color: user.verificationStatus === 'VERIFIED' ? '#4ade80' : 'var(--on-surface-variant)' }}>
-                        {user.verificationStatus}
+                      <td style={{ padding: '0.75rem', color: 'var(--on-surface)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <span>{user.role}</span>
+                          <select
+                            value={user.role}
+                            onChange={(e) => handleUpdateRole(user.id, e.target.value)}
+                            disabled={Boolean(updatingRoleMap[user.id]) || user.role === 'ADMIN'}
+                            style={{ background: 'var(--surface-container)', color: 'var(--on-surface)', border: '1px solid var(--outline-variant)', borderRadius: '6px', padding: '0.2rem 0.35rem', fontSize: '0.72rem' }}
+                          >
+                            <option value="CLIENT">CLIENT</option>
+                            <option value="PROFESSIONAL">PROFESSIONAL</option>
+                            <option value="ADMIN">ADMIN</option>
+                          </select>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.75rem', color: user.accountStatus === 'ACTIVO' ? '#4ade80' : '#f59e0b', fontWeight: 700 }}>
+                        {user.accountStatus || 'ACTIVO'}
+                      </td>
+                      <td style={{ padding: '0.75rem', color: user.verificationStatus === 'APPROVED' ? '#4ade80' : 'var(--on-surface-variant)' }}>
+                        {user.verificationStatus || 'N/D'}
                       </td>
                       <td style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>
                         {user.createdAt ? new Date(user.createdAt).toLocaleDateString('es-MX') : 'N/D'}

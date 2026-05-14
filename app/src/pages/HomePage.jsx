@@ -4,26 +4,14 @@ import { useAuth } from '../hooks/useAuth';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 
-// Categorias mejoradas
 const CATEGORIES = [
-  { label: 'Psicólogos y Salud', icon: 'psychology', key: 'HEALTH_WELLNESS', desc: 'Bienestar mental y físico' },
-  { label: 'Abogados y Asesoría Legal', icon: 'gavel', key: 'LEGAL', desc: 'Contratos, litigios y más' },
-  { label: 'Soporte Técnico y Sistemas', icon: 'computer', key: 'IT_SECURITY', desc: 'IT, desarrollo y seguridad' },
-  { label: 'Contadores y Finanzas', icon: 'account_balance', key: 'FINANCE_TAX', desc: 'Impuestos y contabilidad' },
-  { label: 'Ingeniería y Proyectos', icon: 'engineering', key: 'ENGINEERING', desc: 'Civil, mecánica y más' },
-  { label: 'Reparaciones del Hogar', icon: 'home_repair_service', key: 'GENERAL_MAINTENANCE', desc: 'Plomería, electricidad y más' },
+  { label: 'Psicología', icon: 'psychology', desc: 'Terapia y salud mental', href: '/directory?q=psicologia' },
+  { label: 'Medicina', icon: 'medical_services', desc: 'Atención médica integral', href: '/directory?q=medicina' },
+  { label: 'Bienestar', icon: 'self_improvement', desc: 'Nutrición y hábitos saludables', href: '/directory?q=bienestar' },
 ];
 
 const CATEGORY_MAP = {
-  'HEALTH_WELLNESS': 'Psicólogos y Salud',
-  'LEGAL': 'Abogados y Asesoría Legal',
-  'FINANCE_TAX': 'Contadores y Finanzas',
-  'IT_SECURITY': 'Soporte Técnico y Sistemas',
-  'ENGINEERING': 'Ingeniería y Proyectos',
-  'PLUMBING': 'Plomería',
-  'ELECTRICAL': 'Electricidad',
-  'HVAC': 'Climatización',
-  'GENERAL_MAINTENANCE': 'Reparaciones del Hogar',
+  HEALTH_WELLNESS: 'Salud y bienestar',
 };
 
 // Tarjetas de placeholder visibles solo cuando no hay profesionales reales
@@ -46,42 +34,42 @@ const PLACEHOLDER_PROFESSIONALS = [
   {
     id: 'placeholder-2',
     IS_PLACEHOLDER: true,
-    user: { name: 'Lic. Carlos Mendoza', avatarUrl: null },
-    title: 'Abogado Corporativo',
-    category: 'LEGAL',
+    user: { name: 'Dr. Carlos Mendoza', avatarUrl: null },
+    title: 'Médico General',
+    category: 'HEALTH_WELLNESS',
     rating: 4.8,
     reviews: 21,
     price: 600,
     responseTime: '< 10 min',
-    specialties: ['Contratos', 'Litigios', 'Derecho laboral'],
+    specialties: ['Consulta general', 'Prevención', 'Control crónico'],
     initials: 'CM',
     avatarBg: '#0284c7',
   },
   {
     id: 'placeholder-3',
     IS_PLACEHOLDER: true,
-    user: { name: 'Mtra. Elena Torres', avatarUrl: null },
-    title: 'Contadora Fiscal',
-    category: 'FINANCE_TAX',
+    user: { name: 'Dra. Elena Torres', avatarUrl: null },
+    title: 'Nutrióloga Clínica',
+    category: 'HEALTH_WELLNESS',
     rating: 4.9,
     reviews: 19,
     price: 520,
     responseTime: '< 8 min',
-    specialties: ['Declaraciones', 'Facturación', 'Fiscal'],
+    specialties: ['Plan nutricional', 'Control de peso', 'Metabolismo'],
     initials: 'ET',
     avatarBg: '#059669',
   },
   {
     id: 'placeholder-4',
     IS_PLACEHOLDER: true,
-    user: { name: 'Ing. Roberto Vega', avatarUrl: null },
-    title: 'Técnico de Redes',
-    category: 'IT_SECURITY',
+    user: { name: 'Dr. Roberto Vega', avatarUrl: null },
+    title: 'Psiquiatra',
+    category: 'HEALTH_WELLNESS',
     rating: 4.7,
     reviews: 24,
     price: 450,
     responseTime: '< 12 min',
-    specialties: ['WiFi', 'Soporte remoto', 'Ciberseguridad'],
+    specialties: ['Ansiedad', 'Sueño', 'Estado de ánimo'],
     initials: 'RV',
     avatarBg: '#0f766e',
   },
@@ -204,8 +192,7 @@ export function HomePage() {
 
         {/* Titulo principal: enfoque en resultado y eliminacion de riesgo */}
         <h1 className="animate-in stagger-2" style={{ fontFamily: 'Manrope', fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, maxWidth: '850px', margin: '0 auto 1.25rem', color: 'var(--on-primary)' }}>
-          Encuentra profesionales confiables en minutos<br />
-          <span style={{ color: '#fbbf24' }}>con validación real y contratación clara</span>
+          Salud experta, validada y a un clic
         </h1>
 
         <p className="animate-in stagger-3" style={{ fontSize: '1.125rem', color: '#e2e8f0', maxWidth: '560px', margin: '0 auto 2.5rem', lineHeight: 1.7 }}>
@@ -218,7 +205,7 @@ export function HomePage() {
             <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: '24px' }}>search</span>
             <input
               type="text"
-              placeholder="Psicóloga, Abogado, Plomero..."
+              placeholder="Psicología, Medicina, Bienestar..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ flex: 1, padding: '1rem 0', fontSize: '1rem', color: 'var(--on-surface)', background: 'transparent', border: 'none', outline: 'none' }}
@@ -236,9 +223,9 @@ export function HomePage() {
         {/* Acciones Rápidas (Zero Friction) */}
         <div className="animate-in stagger-5" style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.625rem', marginBottom: '1.5rem' }}>
           {[
-            { icon: '>>', text: 'Necesito plomero urgente' },
-            { icon: '>>', text: 'Asesoria legal hoy' },
-            { icon: '>>', text: 'Soporte tecnico ahora' },
+            { icon: '>>', text: 'Necesito psicología hoy' },
+            { icon: '>>', text: 'Consulta médica rápida' },
+            { icon: '>>', text: 'Quiero mejorar mi bienestar' },
           ].map(action => (
             <button 
                 key={action.text} 
@@ -291,9 +278,9 @@ export function HomePage() {
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--outline-variant)', padding: '1.5rem' }}>
         <div className="container" style={{ display: 'flex', gap: '1.5rem', overflowX: 'auto', justifyContent: 'center', flexWrap: 'wrap' }}>
           {[
-            { text: '"Necesitaba un abogado para un contrato y lo resolví el mismo día. Su INE estaba verificada."', name: 'Carlos, CDMX' },
-            { text: '"Reservé un plomero a las 8pm, llegó en 15 min y arregló la fuga. Sí cumplen."', name: 'Ana, CDMX' },
-            { text: '"Ya me habían estafado en Facebook. Aquí vi su perfil completo y me dio paz."', name: 'Luis, CDMX' },
+            { text: '"Necesitaba una psicóloga para ansiedad y agendé el mismo día. Todo claro y verificado."', name: 'Carlos, CDMX' },
+            { text: '"Reservé consulta médica nocturna y recibí atención en minutos. Sí cumplen."', name: 'Ana, CDMX' },
+            { text: '"Después de malas experiencias, aquí vi credenciales y reseñas reales. Me dio paz."', name: 'Luis, CDMX' },
           ].map(t => (
             <div key={t.name} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.5rem', background: '#fff7ed', borderRadius: 'var(--radius-xl)', border: '1px solid #ffedd5', flexShrink: 0, maxWidth: '400px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -312,7 +299,7 @@ export function HomePage() {
       <section style={{ padding: '5rem 1.5rem', background: '#fff7ed' }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-            <h2 className="text-headline-md" style={{ color: '#9a3412', marginBottom: '0.5rem', fontWeight: 800 }}>¿Por qué usar Intecnia en vez de Facebook?</h2>
+            <h2 className="text-headline-md" style={{ color: '#9a3412', marginBottom: '0.5rem', fontWeight: 800 }}>¿Por qué usar Intecnia para tu salud?</h2>
             <p style={{ color: '#c2410c', maxWidth: '480px', margin: '0 auto', fontSize: '1.0625rem', fontWeight: 500 }}>La diferencia entre dudar y tener certeza total te protegemos.</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', maxWidth: '1000px', margin: '0 auto' }}>
@@ -385,7 +372,7 @@ export function HomePage() {
             {CATEGORIES.map(cat => (
               <Link
                 key={cat.key}
-                to={`/directory?category=${cat.key}`}
+                to={cat.href}
                 className="cat-card"
                 style={{ cursor: 'pointer', textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.75rem 1rem', textAlign: 'center', gap: '0.5rem', transition: 'transform 0.18s, box-shadow 0.18s' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.10)'; }}
@@ -481,7 +468,7 @@ export function HomePage() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
               {featured.map(pro => (
-                <div key={pro.id} className="card" style={{ width: '100%', maxWidth: '420px', margin: '0 auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', transition: 'transform 0.2s, box-shadow 0.2s', border: '1px solid var(--outline-variant)' }}
+                <div key={pro.id} className="card" style={{ width: '100%', maxWidth: '420px', minHeight: '360px', margin: '0 auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', transition: 'transform 0.2s, box-shadow 0.2s', border: '1px solid var(--outline-variant)', boxShadow: '0 10px 28px rgba(0,0,0,0.08)' }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.08)'; }}
                   onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                 >
@@ -494,7 +481,7 @@ export function HomePage() {
                       </div>
                     )}
                     <div style={{ minWidth: 0 }}>
-                      <p style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '1rem', color: 'var(--primary)', marginBottom: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <p style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '1rem', color: 'var(--primary)', marginBottom: '0.125rem', lineHeight: 1.35, overflowWrap: 'anywhere' }}>
                         {pro.user?.name || 'Especialista'}
                           {pro.isVerified ? (
                             <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#10b981', verticalAlign: 'middle', marginLeft: '4px' }} title="Verificado">verified</span>
@@ -503,15 +490,15 @@ export function HomePage() {
                           )}
                         </p>
                         <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{pro.title || CATEGORY_MAP[pro.category] || pro.category}</p>
-                        <p style={{ fontSize: '0.6875rem', marginTop: '0.125rem', color: pro.isVerified ? 'var(--secondary)' : '#b45309', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {pro.isVerified ? 'Verificado' : 'En revision'}
+                        <p style={{ fontSize: '0.6875rem', marginTop: '0.125rem', color: pro.isVerified ? 'var(--secondary)' : '#b45309', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'inline-flex', padding: '0.2rem 0.5rem', borderRadius: '999px', background: pro.isVerified ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.16)' }}>
+                          {pro.isVerified ? 'Verificado' : 'Perfil en revision'}
                         </p>
                     </div>
                   </div>
                   
                   {/* SENALES DE CONFIANZA FUERTES */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f8fafc', padding: '0.875rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#334155', fontWeight: 700 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f8fafc', padding: '0.875rem', borderRadius: '8px', border: '1px solid #e2e8f0', minHeight: '120px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.8125rem', color: '#334155', fontWeight: 700, lineHeight: 1.4 }}>
                       <span className="material-symbols-outlined icon-filled" style={{ fontSize: '16px', color: '#10b981' }}>badge</span>
                       {pro.isVerified
                         ? 'Verificado con INE y Cédula.'
@@ -550,8 +537,8 @@ export function HomePage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
             {[
-              { name: 'María González', role: 'Necesitaba ayuda fiscal urgente', text: 'Llevaba días buscando en grupos de Facebook alguien que me ayudara con mis impuestos, pero no me daban confianza (había mucho perfil falso). El bot de Intecnia me encontró un contador verificado en 3 minutos. Pude ver su cédula profesional antes de pagar. Ya presenté mi declaración sin problemas.', stars: 5 },
-              { name: 'Carlos Mendoza', role: 'Emergencia en casa', text: 'Se rompió una tubería el domingo a las 9pm. Usé los botones rápidos, me conectó con un plomero que vive a 15 minutos y llegó de inmediato. Ver su foto e INE verificada antes de que llegara a mi casa me tranquilizó muchísimo. Totalmente recomendado.', stars: 5 },
+              { name: 'María González', role: 'Necesitaba apoyo emocional urgente', text: 'Llevaba días buscando psicóloga con experiencia real. En Intecnia la encontré en minutos y pude revisar su perfil y reseñas antes de agendar. Mi proceso terapéutico empezó de inmediato.', stars: 5 },
+              { name: 'Carlos Mendoza', role: 'Consulta médica en horario complicado', text: 'Necesitaba atención el domingo por la noche. Con los filtros encontré un médico disponible, verificado y con precio claro. Reservé en pocos pasos y recibí atención puntual.', stars: 5 },
               { name: 'Ana Ramírez', role: 'Buscaba psicóloga', text: 'Me daba pena preguntar en redes por recomendaciones de psicólogos. Aquí encontré a mi psicóloga leyendo su perfil completo, vi sus precios desde el inicio (con total claridad) y agendé directo en su calendario sin hablar con nadie más. Funciona perfecto.', stars: 5 },
             ].map(t => (
               <div key={t.name} className="testimonial-card" style={{ background: 'white', padding: '2rem', borderRadius: 'var(--radius-xl)', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>

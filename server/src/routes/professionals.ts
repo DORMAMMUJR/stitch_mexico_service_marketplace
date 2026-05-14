@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
 import { uploadPublicImage } from '../lib/upload';
@@ -24,6 +24,9 @@ const MEDICAL_SPECIALTIES = new Set([
 
 const CONSULTATION_MODES = new Set(['PRESENCIAL', 'DOMICILIO', 'TELEMEDICINA']);
 const INSURANCE_PROVIDERS = new Set(['GNP', 'AXA', 'METLIFE', 'MAPFRE', 'ALLIANZ', 'BBVA', 'INBURSA', 'QUALITAS', 'PLAN_PRIVADO']);
+const HEALTH_CATEGORY = 'HEALTH_WELLNESS';
+const HEALTH_CATEGORIES = new Set([HEALTH_CATEGORY]);
+const MEDICAL_SPECIALTY_FILTERS = new Set(['PSICOLOGIA', 'PSIQUIATRIA', 'MEDICINA_GENERAL', 'MEDICINA_INTERNA', 'PEDIATRIA', 'GINECOLOGIA', 'TRAUMATOLOGIA', 'ORTOPEDIA', 'DERMATOLOGIA', 'CARDIOLOGIA', 'ODONTOLOGIA', 'NUTRICION']);
 
 function normalizeArrayInput(input: unknown): string[] {
   if (Array.isArray(input)) return input.map((value) => String(value).trim()).filter(Boolean);
@@ -36,9 +39,9 @@ function normalizeArrayInput(input: unknown): string[] {
   return [];
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 1. RUTAS ESTÁTICAS Y PROTEGIDAS PRIMERO (Regla de oro de Express)
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 1. RUTAS ESTÃTICAS Y PROTEGIDAS PRIMERO (Regla de oro de Express)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // GET /api/professionals/me/dashboard
 router.get('/me/dashboard', authenticate, async (req: any, res: any, next: any) => {
@@ -56,8 +59,8 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any, next: any) 
     });
 
     if (!professional) {
-      // El registro Professional aún no existe (transición CLIENT→PROFESSIONAL en curso)
-      // Devolver dashboard base con métricas en cero para no bloquear el acceso
+      // El registro Professional aÃºn no existe (transiciÃ³n CLIENTâ†’PROFESSIONAL en curso)
+      // Devolver dashboard base con mÃ©tricas en cero para no bloquear el acceso
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, avatarUrl: true } });
       return res.json({
         profileViews: 0,
@@ -114,7 +117,7 @@ router.get('/me/dashboard', authenticate, async (req: any, res: any, next: any) 
     // Total de interacciones = mensajes (citas agendadas) + disputas o resoluciones
     const totalInteractions = professional.appointments.length + professional.orders.length;
 
-    // Tasa de conversión = Órdenes Completadas / Total de Órdenes que salieron de DRAFT
+    // Tasa de conversiÃ³n = Ã“rdenes Completadas / Total de Ã“rdenes que salieron de DRAFT
     const conversionRateStr = totalNonDraftOrders > 0
       ? `${Math.round((completedOrders.length / totalNonDraftOrders) * 100)}%`
       : '0%';
@@ -158,7 +161,7 @@ router.get('/me', authenticate, async (req: any, res: any, next: any) => {
         userId: req.user.userId,
         title: '',
         bio: null,
-        category: 'GENERAL_MAINTENANCE',
+        category: HEALTH_CATEGORY,
         medicalSpecialty: null,
         consultationModes: [],
         acceptedInsurers: [],
@@ -201,7 +204,7 @@ router.post('/me/ensure', authenticate, async (req: any, res: any, next: any) =>
       data: {
         userId,
         title: '',
-        category: 'GENERAL_MAINTENANCE',
+        category: HEALTH_CATEGORY,
         slotIntervalMinutes: 30,
         currency: 'MXN',
       }
@@ -213,11 +216,12 @@ router.post('/me/ensure', authenticate, async (req: any, res: any, next: any) =>
   }
 });
 
-// PUT /api/professionals/me (Actualizar o crear perfil — upsert)
+// PUT /api/professionals/me (Actualizar o crear perfil â€” upsert)
 router.put('/me', authenticate, async (req: any, res, next) => {
   try {
     const { title, category, bio, hourlyRate, meetLink, medicalSpecialty, consultationModes, acceptedInsurers, slotIntervalMinutes } = req.body;
     const userId = req.user.userId;
+    const normalizedCategory = String(category || HEALTH_CATEGORY).trim().toUpperCase();
     const normalizedConsultationModes = normalizeArrayInput(consultationModes).map((value) => value.toUpperCase());
     const normalizedInsurers = normalizeArrayInput(acceptedInsurers).map((value) => value.toUpperCase());
     const normalizedMedicalSpecialty = medicalSpecialty ? String(medicalSpecialty).trim().toUpperCase() : null;
@@ -225,6 +229,9 @@ router.put('/me', authenticate, async (req: any, res, next) => {
 
     if (normalizedMedicalSpecialty && !MEDICAL_SPECIALTIES.has(normalizedMedicalSpecialty)) {
       return res.status(400).json({ error: 'medicalSpecialty invalida' });
+    }
+    if (!HEALTH_CATEGORIES.has(normalizedCategory)) {
+      return res.status(400).json({ error: 'Solo se permite la categoria de salud en KonectIA.' });
     }
 
     if (normalizedConsultationModes.some((mode) => !CONSULTATION_MODES.has(mode))) {
@@ -246,7 +253,7 @@ router.put('/me', authenticate, async (req: any, res, next) => {
           return res.status(400).json({ error: 'El enlace de Meet debe iniciar con http o https' });
         }
       } catch {
-        return res.status(400).json({ error: 'El enlace de Meet no es válido' });
+        return res.status(400).json({ error: 'El enlace de Meet no es vÃ¡lido' });
       }
     }
 
@@ -255,7 +262,7 @@ router.put('/me', authenticate, async (req: any, res, next) => {
       where: { userId }
     });
 
-    // Si no existe, crearlo (upsert manual para poder comparar campos críticos)
+    // Si no existe, crearlo (upsert manual para poder comparar campos crÃ­ticos)
     if (!professional) {
       // Actualizar rol a PROFESSIONAL en la tabla User
       await prisma.user.update({
@@ -267,7 +274,7 @@ router.put('/me', authenticate, async (req: any, res, next) => {
         data: {
           userId,
           title: title || '',
-          category: (category as any) || 'GENERAL_MAINTENANCE',
+          category: HEALTH_CATEGORY as any,
           medicalSpecialty: normalizedMedicalSpecialty as any,
           consultationModes: normalizedConsultationModes as any,
           acceptedInsurers: normalizedInsurers as any,
@@ -285,8 +292,8 @@ router.put('/me', authenticate, async (req: any, res, next) => {
       });
     }
 
-    // 2. Detectar si hay cambios en campos críticos
-    const incomingData: any = { title, category, bio, hourlyRate, medicalSpecialty, consultationModes: normalizedConsultationModes, acceptedInsurers: normalizedInsurers, slotIntervalMinutes: normalizedSlotInterval };
+    // 2. Detectar si hay cambios en campos crÃ­ticos
+    const incomingData: any = { title, category: HEALTH_CATEGORY, bio, hourlyRate, medicalSpecialty, consultationModes: normalizedConsultationModes, acceptedInsurers: normalizedInsurers, slotIntervalMinutes: normalizedSlotInterval };
     let criticalChanged = false;
 
     for (const field of CRITICAL_FIELDS) {
@@ -297,10 +304,10 @@ router.put('/me', authenticate, async (req: any, res, next) => {
       }
     }
 
-    // 3. Preparar datos de actualización
+    // 3. Preparar datos de actualizaciÃ³n
     const updateData: any = {
       title: title || professional.title,
-      category: category || professional.category,
+      category: HEALTH_CATEGORY as any,
       medicalSpecialty: normalizedMedicalSpecialty !== null ? (normalizedMedicalSpecialty as any) : professional.medicalSpecialty,
       consultationModes: normalizedConsultationModes.length > 0 ? (normalizedConsultationModes as any) : professional.consultationModes,
       acceptedInsurers: normalizedInsurers.length > 0 ? (normalizedInsurers as any) : professional.acceptedInsurers,
@@ -310,7 +317,7 @@ router.put('/me', authenticate, async (req: any, res, next) => {
       meetLink: req.body.meetLink !== undefined ? String(req.body.meetLink || '').trim() || null : professional.meetLink,
     };
 
-    // 4. Si cambió un campo crítico y estaba verificado, resetear verificación
+    // 4. Si cambiÃ³ un campo crÃ­tico y estaba verificado, resetear verificaciÃ³n
     if (criticalChanged && professional.isVerified) {
       updateData.verificationStatus = 'IN_REVIEW';
       updateData.isVerified = false;
@@ -323,7 +330,7 @@ router.put('/me', authenticate, async (req: any, res, next) => {
 
     res.json({
       message: criticalChanged && professional.isVerified
-        ? 'Perfil actualizado. Se requiere re-verificación por cambios en campos críticos.'
+        ? 'Perfil actualizado. Se requiere re-verificaciÃ³n por cambios en campos crÃ­ticos.'
         : 'Perfil actualizado exitosamente',
       profile: updatedProfile,
       requiresReview: criticalChanged && professional.isVerified,
@@ -333,7 +340,7 @@ router.put('/me', authenticate, async (req: any, res, next) => {
   }
 });
 
-// POST /api/professionals/me/submit-review (Enviar perfil a revisión)
+// POST /api/professionals/me/submit-review (Enviar perfil a revisiÃ³n)
 router.post('/me/submit-review', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user.userId;
@@ -345,7 +352,7 @@ router.post('/me/submit-review', authenticate, async (req: any, res: any, next: 
 
     if (!professional) return res.status(404).json({ error: 'Perfil no encontrado' });
 
-    // Ahora INE y SAT son opcionales para reducir fricción en el registro.
+    // Ahora INE y SAT son opcionales para reducir fricciÃ³n en el registro.
     // Solo se actualiza el estado a IN_REVIEW.
 
     const updatedProfile = await prisma.professional.update({
@@ -353,15 +360,15 @@ router.post('/me/submit-review', authenticate, async (req: any, res: any, next: 
       data: { verificationStatus: 'IN_REVIEW' }
     });
 
-    res.json({ message: 'Perfil enviado a revisión', profile: updatedProfile });
+    res.json({ message: 'Perfil enviado a revisiÃ³n', profile: updatedProfile });
   } catch (error) {
     next(error);
   }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // PORTAFOLIOS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // POST /api/professionals/me/portfolio (Subir imagen)
 router.post('/me/portfolio', authenticate, uploadPublicImage.single('image'), async (req: any, res: any, next: any) => {
@@ -369,12 +376,12 @@ router.post('/me/portfolio', authenticate, uploadPublicImage.single('image'), as
     const userId = req.user.userId;
     const file = req.file as any;
 
-    if (!file) return res.status(400).json({ error: 'No se subió ninguna imagen' });
+    if (!file) return res.status(400).json({ error: 'No se subiÃ³ ninguna imagen' });
 
     const professional = await prisma.professional.findUnique({ where: { userId } });
     if (!professional) return res.status(404).json({ error: 'Perfil no encontrado' });
 
-    const fileUrl = file.location || `/uploads/${file.filename}`;
+    const fileUrl = file.location || `/uploads/public/${file.filename}`;
 
     const portfolioItem = await prisma.portfolioItem.create({
       data: {
@@ -464,20 +471,24 @@ router.put('/me/availability', authenticate, async (req: any, res: any, next: an
 });
 
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 2. DIRECTORIO DINÁMICO (Buscador real con filtros)
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 2. DIRECTORIO DINÃMICO (Buscador real con filtros)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // GET /api/professionals
 router.get('/', async (req, res, next) => {
   try {
     const { category, q, maxPrice, minPrice, minRating, verifiedOnly, insurers, consultationMode, symptom } = req.query;
 
-    // Construir los filtros dinámicamente
-    const whereClause: any = {};
+    const whereClause: any = {
+      category: HEALTH_CATEGORY,
+    };
 
     if (category) {
-      whereClause.category = String(category);
+      const normalizedCategory = String(category).trim().toUpperCase();
+      if (!HEALTH_CATEGORIES.has(normalizedCategory)) {
+        return res.json([]);
+      }
     }
 
     if (q) {
@@ -501,7 +512,10 @@ router.get('/', async (req, res, next) => {
 
     const symptomSpecialty = symptom ? resolveSymptomToSpecialty(String(symptom)) : null;
     if (symptomSpecialty) {
-      whereClause.medicalSpecialty = symptomSpecialty;
+      const normalizedSpecialty = String(symptomSpecialty).trim().toUpperCase();
+      if (MEDICAL_SPECIALTY_FILTERS.has(normalizedSpecialty)) {
+        whereClause.medicalSpecialty = normalizedSpecialty;
+      }
     }
 
     if (maxPrice) {
@@ -521,17 +535,16 @@ router.get('/', async (req, res, next) => {
         reviews: { select: { rating: true } }
       },
       orderBy: [
-        { isVerified: 'desc' }, // Primero verificados
-        { createdAt: 'desc' },  // Luego más recientes
+        { isVerified: 'desc' },
+        { createdAt: 'desc' },
       ],
-      take: 20 // Paginación básica
+      take: 20
     });
 
-    // Formatear la respuesta para el frontend
     const formatted = professionals.map(p => {
       const rating = p.reviews.length > 0
         ? (p.reviews.reduce((acc, r) => acc + r.rating, 0) / p.reviews.length).toFixed(1)
-        : "5.0";
+        : '5.0';
 
       return {
         id: p.id,
@@ -550,7 +563,6 @@ router.get('/', async (req, res, next) => {
       };
     });
 
-    // Filtrar por calificación mínima (post-query ya que es un cálculo derivado)
     let results = formatted;
     if (minRating) {
       const minR = parseFloat(String(minRating));
@@ -564,14 +576,155 @@ router.get('/', async (req, res, next) => {
 });
 
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 3. RUTAS CON PARÁMETROS DINÁMICOS AL FINAL
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 3. RUTAS CON PARÃMETROS DINÃMICOS AL FINAL
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
+// GET /api/professionals/:id/review-eligibility
+router.get('/:id/review-eligibility', authenticate, async (req: any, res, next) => {
+  try {
+    const professionalId = String(req.params.id || '');
+    const userId = req.user?.userId;
+    const role = String(req.user?.role || '').toUpperCase();
+
+    if (!professionalId) {
+      return res.status(400).json({ canReview: false, reasons: ['ID profesional invalido'], completedAppointmentsAvailable: [] });
+    }
+    if (!userId || role !== 'CLIENT') {
+      return res.json({ canReview: false, reasons: ['Solo clientes pueden reseñar'], completedAppointmentsAvailable: [] });
+    }
+
+    const professional = await prisma.professional.findFirst({
+      where: { id: professionalId, category: HEALTH_CATEGORY },
+      select: { id: true },
+    });
+    if (!professional) {
+      return res.status(404).json({ canReview: false, reasons: ['Profesional no disponible'], completedAppointmentsAvailable: [] });
+    }
+
+    const completedAppointments = await prisma.appointment.findMany({
+      where: {
+        professionalId,
+        clientId: userId,
+        status: 'COMPLETED',
+      },
+      orderBy: { scheduledAt: 'desc' },
+      select: { id: true, scheduledAt: true, service: true },
+    });
+
+    const existingReviews = await prisma.review.findMany({
+      where: {
+        professionalId,
+        authorId: userId,
+        appointmentId: { not: null },
+      },
+      select: { appointmentId: true },
+    });
+    const reviewedAppointmentIds = new Set(existingReviews.map((r) => r.appointmentId).filter(Boolean));
+    const completedAppointmentsAvailable = completedAppointments.filter((a) => !reviewedAppointmentIds.has(a.id));
+
+    const reasons: string[] = [];
+    if (completedAppointments.length === 0) reasons.push('No tienes citas completadas con este profesional');
+    if (completedAppointmentsAvailable.length === 0 && completedAppointments.length > 0) reasons.push('Ya reseñaste todas tus citas completadas');
+
+    res.json({
+      canReview: completedAppointmentsAvailable.length > 0,
+      reasons,
+      completedAppointmentsAvailable,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/professionals/:id/reviews
+router.post('/:id/reviews', authenticate, async (req: any, res, next) => {
+  try {
+    const professionalId = String(req.params.id || '');
+    const userId = req.user?.userId;
+    const role = String(req.user?.role || '').toUpperCase();
+    const appointmentId = String(req.body?.appointmentId || '');
+    const rating = Number(req.body?.rating);
+    const rawComment = req.body?.comment;
+    const comment = typeof rawComment === 'string' ? rawComment.trim() : '';
+
+    if (!professionalId || !appointmentId) {
+      return res.status(400).json({ error: 'professionalId y appointmentId son obligatorios' });
+    }
+    if (!userId || role !== 'CLIENT') {
+      return res.status(403).json({ error: 'Solo clientes pueden crear reseñas' });
+    }
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'rating debe ser un entero entre 1 y 5' });
+    }
+
+    const professional = await prisma.professional.findFirst({
+      where: { id: professionalId, category: HEALTH_CATEGORY },
+      select: { id: true },
+    });
+    if (!professional) {
+      return res.status(404).json({ error: 'Profesional no disponible' });
+    }
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: { id: true, professionalId: true, clientId: true, status: true },
+    });
+    if (!appointment) return res.status(404).json({ error: 'Cita no encontrada' });
+    if (appointment.professionalId !== professionalId) {
+      return res.status(400).json({ error: 'La cita no corresponde al profesional indicado' });
+    }
+    if (appointment.clientId !== userId) {
+      return res.status(403).json({ error: 'No puedes reseñar una cita de otro cliente' });
+    }
+    if (appointment.status !== 'COMPLETED') {
+      return res.status(400).json({ error: 'Solo puedes reseñar citas completadas' });
+    }
+
+    const duplicate = await prisma.review.findUnique({ where: { appointmentId } });
+    if (duplicate) {
+      return res.status(409).json({ error: 'Esta cita ya tiene una reseña registrada' });
+    }
+
+    const review = await prisma.review.create({
+      data: {
+        appointmentId,
+        authorId: userId,
+        professionalId,
+        rating,
+        comment: comment || null,
+        isVerified: true,
+      },
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        createdAt: true,
+        author: { select: { name: true, avatarUrl: true } },
+      },
+    });
+
+    res.status(201).json({
+      id: review.id,
+      name: review.author.name,
+      avatarUrl: review.author.avatarUrl,
+      rating: review.rating,
+      comment: review.comment,
+      date: review.createdAt,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 // GET /api/professionals/:id/reviews
 router.get('/:id/reviews', async (req, res, next) => {
   try {
     const { id } = req.params;
+    const professional = await prisma.professional.findFirst({
+      where: { id, category: HEALTH_CATEGORY },
+      select: { id: true },
+    });
+    if (!professional) return res.json([]);
 
     const reviews = await prisma.review.findMany({
       where: { professionalId: id },
@@ -599,14 +752,14 @@ router.get('/:id/reviews', async (req, res, next) => {
   }
 });
 
-// GET /api/professionals/:id (Perfil Público)
+// GET /api/professionals/:id (Perfil PÃºblico)
 router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const clientId = req.query.clientId as string | undefined;
 
-    const professional = await prisma.professional.findUnique({
-      where: { id },
+    const professional = await prisma.professional.findFirst({
+      where: { id, category: HEALTH_CATEGORY },
       include: {
         user: true,
         reviews: true,
@@ -619,8 +772,8 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ message: 'Profesional no encontrado' });
     }
 
-    // Filtro isVerified: solo mostrar perfiles verificados al público
-    // EXCEPCIÓN: el dueño puede ver su propio perfil no verificado
+    // Filtro isVerified: solo mostrar perfiles verificados al pÃºblico
+    // EXCEPCIÃ“N: el dueÃ±o puede ver su propio perfil no verificado
     const isOwner = clientId && professional.userId === clientId;
     if (!professional.isVerified && !isOwner) {
       return res.status(404).json({ message: 'Profesional no encontrado' });
@@ -687,7 +840,7 @@ router.get('/:id', async (req, res, next) => {
       successRate: `${successRate}%`,
       rating: avgRating.toFixed(1),
       reviewCount: totalReviews,
-      // Datos de precios y categoría — necesarios para la UI del perfil
+      // Datos de precios y categorÃ­a â€” necesarios para la UI del perfil
       hourlyRate: professional.hourlyRate ? Number(professional.hourlyRate) : null,
       currency: professional.currency || 'MXN',
       category: professional.category,
@@ -704,3 +857,5 @@ router.get('/:id', async (req, res, next) => {
 });
 
 export { router as professionalsRouter };
+
+

@@ -17,7 +17,9 @@ export const verifyWebhookSignature = (secret: string) => {
       .update(payload)
       .digest('hex');
 
-    if (signature !== expectedSignature) {
+    const incoming = Buffer.from(signature, 'utf8');
+    const expected = Buffer.from(expectedSignature, 'utf8');
+    if (incoming.length !== expected.length || !crypto.timingSafeEqual(incoming, expected)) {
       res.status(401).json({ error: 'Invalid webhook signature' });
       return;
     }

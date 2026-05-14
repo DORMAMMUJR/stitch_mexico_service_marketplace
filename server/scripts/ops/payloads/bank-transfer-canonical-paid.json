@@ -1,0 +1,9 @@
+{
+  "appointmentId": "REPLACE_APPOINTMENT_ID",
+  "transferReference": "TRX-2026-0001",
+  "amount": 2000,
+  "currency": "MXN",
+  "paidAt": "2026-05-14T12:00:00.000Z",
+  "providerTxId": "bank_tx_1001",
+  "status": "PAID"
+}

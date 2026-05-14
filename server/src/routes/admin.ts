@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
-import { Role, OrderStatus } from '@prisma/client';
+import { Role, OrderStatus, AppointmentStatus } from '@prisma/client';
 import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
 import { sendEmail, emailTemplates } from '../lib/email';
@@ -109,6 +109,7 @@ const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
   'PAYOUT_INICIADO',
   'PAYOUT_FALLIDO',
 ];
+const HEALTH_CATEGORY = 'HEALTH_WELLNESS';
 
 function parseRole(value: unknown): Role | null {
   const normalized = String(value ?? '').trim().toUpperCase();
@@ -129,14 +130,34 @@ router.use(authenticate, (req: any, res: any, next: any) => {
 // GET /api/admin/stats
 router.get('/stats', async (_req: any, res: any, next: any) => {
   try {
-    const [totalUsers, verifiedProfessionals, completedSalesAggregate, ordersByStatus] = await Promise.all([
+    const [
+      totalUsers,
+      usersByRole,
+      verifiedProfessionals,
+      professionalsInReview,
+      pendingVerificationDocuments,
+      completedSalesAggregate,
+      ordersByStatus,
+      appointmentsByStatus,
+    ] = await Promise.all([
       prisma.user.count(),
+      prisma.user.groupBy({
+        by: ['role'],
+        _count: { _all: true },
+        where: { deletionRequestedAt: null },
+      }),
       prisma.professional.count({ where: { isVerified: true } }),
+      prisma.professional.count({ where: { verificationStatus: 'IN_REVIEW' } }),
+      prisma.verificationDocument.count({ where: { status: 'PENDING' } }),
       prisma.order.aggregate({
         where: { status: { in: SALES_COMPLETED_STATUSES } },
         _sum: { agreedPrice: true },
       }),
       prisma.order.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+      prisma.appointment.groupBy({
         by: ['status'],
         _count: { _all: true },
       }),
@@ -146,17 +167,64 @@ router.get('/stats', async (_req: any, res: any, next: any) => {
       acc[row.status] = row._count._all;
       return acc;
     }, {} as Record<OrderStatus, number>);
+    const appointmentStatusCounts = appointmentsByStatus.reduce((acc, row) => {
+      acc[row.status] = row._count._all;
+      return acc;
+    }, {} as Record<AppointmentStatus, number>);
+    const roleCounts = usersByRole.reduce((acc, row) => {
+      acc[row.role] = row._count._all;
+      return acc;
+    }, {} as Record<Role, number>);
 
     const totalOrders = ordersByStatus.reduce((sum, row) => sum + row._count._all, 0);
     const activeOrders = ACTIVE_ORDER_STATUSES.reduce((sum, status) => sum + (statusCounts[status] || 0), 0);
     const completedOrders = SALES_COMPLETED_STATUSES.reduce((sum, status) => sum + (statusCounts[status] || 0), 0);
+    const activeDisputes = statusCounts.EN_DISPUTA || 0;
+    const resolvedDisputes = (statusCounts.COMPLETADO || 0) + (statusCounts.REEMBOLSADO || 0);
+    const pendingPaymentAppointments = appointmentStatusCounts.PENDING_PAYMENT || 0;
+    const scheduledAppointments = appointmentStatusCounts.SCHEDULED || 0;
+    const inProgressAppointments = appointmentStatusCounts.IN_PROGRESS || 0;
+    const completedAppointments = appointmentStatusCounts.COMPLETED || 0;
+    const completedRevenue = completedSalesAggregate._sum.agreedPrice
+      ? Number(completedSalesAggregate._sum.agreedPrice)
+      : 0;
 
     res.json({
+      // Compatibilidad con frontend actual
       totalUsers,
       verifiedProfessionals,
-      totalSalesVolume: completedSalesAggregate._sum.agreedPrice
-        ? Number(completedSalesAggregate._sum.agreedPrice)
-        : 0,
+      totalOrders,
+      completedRevenue,
+      pendingPaymentAppointments,
+      activeDisputes,
+      // Contrato extendido para superadmin
+      users: {
+        total: totalUsers,
+        active: (roleCounts.CLIENT || 0) + (roleCounts.PROFESSIONAL || 0) + (roleCounts.ADMIN || 0),
+        clients: roleCounts.CLIENT || 0,
+        professionals: roleCounts.PROFESSIONAL || 0,
+        admins: roleCounts.ADMIN || 0,
+      },
+      verifications: {
+        verifiedProfessionals,
+        professionalsInReview,
+        pendingDocuments: pendingVerificationDocuments,
+      },
+      appointments: {
+        pendingPayment: pendingPaymentAppointments,
+        scheduled: scheduledAppointments,
+        inProgress: inProgressAppointments,
+        completed: completedAppointments,
+      },
+      disputes: {
+        active: activeDisputes,
+        resolved: resolvedDisputes,
+      },
+      volume: {
+        completedRevenue,
+        completedOrders,
+        totalOrders,
+      },
       orders: {
         total: totalOrders,
         active: activeOrders,
@@ -221,6 +289,8 @@ router.get('/users', async (req: any, res: any, next: any) => {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         deletionRequestedAt: user.deletionRequestedAt,
+        accountStatus: user.deletionRequestedAt ? 'INACTIVO' : 'ACTIVO',
+        verificationStatus: user.professional?.verificationStatus || null,
         professional: user.professional
           ? {
               id: user.professional.id,
@@ -402,7 +472,7 @@ router.patch('/users/:id/role', async (req: any, res: any, next: any) => {
           data: {
             userId: targetUserId,
             title: '',
-            category: 'GENERAL_MAINTENANCE',
+            category: HEALTH_CATEGORY,
             currency: 'MXN',
           },
         });

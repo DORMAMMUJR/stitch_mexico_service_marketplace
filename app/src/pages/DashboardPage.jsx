@@ -49,6 +49,28 @@ const CONSULTATION_MODE_OPTIONS = [
 
 const INSURER_OPTIONS = ['GNP', 'AXA', 'METLIFE', 'MAPFRE', 'ALLIANZ', 'BBVA', 'INBURSA', 'QUALITAS', 'PLAN_PRIVADO'];
 const SLOT_INTERVAL_OPTIONS = [20, 30, 45];
+const VIDEO_PROVIDER_OPTIONS = [
+  { value: 'jitsi', label: 'Jitsi (embebido)' },
+  { value: 'zoom', label: 'Zoom (externo)' },
+  { value: 'meet', label: 'Google Meet (externo)' },
+];
+
+function inferVideoProviderFromUrl(url) {
+  if (!url) return 'jitsi';
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes('zoom.us') || host.includes('zoom.com')) return 'zoom';
+    if (host.includes('meet.google')) return 'meet';
+  } catch {
+    return 'jitsi';
+  }
+  return 'jitsi';
+}
+
+function isVideoConfigurableStatus(status) {
+  const normalized = String(status || '').toUpperCase();
+  return normalized === 'SCHEDULED' || normalized === 'IN_PROGRESS';
+}
 
 export function DashboardPage() {
   const { user, updateUser } = useAuth();
@@ -60,6 +82,8 @@ export function DashboardPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [appointments, setAppointments] = useState([]);
   const [joiningVideoMap, setJoiningVideoMap] = useState({});
+  const [videoConfigDrafts, setVideoConfigDrafts] = useState({});
+  const [videoConfigSavingMap, setVideoConfigSavingMap] = useState({});
   const [activeVideoSession, setActiveVideoSession] = useState(null);
   const [selectedClientAppointment, setSelectedClientAppointment] = useState(null);
   const [hasActivePayments, setHasActivePayments] = useState(false);
@@ -86,7 +110,6 @@ export function DashboardPage() {
     acceptedInsurers: [],
     slotIntervalMinutes: 30,
     hourlyRate: '',
-    meetLink: '',
   });
 
   const [savingProfile, setSavingProfile] = useState(false);
@@ -167,7 +190,6 @@ export function DashboardPage() {
             acceptedInsurers: Array.isArray(proProfileJson?.acceptedInsurers) ? proProfileJson.acceptedInsurers : [],
             slotIntervalMinutes: SLOT_INTERVAL_OPTIONS.includes(Number(proProfileJson?.slotIntervalMinutes)) ? Number(proProfileJson.slotIntervalMinutes) : 30,
             hourlyRate: proProfileJson?.hourlyRate || '',
-            meetLink: proProfileJson?.meetLink || '',
           });
 
           if (Array.isArray(proAvailabilityJson) && proAvailabilityJson.length > 0) {
@@ -203,13 +225,31 @@ export function DashboardPage() {
             acceptedInsurers: [],
             slotIntervalMinutes: 30,
             hourlyRate: '',
-            meetLink: '',
           });
         }
       })
       .catch(() => showToast('No se pudieron cargar todos los datos del panel', 'error'))
       .finally(() => setIsLoading(false));
   }, [isProfessional, showToast, user?.email, user?.name, user?.phone]);
+
+  useEffect(() => {
+    if (!isProfessional || !Array.isArray(appointments) || appointments.length === 0) return;
+    setVideoConfigDrafts((prev) => {
+      const next = { ...prev };
+      for (const app of appointments) {
+        if (!isVideoConfigurableStatus(app?.status)) continue;
+        const persistedProvider = String(app?.videoSession?.provider || '').toLowerCase();
+        const provider = ['jitsi', 'zoom', 'meet'].includes(persistedProvider)
+          ? persistedProvider
+          : inferVideoProviderFromUrl(app?.videoSession?.joinUrl || app?.meetingLink || '');
+        const meetingLink = app?.videoSession?.joinUrl || app?.meetingLink || '';
+        if (!next[app.id]) {
+          next[app.id] = { provider, meetingLink };
+        }
+      }
+      return next;
+    });
+  }, [appointments, isProfessional]);
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
@@ -276,7 +316,26 @@ export function DashboardPage() {
 
       if (!joinUrl) throw new Error('Esta cita aun no tiene link de videollamada');
 
-      setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, meetingLink: joinUrl } : a)));
+      setAppointments((prev) => prev.map((a) => (
+        a.id === appointment.id
+          ? {
+            ...a,
+            meetingLink: joinUrl,
+            videoSession: sessionData?.videoSession
+              ? { ...sessionData.videoSession, joinUrl }
+              : (a.videoSession ? { ...a.videoSession, joinUrl } : null),
+          }
+          : a
+      )));
+      if (isProfessional) {
+        setVideoConfigDrafts((prev) => ({
+          ...prev,
+          [appointment.id]: {
+            provider: provider || prev[appointment.id]?.provider || 'jitsi',
+            meetingLink: joinUrl || '',
+          },
+        }));
+      }
 
       if (provider === 'jitsi' && embedAllowed) {
         setActiveVideoSession({
@@ -293,6 +352,89 @@ export function DashboardPage() {
       showToast(err.message || 'No se pudo abrir la videollamada', 'error');
     } finally {
       setJoiningVideoMap((prev) => ({ ...prev, [appointment.id]: false }));
+    }
+  };
+
+  const handleSaveAppointmentVideoConfig = async (appointment) => {
+    if (!isProfessional || !isVideoConfigurableStatus(appointment?.status)) return;
+    const draft = videoConfigDrafts[appointment.id] || {};
+    const provider = ['jitsi', 'zoom', 'meet'].includes(String(draft.provider || '').toLowerCase())
+      ? String(draft.provider).toLowerCase()
+      : 'jitsi';
+    const meetingLink = String(draft.meetingLink || '').trim();
+
+    if ((provider === 'zoom' || provider === 'meet') && !meetingLink) {
+      showToast('Debes ingresar un link para Zoom o Google Meet', 'error');
+      return;
+    }
+
+    setVideoConfigSavingMap((prev) => ({ ...prev, [appointment.id]: true }));
+    try {
+      const payload = { provider };
+      if (meetingLink) payload.meetingLink = meetingLink;
+      const res = await fetch(`/api/appointments/${appointment.id}/video-session`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo guardar la configuracion de videollamada');
+
+      const nextMeetingLink = data?.meetingLink || data?.videoSession?.joinUrl || '';
+      const nextVideoSession = data?.videoSession || null;
+      setAppointments((prev) => prev.map((a) => (
+        a.id === appointment.id
+          ? { ...a, meetingLink: nextMeetingLink, videoSession: nextVideoSession }
+          : a
+      )));
+      setVideoConfigDrafts((prev) => ({
+        ...prev,
+        [appointment.id]: {
+          provider: nextVideoSession?.provider || provider,
+          meetingLink: nextMeetingLink,
+        },
+      }));
+      showToast('Videollamada configurada para la cita', 'success');
+    } catch (err) {
+      showToast(err.message || 'No se pudo configurar la videollamada', 'error');
+    } finally {
+      setVideoConfigSavingMap((prev) => ({ ...prev, [appointment.id]: false }));
+    }
+  };
+
+  const handleAutoGenerateAppointmentVideo = async (appointment) => {
+    if (!isProfessional || !isVideoConfigurableStatus(appointment?.status)) return;
+    setVideoConfigSavingMap((prev) => ({ ...prev, [appointment.id]: true }));
+    try {
+      const res = await fetch(`/api/appointments/${appointment.id}/video-session`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forceAuto: true, provider: 'jitsi' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo generar la sala automatica');
+
+      const nextMeetingLink = data?.meetingLink || data?.videoSession?.joinUrl || '';
+      const nextVideoSession = data?.videoSession || null;
+      setAppointments((prev) => prev.map((a) => (
+        a.id === appointment.id
+          ? { ...a, meetingLink: nextMeetingLink, videoSession: nextVideoSession }
+          : a
+      )));
+      setVideoConfigDrafts((prev) => ({
+        ...prev,
+        [appointment.id]: {
+          provider: 'jitsi',
+          meetingLink: nextMeetingLink,
+        },
+      }));
+      showToast('Sala Jitsi automatica generada', 'success');
+    } catch (err) {
+      showToast(err.message || 'No se pudo generar la sala automatica', 'error');
+    } finally {
+      setVideoConfigSavingMap((prev) => ({ ...prev, [appointment.id]: false }));
     }
   };
 
@@ -332,7 +474,6 @@ export function DashboardPage() {
           acceptedInsurers: Array.isArray(profileForm.acceptedInsurers) ? profileForm.acceptedInsurers : [],
           slotIntervalMinutes: Number(profileForm.slotIntervalMinutes) || 30,
           hourlyRate: profileForm.hourlyRate,
-          meetLink: profileForm.meetLink,
         };
 
         const proRes = await fetch('/api/professionals/me', {
@@ -489,6 +630,14 @@ export function DashboardPage() {
                   const counterpart = isProfessional ? app.client : app.professional?.user;
                   const counterpartName = counterpart?.name || (isProfessional ? 'Cliente' : 'Profesional');
                   const counterpartAvatar = counterpart?.avatarUrl || null;
+                  const normalizedStatus = String(app.status || '').toUpperCase();
+                  const canUseVideo = isVideoConfigurableStatus(normalizedStatus);
+                  const draft = videoConfigDrafts[app.id] || {
+                    provider: String(app.videoSession?.provider || '').toLowerCase() || inferVideoProviderFromUrl(app.videoSession?.joinUrl || app.meetingLink || ''),
+                    meetingLink: app.videoSession?.joinUrl || app.meetingLink || '',
+                  };
+                  const selectedProvider = ['jitsi', 'zoom', 'meet'].includes(String(draft.provider || '').toLowerCase()) ? String(draft.provider).toLowerCase() : 'jitsi';
+                  const isSavingVideoConfig = Boolean(videoConfigSavingMap[app.id]);
 
                   return (
                     <div key={app.id} className="dashboard-appointment-item" style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -507,7 +656,63 @@ export function DashboardPage() {
 
                         <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} - {app.timeLabel}</p>
                         <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{app.status}</p>
-                        {['SCHEDULED', 'IN_PROGRESS'].includes(app.status) && (
+                        {isProfessional && canUseVideo && (
+                          <div style={{ marginTop: '0.5rem', display: 'grid', gap: '0.5rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', padding: '0.625rem', background: 'rgba(255,255,255,0.02)' }}>
+                            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--on-surface-variant)', fontWeight: 700 }}>Configuracion de videollamada</p>
+                            <select
+                              className="input-field"
+                              value={selectedProvider}
+                              onChange={(e) => setVideoConfigDrafts((prev) => ({
+                                ...prev,
+                                [app.id]: {
+                                  provider: e.target.value,
+                                  meetingLink: prev[app.id]?.meetingLink || '',
+                                },
+                              }))}
+                              disabled={isSavingVideoConfig}
+                              style={{ fontSize: '0.8125rem', padding: '0.4rem 0.55rem' }}
+                            >
+                              {VIDEO_PROVIDER_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                            <input
+                              className="input-field"
+                              value={draft.meetingLink || ''}
+                              onChange={(e) => setVideoConfigDrafts((prev) => ({
+                                ...prev,
+                                [app.id]: {
+                                  provider: selectedProvider,
+                                  meetingLink: e.target.value,
+                                },
+                              }))}
+                              disabled={isSavingVideoConfig}
+                              placeholder={selectedProvider === 'jitsi' ? 'Opcional para Jitsi manual' : 'https://...'}
+                              style={{ fontSize: '0.8125rem', padding: '0.4rem 0.55rem' }}
+                            />
+                            <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => handleSaveAppointmentVideoConfig(app)}
+                                disabled={isSavingVideoConfig}
+                                style={{ fontSize: '0.75rem', padding: '0.4rem 0.65rem' }}
+                              >
+                                {isSavingVideoConfig ? 'Guardando...' : 'Guardar proveedor/link'}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => handleAutoGenerateAppointmentVideo(app)}
+                                disabled={isSavingVideoConfig}
+                                style={{ fontSize: '0.75rem', padding: '0.4rem 0.65rem' }}
+                              >
+                                {isSavingVideoConfig ? 'Generando...' : 'Generar sala Jitsi automatica'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {canUseVideo && (
                           <button
                             type="button"
                             className="btn btn-outline"
@@ -630,7 +835,6 @@ export function DashboardPage() {
                     ))}
                   </select>
                   <input className="input-field" placeholder="Costos/Tarifas" value={profileForm.hourlyRate} onChange={(e) => setProfileForm((p) => ({ ...p, hourlyRate: e.target.value }))} />
-                  <input className="input-field" placeholder="Link de Meet" value={profileForm.meetLink} onChange={(e) => setProfileForm((p) => ({ ...p, meetLink: e.target.value }))} />
                 </>
               )}
 

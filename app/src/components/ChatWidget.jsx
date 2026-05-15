@@ -1,135 +1,167 @@
-import React, { useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { useChat } from '../hooks/useChat';
 
+/**
+ * @typedef {'bot' | 'user'} ChatSender
+ */
+
+/**
+ * @typedef {Object} ChatMessage
+ * @property {string} id
+ * @property {ChatSender} sender
+ * @property {string} text
+ * @property {Date} timestamp
+ */
+
+const ChatHeader = memo(function ChatHeader({ professionalNameUpper }) {
+  return (
+    <header className="profile-chat-header profile-chat-header-content">
+      <div className="profile-chat-header-avatar" aria-hidden="true">
+        <span className="material-symbols-outlined profile-chat-header-avatar-icon">smart_toy</span>
+      </div>
+      <div className="profile-chat-header-title-wrap">
+        <h3 className="profile-chat-title">Asistente de Reservas AI</h3>
+        <p className="profile-chat-subtitle">AGENDANDO CON {professionalNameUpper}</p>
+      </div>
+    </header>
+  );
+});
+
+const MessageRow = memo(function MessageRow({ message }) {
+  const isUser = message.sender === 'user';
+
+  return (
+    <div className={`profile-chat-row ${isUser ? 'profile-chat-row-user' : ''}`}>
+      {!isUser && (
+        <div className="profile-chat-avatar profile-chat-avatar-bot" aria-hidden="true">
+          <span className="material-symbols-outlined profile-chat-avatar-icon">smart_toy</span>
+        </div>
+      )}
+
+      <div className={`profile-chat-bubble ${isUser ? 'profile-chat-bubble-user' : 'profile-chat-bubble-bot'}`}>
+        {message.text}
+      </div>
+
+      {isUser && (
+        <div className="profile-chat-avatar profile-chat-avatar-user" aria-hidden="true">
+          <span className="material-symbols-outlined profile-chat-avatar-icon">person</span>
+        </div>
+      )}
+    </div>
+  );
+});
+
+const TypingIndicator = memo(function TypingIndicator() {
+  return (
+    <div className="profile-chat-row" aria-hidden="true">
+      <div className="profile-chat-avatar profile-chat-avatar-bot">
+        <span className="material-symbols-outlined profile-chat-avatar-icon">smart_toy</span>
+      </div>
+      <div className="profile-chat-typing-bubble">
+        <div className="profile-chat-typing-indicator">
+          <span className="profile-chat-typing-dot" />
+          <span className="profile-chat-typing-dot" />
+          <span className="profile-chat-typing-dot" />
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const MessageList = memo(function MessageList({ messages, isTyping }) {
+  return (
+    <div
+      id="chat-messages"
+      className="chat-messages profile-chat-body profile-chat-log"
+      role="log"
+      aria-live="polite"
+      aria-relevant="additions text"
+      aria-atomic="false"
+    >
+      {messages.map((message) => (
+        <MessageRow key={message.id} message={message} />
+      ))}
+      {isTyping && <TypingIndicator />}
+    </div>
+  );
+});
+
+const ChatInput = memo(function ChatInput({
+  value,
+  disabled,
+  onChange,
+  onKeyDown,
+  onSend,
+}) {
+  return (
+    <div className="chat-input-area profile-chat-input-area">
+      <div className="profile-chat-input-wrap">
+        <input
+          type="text"
+          value={value}
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          className="profile-chat-input-control"
+          placeholder="Escribe un mensaje..."
+          aria-label="Escribe un mensaje"
+        />
+        <button
+          type="button"
+          onClick={onSend}
+          disabled={disabled}
+          className="profile-chat-send-button"
+          aria-label="Enviar mensaje"
+        >
+          <span className="material-symbols-outlined icon-filled" aria-hidden="true">send</span>
+        </button>
+      </div>
+    </div>
+  );
+});
+
+/**
+ * @param {{ professionalName?: string; professionalId?: string }} props
+ */
 export function ChatWidget({ professionalName, professionalId }) {
   const { messages, sendMessage, isTyping } = useChat(professionalName, professionalId);
   const [inputValue, setInputValue] = useState('');
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
-    sendMessage(inputValue);
-    setInputValue('');
-  };
+  const professionalNameUpper = useMemo(
+    () => professionalName?.toUpperCase() || 'PROFESIONAL',
+    [professionalName]
+  );
+  const isSendDisabled = !inputValue.trim();
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
+  // Callback estable: evita recrear handlers en hijos memoizados.
+  const handleSend = useCallback(() => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
+    sendMessage(trimmed);
+    setInputValue('');
+  }, [inputValue, sendMessage]);
+
+  const handleInputChange = useCallback((event) => {
+    setInputValue(event.target.value);
+  }, []);
+
+  const handleKeyDown = useCallback((event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
       handleSend();
     }
-  };
+  }, [handleSend]);
 
   return (
-    <div
-      className="card glass-card profile-chat-widget profile-chat-shell"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: 'clamp(420px, 68vh, 640px)',
-        minHeight: '420px',
-        overflow: 'hidden',
-        minWidth: 0,
-      }}
-    >
-      <div className="profile-chat-header" style={{ padding: '1rem 1.125rem', borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span className="material-symbols-outlined" style={{ color: 'var(--secondary-container)' }}>smart_toy</span>
-        </div>
-        <div>
-          <h3 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '0.9375rem', color: 'var(--on-primary)' }}>Asistente de Reservas AI</h3>
-          <p style={{ fontSize: '0.6875rem', color: 'var(--primary-fixed-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AGENDANDO CON {professionalName?.toUpperCase() || 'PROFESIONAL'}</p>
-        </div>
-      </div>
-
-      <div
-        id="chat-messages"
-        className="chat-messages profile-chat-body"
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-          padding: '1rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1rem',
-          overflowX: 'hidden',
-        }}
-      >
-        {messages.map((msg) => (
-          <div key={msg.id} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
-            {msg.sender === 'bot' && (
-              <div style={{ width: '1.75rem', height: '1.75rem', borderRadius: '50%', background: 'rgba(45,188,254,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--secondary)' }}>smart_toy</span>
-              </div>
-            )}
-            <div className={`chat-bubble ${msg.sender}`} style={{ 
-              maxWidth: '80%', 
-              padding: '0.75rem 1rem', 
-              borderRadius: 'var(--radius-lg)', 
-              fontSize: '0.875rem',
-              lineHeight: 1.5,
-              background: msg.sender === 'bot' ? 'var(--surface-container-low)' : 'var(--secondary)',
-              color: msg.sender === 'bot' ? 'var(--on-surface)' : 'white',
-              borderBottomRightRadius: msg.sender === 'user' ? '4px' : 'var(--radius-lg)',
-              borderBottomLeftRadius: msg.sender === 'bot' ? '4px' : 'var(--radius-lg)',
-              overflowWrap: 'anywhere',
-              wordBreak: 'break-word',
-            }}>
-              {msg.text}
-            </div>
-            {msg.sender === 'user' && (
-              <div style={{ width: '1.75rem', height: '1.75rem', borderRadius: '50%', background: 'var(--surface-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>person</span>
-              </div>
-            )}
-          </div>
-        ))}
-        {isTyping && (
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-            <div style={{ width: '1.75rem', height: '1.75rem', borderRadius: '50%', background: 'rgba(45,188,254,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--secondary)' }}>smart_toy</span>
-            </div>
-            <div style={{ padding: '0.75rem 1rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', borderBottomLeftRadius: '4px' }}>
-              <div className="typing-indicator" style={{ display: 'flex', gap: '4px' }}>
-                <div style={{ width: '4px', height: '4px', background: 'var(--secondary)', borderRadius: '50%', animation: 'bounce 1s infinite' }}></div>
-                <div style={{ width: '4px', height: '4px', background: 'var(--secondary)', borderRadius: '50%', animation: 'bounce 1s infinite 0.2s' }}></div>
-                <div style={{ width: '4px', height: '4px', background: 'var(--secondary)', borderRadius: '50%', animation: 'bounce 1s infinite 0.4s' }}></div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div
-        className="chat-input-area profile-chat-input-area"
-        style={{
-          position: 'relative',
-          padding: '0.875rem',
-          borderTop: '1px solid rgba(0,0,0,0.04)',
-          zIndex: 2,
-          flexShrink: 0,
-        }}
-      >
-        <div className="profile-chat-input-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.875rem' }}>
-          <input 
-            type="text" 
-            placeholder="Escribe un mensaje..." 
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyPress}
-            style={{ flex: 1, background: 'transparent', fontSize: '0.875rem', padding: '0.375rem 0', border: 'none', outline: 'none' }} 
-          />
-          <button 
-            onClick={handleSend}
-            style={{ color: 'var(--secondary)', padding: '0.25rem', border: 'none', background: 'transparent', cursor: 'pointer' }}
-          >
-            <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px' }}>send</span>
-          </button>
-        </div>
-      </div>
-      <style>{`
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
-      `}</style>
-    </div>
+    <section className="card glass-card profile-chat-widget profile-chat-shell profile-chat-root" aria-label="Chat con asistente">
+      <ChatHeader professionalNameUpper={professionalNameUpper} />
+      {/* Lista separada para evitar re-render al teclear en el input. */}
+      <MessageList messages={messages} isTyping={isTyping} />
+      <ChatInput
+        value={inputValue}
+        disabled={isSendDisabled}
+        onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
+        onSend={handleSend}
+      />
+    </section>
   );
 }

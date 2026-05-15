@@ -219,7 +219,7 @@ router.post('/me/ensure', authenticate, async (req: any, res: any, next: any) =>
 // PUT /api/professionals/me (Actualizar o crear perfil â€” upsert)
 router.put('/me', authenticate, async (req: any, res, next) => {
   try {
-    const { title, category, bio, hourlyRate, meetLink, medicalSpecialty, consultationModes, acceptedInsurers, slotIntervalMinutes } = req.body;
+    const { title, category, bio, hourlyRate, medicalSpecialty, consultationModes, acceptedInsurers, slotIntervalMinutes } = req.body;
     const userId = req.user.userId;
     const normalizedCategory = String(category || HEALTH_CATEGORY).trim().toUpperCase();
     const normalizedConsultationModes = normalizeArrayInput(consultationModes).map((value) => value.toUpperCase());
@@ -246,17 +246,6 @@ router.put('/me', authenticate, async (req: any, res, next) => {
       return res.status(400).json({ error: 'slotIntervalMinutes debe ser 20, 30 o 45' });
     }
 
-    if (meetLink) {
-      try {
-        const parsed = new URL(String(meetLink));
-        if (!['http:', 'https:'].includes(parsed.protocol)) {
-          return res.status(400).json({ error: 'El enlace de Meet debe iniciar con http o https' });
-        }
-      } catch {
-        return res.status(400).json({ error: 'El enlace de Meet no es vÃ¡lido' });
-      }
-    }
-
     // 1. Buscar si ya existe (puede no existir si el usuario era CLIENT)
     const professional = await prisma.professional.findUnique({
       where: { userId }
@@ -281,7 +270,6 @@ router.put('/me', authenticate, async (req: any, res, next) => {
           slotIntervalMinutes: normalizedSlotInterval || 30,
           bio: bio || null,
           hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
-          meetLink: meetLink ? String(meetLink).trim() : null,
           currency: 'MXN',
         }
       });
@@ -314,7 +302,6 @@ router.put('/me', authenticate, async (req: any, res, next) => {
       slotIntervalMinutes: normalizedSlotInterval || professional.slotIntervalMinutes || 30,
       bio: bio !== undefined ? bio : professional.bio,
       hourlyRate: hourlyRate ? parseFloat(hourlyRate) : professional.hourlyRate,
-      meetLink: req.body.meetLink !== undefined ? String(req.body.meetLink || '').trim() || null : professional.meetLink,
     };
 
     // 4. Si cambiÃ³ un campo crÃ­tico y estaba verificado, resetear verificaciÃ³n
@@ -848,7 +835,6 @@ router.get('/:id', async (req, res, next) => {
       consultationModes: professional.consultationModes,
       acceptedInsurers: professional.acceptedInsurers,
       slotIntervalMinutes: professional.slotIntervalMinutes || 30,
-      meetLink: professional.meetLink,
       portfolioItems: professional.portfolioItems,
     });
   } catch (error) {

@@ -57,6 +57,26 @@ type AppointmentMeta = {
 
 const VIDEO_TOKEN_TTL_SECONDS = 60 * 5;
 const VIDEO_PROVIDERS: VideoProvider[] = ['jitsi', 'zoom', 'meet'];
+const APPOINTMENT_TIME_ZONE = 'America/Mexico_City';
+const WEEKDAY_INDEX: Record<string, number> = {
+  sun: 0,
+  mon: 1,
+  tue: 2,
+  wed: 3,
+  thu: 4,
+  fri: 5,
+  sat: 6,
+};
+const WEEKDAY_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: APPOINTMENT_TIME_ZONE,
+  weekday: 'short',
+});
+const HHMM_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  timeZone: APPOINTMENT_TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
 
 const router = Router();
 
@@ -81,7 +101,12 @@ function parseScheduledAt(raw: string): Date | null {
 }
 
 function getDayOfWeek(date: Date): number {
-  return date.getDay();
+  const key = WEEKDAY_FORMATTER.format(date).toLowerCase();
+  return WEEKDAY_INDEX[key] ?? date.getDay();
+}
+
+function getSlotTimeHHMM(date: Date): string {
+  return HHMM_FORMATTER.format(date);
 }
 
 function isThirtyMinuteSlot(date: Date): boolean {
@@ -349,7 +374,7 @@ async function ensureSlotInsideAvailability(professionalId: string, scheduledAt:
     };
   }
 
-  const slotTime = scheduledAt.toTimeString().slice(0, 5);
+  const slotTime = getSlotTimeHHMM(scheduledAt);
   if (slotTime < availability.startTime || slotTime >= availability.endTime) {
     return {
       ok: false,
@@ -435,8 +460,8 @@ router.get('/availability/:professionalId', async (req, res, next) => {
     const bookedTimesByDay = new Map<number, string[]>();
     for (const appointment of bookedAppointments) {
       if (!appointment.scheduledAt) continue;
-      const day = appointment.scheduledAt.getDay();
-      const time = appointment.scheduledAt.toTimeString().slice(0, 5);
+      const day = getDayOfWeek(appointment.scheduledAt);
+      const time = getSlotTimeHHMM(appointment.scheduledAt);
       const list = bookedTimesByDay.get(day) || [];
       list.push(time);
       bookedTimesByDay.set(day, list);
@@ -470,8 +495,8 @@ router.get('/availability/:professionalId/effective', async (req, res, next) => 
     const bookedByDay = new Map<number, Set<string>>();
     for (const appointment of bookedAppointments) {
       if (!appointment.scheduledAt) continue;
-      const day = appointment.scheduledAt.getDay();
-      const time = appointment.scheduledAt.toTimeString().slice(0, 5);
+      const day = getDayOfWeek(appointment.scheduledAt);
+      const time = getSlotTimeHHMM(appointment.scheduledAt);
       if (!bookedByDay.has(day)) bookedByDay.set(day, new Set());
       bookedByDay.get(day)?.add(time);
     }

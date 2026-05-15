@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from './useAuth';
 import { apiFetch } from '../lib/api';
 import { getGreeting } from '../lib/professionalKnowledge';
@@ -18,18 +18,26 @@ export function useChat(professionalName, receiverId) {
     { id: 'greeting', sender: 'bot', text: getGreeting(professionalName), timestamp: new Date() },
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  // Referencia de historial para construir snapshots sin ligar sendMessage a `messages`.
+  const messagesRef = useRef(messages);
   const summarySessionKey = useMemo(() => {
     return `chat_summary_sent:${user?.id || 'guest'}:${receiverId || 'unknown'}`;
   }, [receiverId, user?.id]);
   const [summarySent, setSummarySent] = useState(() => sessionStorage.getItem(summarySessionKey) === '1');
 
   useEffect(() => {
-    setMessages([{ id: 'greeting', sender: 'bot', text: getGreeting(professionalName), timestamp: new Date() }]);
+    const greetingMessage = [{ id: 'greeting', sender: 'bot', text: getGreeting(professionalName), timestamp: new Date() }];
+    messagesRef.current = greetingMessage;
+    setMessages(greetingMessage);
   }, [professionalName, receiverId]);
 
   useEffect(() => {
     setSummarySent(sessionStorage.getItem(summarySessionKey) === '1');
   }, [summarySessionKey]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const markSummarySent = useCallback(() => {
     sessionStorage.setItem(summarySessionKey, '1');
@@ -47,8 +55,10 @@ export function useChat(professionalName, receiverId) {
         text: trimmed,
         timestamp: new Date(),
       };
-      const snapshotMessages = [...messages, optimisticMsg];
-      setMessages(snapshotMessages);
+      const snapshotMessages = [...messagesRef.current, optimisticMsg];
+      messagesRef.current = snapshotMessages;
+      // Estado funcional para evitar cierres obsoletos en concurrencia.
+      setMessages((prev) => [...prev, optimisticMsg]);
 
       setIsTyping(true);
       let botText = getGuidedFallbackReply(professionalName);
@@ -80,15 +90,14 @@ export function useChat(professionalName, receiverId) {
         nextAction = 'BOOK_ON_CALENDAR';
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `bot-${Date.now()}`,
-          sender: 'bot',
-          text: botText,
-          timestamp: new Date(),
-        },
-      ]);
+      const botMessage = {
+        id: `bot-${Date.now()}`,
+        sender: 'bot',
+        text: botText,
+        timestamp: new Date(),
+      };
+      messagesRef.current = [...messagesRef.current, botMessage];
+      setMessages((prev) => [...prev, botMessage]);
       setIsTyping(false);
 
       const canSendSummary = Boolean(user?.id && receiverId && user.id !== receiverId);
@@ -115,7 +124,7 @@ export function useChat(professionalName, receiverId) {
         }
       }
     },
-    [user, receiverId, professionalName, messages, summarySent, markSummarySent]
+    [user, receiverId, professionalName, summarySent, markSummarySent]
   );
 
   return { messages, sendMessage, isTyping };

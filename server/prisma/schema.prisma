@@ -52,7 +52,6 @@ model Professional {
   longitude          Float?
   city               String?
   state              String?
-  meetLink           String?
 
   // Verification
   isVerified         Boolean   @default(false)

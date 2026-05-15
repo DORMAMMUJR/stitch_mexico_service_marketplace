@@ -274,12 +274,6 @@ export function IntecniaProfilePage() {
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>forum</span>
                       Mensaje
                     </button>
-                    {prof.meetLink && (
-                      <a href={prof.meetLink} target="_blank" rel="noreferrer" className="btn btn-outline">
-                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>videocam</span>
-                        Link Meet
-                      </a>
-                    )}
                   </div>
                 </div>
               </div>

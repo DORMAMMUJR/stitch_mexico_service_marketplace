@@ -31,6 +31,7 @@ import { notifyUser } from './lib/notifications';
 import { logSecurityAuditEvent } from './lib/securityAudit';
 import { verifyWebhookSignature } from './middleware/webhookVerify';
 import { adaptBankTransferWebhook } from './lib/bankTransferAdapter';
+import { webhookLimiter } from './middleware/rateLimiter';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
@@ -122,7 +123,7 @@ app.use(cors({
 // Stripe necesita el raw body para verificar la firma criptogrÃ¡fica.
 // Si STRIPE_SECRET_KEY no estÃ¡ configurada, el endpoint responde 503
 // en lugar de tumbar el servidor al arrancar.
-app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/api/webhooks/stripe', webhookLimiter, express.raw({ type: 'application/json' }), async (req, res) => {
   // ValidaciÃ³n temprana: si Stripe no estÃ¡ configurado, responder limpiamente
   let stripe: any;
   try {
@@ -147,7 +148,10 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  try {
+  res.json({ received: true });
+
+  queueMicrotask(async () => {
+    try {
     if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object as any;
       const orderId = paymentIntent.metadata.orderId;
@@ -189,7 +193,7 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
             const slotIntervalMinutes = parseProfessionalSlotInterval((appointment.professional as any).slotIntervalMinutes);
             if (!isValidSlotForInterval(requestedScheduledAt, slotIntervalMinutes)) {
               logger.warn({ appointmentId, slotIntervalMinutes, requestedScheduledAt: requestedScheduledAt.toISOString() }, 'Webhook Stripe cita: slot invalido para intervalo clinico');
-              return res.json({ received: true });
+              return;
             }
             const conflict = await prisma.appointment.findFirst({
               where: {
@@ -291,11 +295,10 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
         }
       }
     }
-    res.json({ received: true });
-  } catch (err) {
-    logger.error({ err }, 'Error procesando evento de Stripe');
-    res.status(500).end();
-  }
+    } catch (err) {
+      logger.error({ err }, 'Error procesando evento de Stripe');
+    }
+  });
 });
 
 // â”€â”€â”€ Middleware Global JSON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -304,6 +307,7 @@ app.use(cookieParser());
 
 app.post(
   '/api/webhooks/bank-transfer',
+  webhookLimiter,
   (req, res, next) => {
     if (!env.BANK_TRANSFER_WEBHOOK_SECRET) {
       return res.status(503).json({ error: 'Webhook bancario no configurado.' });

@@ -26,6 +26,30 @@ function normalizeAppointments(list) {
     }));
 }
 
+const MEDICAL_SPECIALTY_OPTIONS = [
+  { value: 'MEDICINA_GENERAL', label: 'Medicina general' },
+  { value: 'PEDIATRIA', label: 'Pediatria' },
+  { value: 'GINECOLOGIA', label: 'Ginecologia' },
+  { value: 'TRAUMATOLOGIA', label: 'Traumatologia' },
+  { value: 'ORTOPEDIA', label: 'Ortopedia' },
+  { value: 'DERMATOLOGIA', label: 'Dermatologia' },
+  { value: 'PSIQUIATRIA', label: 'Psiquiatria' },
+  { value: 'PSICOLOGIA', label: 'Psicologia' },
+  { value: 'CARDIOLOGIA', label: 'Cardiologia' },
+  { value: 'ODONTOLOGIA', label: 'Odontologia' },
+  { value: 'NUTRICION', label: 'Nutricion' },
+  { value: 'MEDICINA_INTERNA', label: 'Medicina interna' },
+];
+
+const CONSULTATION_MODE_OPTIONS = [
+  { value: 'PRESENCIAL', label: 'Consultorio presencial' },
+  { value: 'DOMICILIO', label: 'Visita a domicilio' },
+  { value: 'TELEMEDICINA', label: 'Telemedicina' },
+];
+
+const INSURER_OPTIONS = ['GNP', 'AXA', 'METLIFE', 'MAPFRE', 'ALLIANZ', 'BBVA', 'INBURSA', 'QUALITAS', 'PLAN_PRIVADO'];
+const SLOT_INTERVAL_OPTIONS = [20, 30, 45];
+
 export function DashboardPage() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
@@ -57,6 +81,10 @@ export function DashboardPage() {
     title: '',
     bio: '',
     category: 'HEALTH_WELLNESS',
+    medicalSpecialty: '',
+    consultationModes: [],
+    acceptedInsurers: [],
+    slotIntervalMinutes: 30,
     hourlyRate: '',
     meetLink: '',
   });
@@ -134,6 +162,10 @@ export function DashboardPage() {
             title: proProfileJson?.title || '',
             bio: proProfileJson?.bio || '',
             category: proProfileJson?.category || 'HEALTH_WELLNESS',
+            medicalSpecialty: proProfileJson?.medicalSpecialty || '',
+            consultationModes: Array.isArray(proProfileJson?.consultationModes) ? proProfileJson.consultationModes : [],
+            acceptedInsurers: Array.isArray(proProfileJson?.acceptedInsurers) ? proProfileJson.acceptedInsurers : [],
+            slotIntervalMinutes: SLOT_INTERVAL_OPTIONS.includes(Number(proProfileJson?.slotIntervalMinutes)) ? Number(proProfileJson.slotIntervalMinutes) : 30,
             hourlyRate: proProfileJson?.hourlyRate || '',
             meetLink: proProfileJson?.meetLink || '',
           });
@@ -166,6 +198,10 @@ export function DashboardPage() {
             title: '',
             bio: '',
             category: 'HEALTH_WELLNESS',
+            medicalSpecialty: '',
+            consultationModes: [],
+            acceptedInsurers: [],
+            slotIntervalMinutes: 30,
             hourlyRate: '',
             meetLink: '',
           });
@@ -291,6 +327,10 @@ export function DashboardPage() {
           title: profileForm.title,
           bio: profileForm.bio,
           category: profileForm.category,
+          medicalSpecialty: profileForm.medicalSpecialty || null,
+          consultationModes: Array.isArray(profileForm.consultationModes) ? profileForm.consultationModes : [],
+          acceptedInsurers: Array.isArray(profileForm.acceptedInsurers) ? profileForm.acceptedInsurers : [],
+          slotIntervalMinutes: Number(profileForm.slotIntervalMinutes) || 30,
           hourlyRate: profileForm.hourlyRate,
           meetLink: profileForm.meetLink,
         };
@@ -528,6 +568,67 @@ export function DashboardPage() {
                 <>
                   <input className="input-field" placeholder="Titulo profesional" value={profileForm.title} onChange={(e) => setProfileForm((p) => ({ ...p, title: e.target.value }))} />
                   <textarea className="input-field" placeholder="Descripcion" rows={4} value={profileForm.bio} onChange={(e) => setProfileForm((p) => ({ ...p, bio: e.target.value }))} />
+                  <select className="input-field" value={profileForm.medicalSpecialty} onChange={(e) => setProfileForm((p) => ({ ...p, medicalSpecialty: e.target.value }))}>
+                    <option value="">Especialidad medica</option>
+                    {MEDICAL_SPECIALTY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <div style={{ display: 'grid', gap: '0.5rem', padding: '0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)' }}>
+                    <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--on-surface-variant)', fontWeight: 700 }}>Modalidades de consulta</p>
+                    <div style={{ display: 'grid', gap: '0.4rem' }}>
+                      {CONSULTATION_MODE_OPTIONS.map((mode) => (
+                        <label key={mode.value} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--on-surface)' }}>
+                          <input
+                            type="checkbox"
+                            checked={profileForm.consultationModes.includes(mode.value)}
+                            onChange={() =>
+                              setProfileForm((p) => ({
+                                ...p,
+                                consultationModes: p.consultationModes.includes(mode.value)
+                                  ? p.consultationModes.filter((value) => value !== mode.value)
+                                  : [...p.consultationModes, mode.value],
+                              }))
+                            }
+                            style={{ accentColor: 'var(--secondary)' }}
+                          />
+                          {mode.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gap: '0.5rem', padding: '0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)' }}>
+                    <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--on-surface-variant)', fontWeight: 700 }}>Aseguradoras aceptadas</p>
+                    <div style={{ display: 'grid', gap: '0.4rem', maxHeight: '11.5rem', overflowY: 'auto', paddingRight: '0.25rem' }}>
+                      {INSURER_OPTIONS.map((insurer) => (
+                        <label key={insurer} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--on-surface)' }}>
+                          <input
+                            type="checkbox"
+                            checked={profileForm.acceptedInsurers.includes(insurer)}
+                            onChange={() =>
+                              setProfileForm((p) => ({
+                                ...p,
+                                acceptedInsurers: p.acceptedInsurers.includes(insurer)
+                                  ? p.acceptedInsurers.filter((value) => value !== insurer)
+                                  : [...p.acceptedInsurers, insurer],
+                              }))
+                            }
+                            style={{ accentColor: 'var(--secondary)' }}
+                          />
+                          {insurer}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <select
+                    className="input-field"
+                    value={profileForm.slotIntervalMinutes}
+                    onChange={(e) => setProfileForm((p) => ({ ...p, slotIntervalMinutes: Number(e.target.value) || 30 }))}
+                  >
+                    {SLOT_INTERVAL_OPTIONS.map((minutes) => (
+                      <option key={minutes} value={minutes}>{minutes} minutos por cita</option>
+                    ))}
+                  </select>
                   <input className="input-field" placeholder="Costos/Tarifas" value={profileForm.hourlyRate} onChange={(e) => setProfileForm((p) => ({ ...p, hourlyRate: e.target.value }))} />
                   <input className="input-field" placeholder="Link de Meet" value={profileForm.meetLink} onChange={(e) => setProfileForm((p) => ({ ...p, meetLink: e.target.value }))} />
                 </>

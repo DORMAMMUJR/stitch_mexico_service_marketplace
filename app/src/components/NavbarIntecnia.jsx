@@ -60,7 +60,6 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
-  const notificationsEndpointRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -87,27 +86,15 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
     if (showLoader) setNotifsLoading(true);
 
     try {
-      const defaultEndpoints = ['/api/notifications?limit=5', '/api/users/me/notifications?limit=5'];
-      const endpoints = notificationsEndpointRef.current
-        ? [notificationsEndpointRef.current, ...defaultEndpoints.filter((endpoint) => endpoint !== notificationsEndpointRef.current)]
-        : defaultEndpoints;
-      let data = null;
-
-      for (const endpoint of endpoints) {
-        try {
-          const res = await fetch(endpoint, { credentials: 'include' });
-          if (!res.ok) continue;
-          data = await res.json();
-          notificationsEndpointRef.current = endpoint;
-          break;
-        } catch {
-          // intentar siguiente endpoint
-        }
-      }
-
-      if (data) {
+      const res = await fetch('/api/users/me/notifications?limit=5', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
         setNotifs(normalizeNotifications(data));
       } else if (fallbackToSample) {
+        setNotifs(sampleNotifications());
+      }
+    } catch {
+      if (fallbackToSample) {
         setNotifs(sampleNotifications());
       }
     } finally {

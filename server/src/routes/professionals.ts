@@ -1,6 +1,6 @@
 ﻿import { Router } from 'express';
 import { prisma } from '../lib/db';
-import { authenticate } from '../middleware/auth';
+import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import { uploadPublicImage } from '../lib/upload';
 import { CRITICAL_FIELDS } from '../constants/verificationFields';
 import { resolveSymptomToSpecialty } from '../lib/clinicalCatalog';
@@ -773,10 +773,10 @@ router.get('/:id/reviews', async (req, res, next) => {
 });
 
 // GET /api/professionals/:id (Perfil PÃºblico)
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', optionalAuthenticate, async (req: any, res, next) => {
   try {
     const { id } = req.params;
-    const clientId = req.query.clientId as string | undefined;
+    const viewerUserId = req.user?.userId || null;
 
     const professional = await prisma.professional.findFirst({
       where: { id, category: HEALTH_CATEGORY },
@@ -794,12 +794,11 @@ router.get('/:id', async (req, res, next) => {
 
     // Filtro isVerified: solo mostrar perfiles verificados al pÃºblico
     // EXCEPCIÃ“N: el dueÃ±o puede ver su propio perfil no verificado
-    const isOwner = clientId && professional.userId === clientId;
+    const isOwner = viewerUserId && professional.userId === viewerUserId;
     if (!professional.isVerified && !isOwner) {
       return res.status(404).json({ message: 'Profesional no encontrado' });
     }
 
-    const viewerUserId = clientId || null;
     const viewerGuestId = typeof req.query.guestId === 'string' ? req.query.guestId : null;
     await prisma.profileView.create({
       data: {
@@ -829,11 +828,11 @@ router.get('/:id', async (req, res, next) => {
       : 98;
 
     let phoneVisible: string | null = null;
-    if (clientId) {
+    if (viewerUserId) {
       const escrowOrder = await prisma.order.findFirst({
         where: {
           professionalId: id,
-          clientId,
+          clientId: viewerUserId,
           status: {
             in: ['FONDOS_EN_ESCROW', 'EN_PROGRESO', 'COMPLETADO', 'PAYOUT_INICIADO', 'PAYOUT_COMPLETADO'],
           },

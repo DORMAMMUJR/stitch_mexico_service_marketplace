@@ -52,6 +52,7 @@ export function AdminPanel() {
   const [confirmDeleteUser, setConfirmDeleteUser] = useState(null);
   const [deletingUserId, setDeletingUserId] = useState('');
   const [updatingRoleMap, setUpdatingRoleMap] = useState({});
+  const [docActionMap, setDocActionMap] = useState({});
 
   const { showToast } = useToast();
 
@@ -290,6 +291,41 @@ export function AdminPanel() {
       showToast(err.message || 'Error al eliminar usuario', 'error');
     } finally {
       setDeletingUserId('');
+    }
+  };
+
+  const handleApproveVerificationDoc = async (docId) => {
+    if (!docId) return;
+    setDocActionMap((prev) => ({ ...prev, [docId]: 'approve' }));
+    try {
+      await apiFetch(`/admin/verifications/${docId}/approve`, { method: 'PATCH' });
+      setPendingDocs((prev) => prev.filter((doc) => doc.id !== docId));
+      showToast('Documento aprobado correctamente', 'success');
+      await loadStats();
+    } catch (err) {
+      showToast(err.message || 'Error al aprobar documento', 'error');
+    } finally {
+      setDocActionMap((prev) => ({ ...prev, [docId]: '' }));
+    }
+  };
+
+  const handleRejectVerificationDoc = async (docId) => {
+    if (!docId) return;
+    const reason = window.prompt('Motivo de rechazo:');
+    if (!reason || !reason.trim()) return;
+    setDocActionMap((prev) => ({ ...prev, [docId]: 'reject' }));
+    try {
+      await apiFetch(`/admin/verifications/${docId}/reject`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      setPendingDocs((prev) => prev.filter((doc) => doc.id !== docId));
+      showToast('Documento rechazado', 'success');
+      await loadStats();
+    } catch (err) {
+      showToast(err.message || 'Error al rechazar documento', 'error');
+    } finally {
+      setDocActionMap((prev) => ({ ...prev, [docId]: '' }));
     }
   };
 
@@ -532,6 +568,54 @@ export function AdminPanel() {
               <p style={{ color: 'var(--on-surface-variant)' }}>Verificaciones pendientes: <strong>{pendingDocs.length}</strong></p>
               <p style={{ color: 'var(--on-surface-variant)' }}>Disputas activas: <strong>{disputes.length}</strong></p>
               <p style={{ color: 'var(--on-surface-variant)' }}>Citas proximas: <strong>{appointments.length}</strong></p>
+            </div>
+          )}
+        </div>
+
+        <div className="card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
+          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Revision de documentos KYC</h2>
+          {operationalLoading ? (
+            <p>Cargando documentos...</p>
+          ) : operationalError ? (
+            <p style={{ color: '#ef4444' }}>{operationalError}</p>
+          ) : pendingDocs.length === 0 ? (
+            <p style={{ color: 'var(--on-surface-variant)' }}>No hay documentos pendientes.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.625rem' }}>
+              {pendingDocs.map((doc) => {
+                const isApproving = docActionMap[doc.id] === 'approve';
+                const isRejecting = docActionMap[doc.id] === 'reject';
+                return (
+                  <div key={doc.id} style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.75rem', display: 'grid', gap: '0.5rem' }}>
+                    <div>
+                      <p style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.875rem' }}>{doc.professional?.user?.name || 'Profesional'}</p>
+                      <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8rem' }}>{doc.professional?.user?.email || 'Sin correo'}</p>
+                      <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem' }}>Tipo: {doc.type} · Enviado: {doc.createdAt ? new Date(doc.createdAt).toLocaleString('es-MX') : 'N/D'}</p>
+                    </div>
+                    {doc.fileUrl && (
+                      <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ width: 'fit-content' }}>
+                        Ver documento
+                      </a>
+                    )}
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => handleApproveVerificationDoc(doc.id)}
+                        disabled={isApproving || isRejecting}
+                      >
+                        {isApproving ? 'Aprobando...' : 'Aprobar'}
+                      </button>
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => handleRejectVerificationDoc(doc.id)}
+                        disabled={isApproving || isRejecting}
+                      >
+                        {isRejecting ? 'Rechazando...' : 'Rechazar'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

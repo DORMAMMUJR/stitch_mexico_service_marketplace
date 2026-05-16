@@ -3,14 +3,12 @@ import { useParams } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 import { AvailabilitySelector } from '../components/AvailabilitySelector';
-import { useAuth } from '../hooks/useAuth';
 import { useProfile } from '../hooks/useProfile';
 
 export function ReservationDirectPage() {
   const { id } = useParams();
-  const { user } = useAuth();
   const guestId = localStorage.getItem('guest_id') || undefined;
-  const { data: profile, isLoading, error } = useProfile(id, user?.id, guestId);
+  const { data: profile, isLoading, error } = useProfile(id, guestId);
 
   return (
     <>

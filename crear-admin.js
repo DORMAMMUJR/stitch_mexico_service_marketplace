@@ -1,10 +1,10 @@
-﻿const bcrypt = require('bcrypt');
+const bcrypt = require('bcrypt');
 const { prisma } = require('./server/dist/lib/db.js');
 
 async function main() {
   // 1) Cambia estos valores
-  const passwordPlana = 'TuContrasenaSegura123';
-  const emailAdmin = 'admin@intecnia.com';
+  const passwordPlana = 'Admin1234!';
+  const emailAdmin = 'admin@admin.com';
   const nameAdmin = 'Super Admin';
 
   const emailNormalizado = String(emailAdmin).trim().toLowerCase();
@@ -23,7 +23,7 @@ async function main() {
   // 3) Evitar duplicados
   const existente = await prisma.user.findUnique({ where: { email: emailNormalizado } });
   if (existente) {
-    console.log(`⚠️ Ya existe un usuario con ese correo: ${emailNormalizado}`);
+    console.log(`?? Ya existe un usuario con ese correo: ${emailNormalizado}`);
     return;
   }
 
@@ -46,15 +46,16 @@ async function main() {
     },
   });
 
-  console.log('✅ Usuario administrador creado con éxito:');
+  console.log('? Usuario administrador creado con �xito:');
   console.log(adminUser);
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Error al crear el usuario:', e.message || e);
+    console.error('? Error al crear el usuario:', e.message || e);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
   });
+

@@ -165,6 +165,7 @@ export function DashboardPage() {
   const [joiningVideoMap, setJoiningVideoMap] = useState({});
   const [videoConfigDrafts, setVideoConfigDrafts] = useState({});
   const [videoConfigSavingMap, setVideoConfigSavingMap] = useState({});
+  const [appointmentActionMap, setAppointmentActionMap] = useState({});
   const [activeVideoSession, setActiveVideoSession] = useState(null);
   const [selectedClientAppointment, setSelectedClientAppointment] = useState(null);
   const [hasActivePayments, setHasActivePayments] = useState(false);
@@ -224,20 +225,17 @@ export function DashboardPage() {
     }
   }, [activeTab, searchParams, validTabIds]);
 
-  useEffect(() => {
-    const currentTab = String(searchParams.get('tab') || '').toLowerCase();
-    if (activeTab === DASHBOARD_DEFAULT_TAB) {
-      if (!currentTab) return;
-      const nextParams = new URLSearchParams(searchParams);
-      nextParams.delete('tab');
-      setSearchParams(nextParams, { replace: true });
-      return;
-    }
-    if (currentTab === activeTab) return;
+  const handleTabChange = (tabId) => {
+    if (!validTabIds.has(tabId)) return;
+    setActiveTab(tabId);
     const nextParams = new URLSearchParams(searchParams);
-    nextParams.set('tab', activeTab);
+    if (tabId === DASHBOARD_DEFAULT_TAB) {
+      nextParams.delete('tab');
+    } else {
+      nextParams.set('tab', tabId);
+    }
     setSearchParams(nextParams, { replace: true });
-  }, [activeTab, searchParams, setSearchParams]);
+  };
 
   useEffect(() => {
     const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
@@ -585,6 +583,40 @@ export function DashboardPage() {
     }
   };
 
+  const handleCompleteAppointment = async (appointmentId) => {
+    setAppointmentActionMap((prev) => ({ ...prev, [appointmentId]: 'complete' }));
+    try {
+      const data = await apiFetch(`/appointments/${appointmentId}/complete`, {
+        method: 'PATCH',
+      });
+      setAppointments((prev) => prev.map((a) => (
+        a.id === appointmentId ? { ...a, ...(data.appointment || {}), _cancelling: false } : a
+      )));
+      showToast('Cita completada correctamente', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al completar cita', 'error');
+    } finally {
+      setAppointmentActionMap((prev) => ({ ...prev, [appointmentId]: '' }));
+    }
+  };
+
+  const handleNoShowAppointment = async (appointmentId) => {
+    setAppointmentActionMap((prev) => ({ ...prev, [appointmentId]: 'no-show' }));
+    try {
+      const data = await apiFetch(`/appointments/${appointmentId}/no-show`, {
+        method: 'PATCH',
+      });
+      setAppointments((prev) => prev.map((a) => (
+        a.id === appointmentId ? { ...a, ...(data.appointment || {}), _cancelling: false } : a
+      )));
+      showToast('Cita marcada como no-show', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al marcar no-show', 'error');
+    } finally {
+      setAppointmentActionMap((prev) => ({ ...prev, [appointmentId]: '' }));
+    }
+  };
+
   const handleSaveAvailability = async () => {
     const payload = availabilities.filter((a) => a.active).map((a) => ({ dayOfWeek: a.dayOfWeek, startTime: a.startTime, endTime: a.endTime }));
     try {
@@ -616,7 +648,7 @@ export function DashboardPage() {
           <h1 className="text-headline-md" style={{ color: 'var(--primary)' }}>{isProfessional ? 'Dashboard cliente + profesional' : 'Dashboard cliente'}</h1>
         </header>
 
-        <DashboardTabNav tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+        <DashboardTabNav tabs={tabs} activeTab={activeTab} onChange={handleTabChange} />
 
         {activeTab === 'overview' && (
           <section style={{ display: 'grid', gap: '0.875rem' }}>
@@ -709,6 +741,9 @@ export function DashboardPage() {
                   const isSavingVideoConfig = Boolean(videoConfigSavingMap[app.id]);
                   const paymentSummary = getAppointmentPaymentSummary(app);
                   const showConfirmTransferButton = isProfessional && canConfirmTransferPayment(app);
+                  const canResolveAppointment = isProfessional && (normalizedStatus === 'SCHEDULED' || normalizedStatus === 'IN_PROGRESS');
+                  const isCompletingAppointment = appointmentActionMap[app.id] === 'complete';
+                  const isNoShowAppointment = appointmentActionMap[app.id] === 'no-show';
 
                   return (
                     <div key={app.id} className="dashboard-appointment-item" style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -808,6 +843,28 @@ export function DashboardPage() {
                           >
                             Confirmar pago y agendar
                           </button>
+                        )}
+                        {canResolveAppointment && (
+                          <div style={{ marginTop: '0.375rem', display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              onClick={() => handleCompleteAppointment(app.id)}
+                              disabled={isCompletingAppointment || isNoShowAppointment}
+                              style={{ fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
+                            >
+                              {isCompletingAppointment ? 'Completando...' : 'Completar cita'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              onClick={() => handleNoShowAppointment(app.id)}
+                              disabled={isCompletingAppointment || isNoShowAppointment}
+                              style={{ fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
+                            >
+                              {isNoShowAppointment ? 'Marcando...' : 'Marcar no-show'}
+                            </button>
+                          </div>
                         )}
                       </div>
                       {app.status === 'SCHEDULED' && (

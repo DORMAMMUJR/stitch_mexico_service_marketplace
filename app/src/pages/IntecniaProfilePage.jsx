@@ -17,7 +17,7 @@ export function IntecniaProfilePage() {
   const bookingRef = useRef(null);
 
   const guestId = localStorage.getItem('guest_id') || undefined;
-  const { data: profile, isLoading, error } = useProfile(id, user?.id, guestId);
+  const { data: profile, isLoading, error } = useProfile(id, guestId);
   const { data: dbReviews, refetch: refetchReviews } = useReviews(id);
 
   const [bookingBanner, setBookingBanner] = useState('');

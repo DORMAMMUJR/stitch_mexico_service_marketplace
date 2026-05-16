@@ -36,8 +36,22 @@ export async function apiFetch(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
-    throw new Error(error.error || error.message || 'Error en la solicitud');
+    const contentType = response.headers.get('content-type') || '';
+    let errorPayload = {};
+    let textPayload = '';
+
+    if (contentType.includes('application/json')) {
+      errorPayload = await response.json().catch(() => ({}));
+    } else {
+      textPayload = await response.text().catch(() => '');
+    }
+
+    const resolvedMessage = errorPayload?.error
+      || errorPayload?.message
+      || textPayload
+      || `Error HTTP ${response.status}`;
+
+    throw new Error(String(resolvedMessage).trim() || `Error HTTP ${response.status}`);
   }
 
   if (response.status === 204) {

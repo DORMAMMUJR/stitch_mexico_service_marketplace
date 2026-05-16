@@ -72,6 +72,49 @@ function isVideoConfigurableStatus(status) {
   return normalized === 'SCHEDULED' || normalized === 'IN_PROGRESS';
 }
 
+function parseAppointmentMeta(notes) {
+  if (!notes || typeof notes !== 'string') return null;
+  try {
+    const parsed = JSON.parse(notes);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function getAppointmentPaymentSummary(appointment) {
+  const meta = parseAppointmentMeta(appointment?.notes);
+  const payment = meta?.payment || {};
+  const method = String(payment.method || '').toUpperCase();
+  const paymentStatus = String(payment.status || '').toUpperCase();
+  const status = String(appointment?.status || '').toUpperCase();
+
+  if (status === 'SCHEDULED' && paymentStatus === 'PAID_HELD') {
+    return { label: 'Pago confirmado', detail: method === 'BANK_TRANSFER' ? 'Transferencia validada' : 'Tarjeta aprobada' };
+  }
+
+  if (status === 'PENDING_PAYMENT') {
+    if (method === 'BANK_TRANSFER' && paymentStatus === 'TRANSFER_SUBMITTED') {
+      return { label: 'Pago por validar', detail: 'Comprobante enviado por cliente' };
+    }
+    if (method === 'STRIPE_CARD') {
+      return { label: 'Pago con tarjeta pendiente', detail: 'Cliente aun no finaliza checkout' };
+    }
+    return { label: 'Pago pendiente', detail: 'Esperando confirmacion' };
+  }
+
+  return null;
+}
+
+function canConfirmTransferPayment(appointment) {
+  const meta = parseAppointmentMeta(appointment?.notes);
+  const payment = meta?.payment || {};
+  const method = String(payment.method || '').toUpperCase();
+  const paymentStatus = String(payment.status || '').toUpperCase();
+  const status = String(appointment?.status || '').toUpperCase();
+  return status === 'PENDING_PAYMENT' && method === 'BANK_TRANSFER' && paymentStatus === 'TRANSFER_SUBMITTED';
+}
+
 export function DashboardPage() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
@@ -496,6 +539,23 @@ export function DashboardPage() {
     }
   };
 
+  const handleConfirmTransferPayment = async (appointmentId) => {
+    try {
+      const res = await fetch(`/api/appointments/${appointmentId}/confirm-transfer`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'No se pudo confirmar el pago');
+      setAppointments((prev) => prev.map((a) => (
+        a.id === appointmentId ? { ...a, ...data.appointment } : a
+      )));
+      showToast('Pago confirmado y cita agendada', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al confirmar pago', 'error');
+    }
+  };
+
   const handleSaveAvailability = async () => {
     const payload = availabilities.filter((a) => a.active).map((a) => ({ dayOfWeek: a.dayOfWeek, startTime: a.startTime, endTime: a.endTime }));
     try {
@@ -607,12 +667,20 @@ export function DashboardPage() {
                 <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>Sin actividad reciente.</p>
               ) : (
                 <div style={{ display: 'grid', gap: '0.5rem' }}>
-                  {appointments.slice(0, 4).map((app) => (
-                    <div key={app.id} style={{ padding: '0.625rem 0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)' }}>
-                      <p style={{ color: 'var(--on-surface)', fontWeight: 600, fontSize: '0.875rem' }}>{app.dateLabel} · {app.timeLabel}</p>
-                      <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem' }}>{app.status}</p>
-                    </div>
-                  ))}
+                  {appointments.slice(0, 4).map((app) => {
+                    const paymentSummary = getAppointmentPaymentSummary(app);
+                    return (
+                      <div key={app.id} style={{ padding: '0.625rem 0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)' }}>
+                        <p style={{ color: 'var(--on-surface)', fontWeight: 600, fontSize: '0.875rem' }}>{app.dateLabel} · {app.timeLabel}</p>
+                        <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem' }}>{app.status}</p>
+                        {isProfessional && paymentSummary && (
+                          <p style={{ color: 'var(--secondary)', fontSize: '0.75rem', fontWeight: 700 }}>
+                            {paymentSummary.label}: <span style={{ color: 'var(--on-surface-variant)', fontWeight: 600 }}>{paymentSummary.detail}</span>
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -638,6 +706,8 @@ export function DashboardPage() {
                   };
                   const selectedProvider = ['jitsi', 'zoom', 'meet'].includes(String(draft.provider || '').toLowerCase()) ? String(draft.provider).toLowerCase() : 'jitsi';
                   const isSavingVideoConfig = Boolean(videoConfigSavingMap[app.id]);
+                  const paymentSummary = getAppointmentPaymentSummary(app);
+                  const showConfirmTransferButton = isProfessional && canConfirmTransferPayment(app);
 
                   return (
                     <div key={app.id} className="dashboard-appointment-item" style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -656,6 +726,11 @@ export function DashboardPage() {
 
                         <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} - {app.timeLabel}</p>
                         <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{app.status}</p>
+                        {isProfessional && paymentSummary && (
+                          <p style={{ fontSize: '0.75rem', color: 'var(--secondary)', fontWeight: 700 }}>
+                            {paymentSummary.label}: <span style={{ color: 'var(--on-surface-variant)', fontWeight: 600 }}>{paymentSummary.detail}</span>
+                          </p>
+                        )}
                         {isProfessional && canUseVideo && (
                           <div style={{ marginTop: '0.5rem', display: 'grid', gap: '0.5rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', padding: '0.625rem', background: 'rgba(255,255,255,0.02)' }}>
                             <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--on-surface-variant)', fontWeight: 700 }}>Configuracion de videollamada</p>
@@ -721,6 +796,16 @@ export function DashboardPage() {
                             style={{ marginTop: '0.375rem', fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
                           >
                             {joiningVideoMap[app.id] ? 'Conectando...' : 'Entrar a videollamada'}
+                          </button>
+                        )}
+                        {showConfirmTransferButton && (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => handleConfirmTransferPayment(app.id)}
+                            style={{ marginTop: '0.375rem', fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
+                          >
+                            Confirmar pago y agendar
                           </button>
                         )}
                       </div>

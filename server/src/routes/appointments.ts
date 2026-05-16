@@ -527,7 +527,13 @@ router.get('/availability/:professionalId/effective', async (req, res, next) => 
     });
 
     res.json(effective);
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.type === 'StripeCardError' || error?.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({ error: error?.message || 'No se pudo procesar el pago con tarjeta.' });
+    }
+    if (error?.type === 'StripeAuthenticationError' || error?.message?.includes('STRIPE_SECRET_KEY')) {
+      return res.status(503).json({ error: 'Pagos con tarjeta no disponibles en este momento.' });
+    }
     next(error);
   }
 });

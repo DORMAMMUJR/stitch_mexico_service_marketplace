@@ -7,13 +7,16 @@ import { apiFetch } from '../lib/api';
 import { CATEGORIES } from '../constants/verificationFields';
 
 export function VerificationPage() {
-  const [currentStep, setCurrentStep] = useState(0); // 0: Perfil, 1: INE
+  const REQUIRED_DOC_TYPES = ['INE', 'CONOCER_CERT'];
+  const DOC_LABELS = { INE: 'INE', CONOCER_CERT: 'Cédula profesional' };
+
+  const [currentStep, setCurrentStep] = useState(0); // 0: Perfil, 1: Documentos
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [professionalId, setProfessionalId] = useState(null);
   const [profile, setProfile] = useState(null);
-  // Estado 'Pendiente' para documentos ya subidos (feedback inmediato post-upload)
-  const [docPendingStatus, setDocPendingStatus] = useState(null); // null | 'PENDING' | 'APPROVED'
+  const [docStatusByType, setDocStatusByType] = useState({ INE: null, CONOCER_CERT: null });
+  const [selectedDocType, setSelectedDocType] = useState('INE');
 
   // Step 0: Profile Form State
   const [profileForm, setProfileForm] = useState({ title: '', category: 'GENERAL_MAINTENANCE', bio: '', hourlyRate: '' });
@@ -31,11 +34,11 @@ export function VerificationPage() {
   const navigate = useNavigate();
 
   // Helper genérico: avanzar al siguiente paso sin hardcodear el número
-  const nextStep = useCallback(() => setCurrentStep(prev => prev + 1), []);
+  const nextStep = useCallback(() => setCurrentStep((prev) => prev + 1), []);
 
-  // Esperar a que useAuth resuelva antes de verificar sesion
+  // Esperar a que useAuth resuelva antes de verificar sesión
   useEffect(() => {
-    if (authLoading) return; // Todavia verificando cookie con el servidor
+    if (authLoading) return;
     if (!isAuthenticated) {
       navigate('/login', { replace: true });
       return;
@@ -51,27 +54,29 @@ export function VerificationPage() {
         setProfessionalId(data.id);
         setProfile(data);
         setProfileForm({
-          title:      data.title       || '',
-          category:   data.category    || 'GENERAL_MAINTENANCE',
-          bio:        data.bio         || '',
-          hourlyRate: data.hourlyRate  || '',
+          title: data.title || '',
+          category: data.category || 'GENERAL_MAINTENANCE',
+          bio: data.bio || '',
+          hourlyRate: data.hourlyRate || '',
         });
 
-        // Reflejar estado 'Pendiente' si ya subio documentos
         const docs = Array.isArray(data.documents) ? data.documents : [];
-        if (docs.length > 0) {
-          // Usar el status del documento mas reciente como indicador
-          const latestDoc = docs[docs.length - 1];
-          setDocPendingStatus(latestDoc.status || 'PENDING');
-        }
+        const latestStatus = { INE: null, CONOCER_CERT: null };
+
+        REQUIRED_DOC_TYPES.forEach((docType) => {
+          const matches = docs
+            .filter((doc) => doc.type === docType)
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+          if (matches.length > 0) latestStatus[docType] = matches[0].status || 'PENDING';
+        });
+
+        setDocStatusByType(latestStatus);
 
         // Determinar paso solo en la PRIMERA carga
         if (!initialLoadDone.current) {
           initialLoadDone.current = true;
 
-          const hasIne = docs.some(d => d.type === 'INE' || d.type === 'PASSPORT');
-
-          // hourlyRate puede ser 0 (tarifa gratuita, valido)
           const hasProfile =
             data.title &&
             data.bio &&
@@ -81,11 +86,9 @@ export function VerificationPage() {
           if (hasProfile) {
             setCurrentStep(1);
           }
-          // else: quedarse en paso 0
         }
       } catch (err) {
-        console.error('Error cargando perfil de verificacion:', err);
-        // Si el error es 401, apiFetch ya redirige al login automaticamente
+        console.error('Error cargando perfil de verificación:', err);
       } finally {
         setLoading(false);
       }
@@ -124,11 +127,11 @@ export function VerificationPage() {
   };
 
   const triggerFileSelect = () => {
-    fileInputRef.current.click();
+    if (fileInputRef.current) fileInputRef.current.click();
   };
 
   const uploadDocument = async (docType) => {
-    if (!file) return;
+    if (!file || !professionalId) return;
     setSubmitting(true);
     setUploadError('');
 
@@ -138,15 +141,14 @@ export function VerificationPage() {
       formData.append('professionalId', professionalId);
       formData.append('docType', docType);
 
-      // apiFetch detecta FormData y omite Content-Type automaticamente
+      // apiFetch detecta FormData y omite Content-Type automáticamente
       await apiFetch('/verification/upload', { method: 'POST', body: formData });
 
-      // Reflejar estado 'Pendiente' inmediatamente (sin esperar recarga)
-      setDocPendingStatus('PENDING');
-      showToast('Documento subido. Estado: Pendiente de revision', 'success');
+      // Reflejar estado Pendiente inmediatamente (sin esperar recarga)
+      setDocStatusByType((prev) => ({ ...prev, [docType]: 'PENDING' }));
+      showToast(`${DOC_LABELS[docType]} subida. Estado: Pendiente de revisión`, 'success');
       setFile(null);
-
-      await finishVerification();
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       setUploadError(err.message || 'Error al subir el documento. Intente de nuevo.');
     } finally {
@@ -168,7 +170,7 @@ export function VerificationPage() {
     }
   };
 
-  // Skeleton mientras useAuth verifica la cookie o la pagina carga datos
+  // Skeleton mientras useAuth verifica la cookie o la página carga datos
   if (authLoading || loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
@@ -177,7 +179,10 @@ export function VerificationPage() {
     );
   }
 
-  const steps = ['Datos Básicos', 'Identidad (Opcional)'];
+  const hasDocReady = (status) => status === 'PENDING' || status === 'APPROVED';
+  const allRequiredDocsReady = REQUIRED_DOC_TYPES.every((docType) => hasDocReady(docStatusByType[docType]));
+
+  const steps = ['Datos Básicos', 'INE + Cédula'];
   const progressPercent = Math.round(((currentStep + 1) / 2) * 100);
 
   return (
@@ -217,7 +222,6 @@ export function VerificationPage() {
         </div>
 
         <div className="card" style={{ padding: '2rem' }}>
-          
           {/* STEP 0: PERFIL */}
           {currentStep === 0 && (
             <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -225,15 +229,15 @@ export function VerificationPage() {
                 <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--secondary)' }}>person</span>
                 <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Datos del Perfil</h2>
               </div>
-              
+
               <div className="grid-2">
                 <div>
                   <label className="text-label-md">Título Profesional</label>
-                  <input type="text" value={profileForm.title} onChange={e => setProfileForm({...profileForm, title: e.target.value})} className="form-input" placeholder="Ej. Especialista en Seguridad" required />
+                  <input type="text" value={profileForm.title} onChange={(e) => setProfileForm({ ...profileForm, title: e.target.value })} className="form-input" placeholder="Ej. Especialista en Seguridad" required />
                 </div>
                 <div>
                   <label className="text-label-md">Categoría Principal</label>
-                  <select value={profileForm.category} onChange={e => setProfileForm({...profileForm, category: e.target.value})} className="form-input" required>
+                  <select value={profileForm.category} onChange={(e) => setProfileForm({ ...profileForm, category: e.target.value })} className="form-input" required>
                     {Object.entries(CATEGORIES).map(([key, label]) => (
                       <option key={key} value={key}>{label}</option>
                     ))}
@@ -243,12 +247,12 @@ export function VerificationPage() {
 
               <div>
                 <label className="text-label-md">Biografía Profesional</label>
-                <textarea value={profileForm.bio} onChange={e => setProfileForm({...profileForm, bio: e.target.value})} className="form-input" placeholder="Describa su experiencia y especialidades..." rows="4" required></textarea>
+                <textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} className="form-input" placeholder="Describa su experiencia y especialidades..." rows="4" required></textarea>
               </div>
 
               <div>
                 <label className="text-label-md">Tarifa por Hora Estimada (MXN)</label>
-                <input type="number" value={profileForm.hourlyRate} onChange={e => setProfileForm({...profileForm, hourlyRate: e.target.value})} className="form-input" placeholder="Ej. 800" min="0" required />
+                <input type="number" value={profileForm.hourlyRate} onChange={(e) => setProfileForm({ ...profileForm, hourlyRate: e.target.value })} className="form-input" placeholder="Ej. 800" min="0" required />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
@@ -259,64 +263,83 @@ export function VerificationPage() {
             </form>
           )}
 
-          {/* STEP 1: INE / BIOMETRÍA (OPCIONAL) */}
+          {/* STEP 1: INE + CÉDULA (REQUERIDO) */}
           {currentStep === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--secondary)' }}>verified_user</span>
-                <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Verificación Opcional para Mayor Confianza</h2>
+                <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>Verificación de Identidad Profesional</h2>
               </div>
-              <p style={{ color: 'var(--on-surface-variant)' }}>Subir tu identificación oficial (INE o Pasaporte) aumentará la confianza de los clientes en tu perfil. Puedes omitir este paso y hacerlo después.</p>
+              <p style={{ color: 'var(--on-surface-variant)' }}>
+                Debes subir ambos documentos para pasar a revisión: <strong>INE</strong> y <strong>Cédula profesional</strong>.
+              </p>
 
-              {/* Indicador de estado 'Pendiente' si ya subió un doc en esta sesión o en sesiones anteriores */}
-              {docPendingStatus && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '0.75rem',
-                  padding: '0.875rem 1rem', borderRadius: 'var(--radius-lg)',
-                  background: docPendingStatus === 'APPROVED' ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)',
-                  border: `1px solid ${docPendingStatus === 'APPROVED' ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
-                }}>
-                  <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px', color: docPendingStatus === 'APPROVED' ? '#10b981' : '#f59e0b' }}>
-                    {docPendingStatus === 'APPROVED' ? 'verified' : 'pending'}
-                  </span>
-                  <div>
-                    <p style={{ fontWeight: 700, fontSize: '0.875rem', color: docPendingStatus === 'APPROVED' ? '#10b981' : '#f59e0b', marginBottom: '0.125rem' }}>
-                      {docPendingStatus === 'APPROVED' ? 'Documento Aprobado' : 'Documento en Revisión'}
-                    </p>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
-                      {docPendingStatus === 'APPROVED'
-                        ? 'Tu identidad ha sido verificada correctamente.'
-                        : 'El equipo de Intecnia revisará tu documento en las próximas 24–48 h.'}
-                    </p>
-                  </div>
-                </div>
-              )}
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                {REQUIRED_DOC_TYPES.map((docType) => {
+                  const status = docStatusByType[docType];
+                  const ready = hasDocReady(status);
+                  const approved = status === 'APPROVED';
+                  return (
+                    <div
+                      key={docType}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.75rem',
+                        padding: '0.75rem 1rem',
+                        borderRadius: 'var(--radius-lg)',
+                        border: `1px solid ${ready ? 'rgba(16,185,129,0.3)' : 'var(--outline-variant)'}`,
+                        background: ready ? 'rgba(16,185,129,0.08)' : 'var(--surface-container-low)',
+                      }}
+                    >
+                      <p style={{ margin: 0, fontWeight: 600 }}>{DOC_LABELS[docType]}</p>
+                      <span style={{ fontSize: '0.8125rem', color: approved ? '#10b981' : ready ? '#f59e0b' : 'var(--on-surface-variant)', fontWeight: 700 }}>
+                        {approved ? 'APROBADO' : ready ? 'EN REVISIÓN' : 'PENDIENTE'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                <label className="text-label-md">Tipo de documento a subir</label>
+                <select value={selectedDocType} onChange={(e) => setSelectedDocType(e.target.value)} className="form-input">
+                  {REQUIRED_DOC_TYPES.map((docType) => (
+                    <option key={docType} value={docType}>{DOC_LABELS[docType]}</option>
+                  ))}
+                </select>
+              </div>
 
               <div style={{ background: file ? 'rgba(45,188,254,0.03)' : 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', padding: '3rem 2rem', textAlign: 'center', border: file ? '2px dashed var(--secondary)' : '2px dashed transparent' }}>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".pdf,image/jpeg,image/png,image/webp" />
                 <span className="material-symbols-outlined" style={{ fontSize: '48px', color: file ? 'var(--secondary)' : 'var(--on-surface-variant)', marginBottom: '1rem', display: 'block' }}>{file ? 'task' : 'upload_file'}</span>
-                <p style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{file ? file.name : 'Seleccionar Documento (Opcional)'}</p>
+                <p style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{file ? file.name : `Seleccionar archivo para ${DOC_LABELS[selectedDocType]}`}</p>
                 <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>PDF, JPG, PNG o WebP · Máximo 5 MB</p>
-                <button className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} style={{ marginTop: '1rem' }} onClick={triggerFileSelect}>{file ? 'Cambiar Archivo' : 'Elegir Archivo'}</button>
+                <button type="button" className={`btn ${file ? 'btn-outline' : 'btn-primary'}`} style={{ marginTop: '1rem' }} onClick={triggerFileSelect}>{file ? 'Cambiar Archivo' : 'Elegir Archivo'}</button>
               </div>
 
               {uploadError && <p style={{ color: 'var(--error)', fontSize: '0.875rem' }}>{uploadError}</p>}
 
+              {!allRequiredDocsReady && (
+                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>
+                  Falta completar ambos documentos para enviar tu perfil a revisión.
+                </p>
+              )}
+
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
-                <button className="btn btn-outline" onClick={() => setCurrentStep(0)}>Atrás</button>
-                {file ? (
-                  <button className="btn btn-primary" onClick={() => uploadDocument('INE')} disabled={submitting}>
-                    {submitting ? 'Subiendo...' : 'Subir y Finalizar'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span>
+                <button type="button" className="btn btn-outline" onClick={() => setCurrentStep(0)}>Atrás</button>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button type="button" className="btn btn-primary" onClick={() => uploadDocument(selectedDocType)} disabled={submitting || !file}>
+                    {submitting ? 'Subiendo...' : `Subir ${DOC_LABELS[selectedDocType]}`}
                   </button>
-                ) : (
-                  <button className="btn btn-primary" onClick={finishVerification} style={{ background: '#16a34a', borderColor: '#16a34a' }} disabled={submitting}>
-                    {submitting ? 'Finalizando...' : 'Omitir y Finalizar'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span>
+                  <button type="button" className="btn btn-primary" onClick={finishVerification} style={{ background: '#16a34a', borderColor: '#16a34a' }} disabled={submitting || !allRequiredDocsReady}>
+                    {submitting ? 'Enviando...' : 'Enviar a revisión'} <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span>
                   </button>
-                )}
+                </div>
               </div>
             </div>
           )}
-
         </div>
       </div>
       <Footer />

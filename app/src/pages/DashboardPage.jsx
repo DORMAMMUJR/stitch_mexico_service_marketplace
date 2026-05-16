@@ -1,10 +1,11 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { ChatWindow } from '../components/ChatWindow';
 import { useToast } from '../components/ToastContext';
 import { useAuth } from '../hooks/useAuth';
 import { VideoCallModal } from '../components/VideoCallModal';
+import { apiFetch } from '../lib/api';
 
 function normalizeAppointments(list) {
   if (!Array.isArray(list)) return [];
@@ -93,6 +94,10 @@ function getAppointmentPaymentSummary(appointment) {
     return { label: 'Pago confirmado', detail: method === 'BANK_TRANSFER' ? 'Transferencia validada' : 'Tarjeta aprobada' };
   }
 
+  if (paymentStatus === 'PAID_SLOT_CONFLICT') {
+    return { label: 'Pago recibido', detail: 'Con conflicto de horario. Requiere ajuste manual.' };
+  }
+
   if (status === 'PENDING_PAYMENT') {
     if (method === 'BANK_TRANSFER' && paymentStatus === 'TRANSFER_SUBMITTED') {
       return { label: 'Pago por validar', detail: 'Comprobante enviado por cliente' };
@@ -115,14 +120,47 @@ function canConfirmTransferPayment(appointment) {
   return status === 'PENDING_PAYMENT' && method === 'BANK_TRANSFER' && paymentStatus === 'TRANSFER_SUBMITTED';
 }
 
+const DASHBOARD_DEFAULT_TAB = 'overview';
+
+function DashboardTabNav({ tabs, activeTab, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--outline-variant)', marginBottom: '1.25rem', overflowX: 'auto' }}>
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: '0.75rem 0.9rem',
+            fontFamily: 'Manrope',
+            fontWeight: 700,
+            fontSize: '0.875rem',
+            color: activeTab === tab.id ? 'var(--secondary)' : 'var(--on-surface-variant)',
+            borderBottom: activeTab === tab.id ? '2px solid var(--secondary)' : '2px solid transparent',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{tab.icon}</span>
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const isProfessional = user?.role === 'PROFESSIONAL';
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(DASHBOARD_DEFAULT_TAB);
   const [appointments, setAppointments] = useState([]);
   const [joiningVideoMap, setJoiningVideoMap] = useState({});
   const [videoConfigDrafts, setVideoConfigDrafts] = useState({});
@@ -176,6 +214,31 @@ export function DashboardPage() {
     return base;
   }, [isProfessional]);
 
+  const validTabIds = useMemo(() => new Set(tabs.map((tab) => tab.id)), [tabs]);
+
+  useEffect(() => {
+    const tabFromQuery = String(searchParams.get('tab') || '').toLowerCase();
+    const nextTab = validTabIds.has(tabFromQuery) ? tabFromQuery : DASHBOARD_DEFAULT_TAB;
+    if (activeTab !== nextTab) {
+      setActiveTab(nextTab);
+    }
+  }, [activeTab, searchParams, validTabIds]);
+
+  useEffect(() => {
+    const currentTab = String(searchParams.get('tab') || '').toLowerCase();
+    if (activeTab === DASHBOARD_DEFAULT_TAB) {
+      if (!currentTab) return;
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('tab');
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+    if (currentTab === activeTab) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('tab', activeTab);
+    setSearchParams(nextParams, { replace: true });
+  }, [activeTab, searchParams, setSearchParams]);
+
   useEffect(() => {
     const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
     const defaultAvailabilities = DAYS.map((day, i) => ({
@@ -186,15 +249,16 @@ export function DashboardPage() {
       endTime: '18:00',
     }));
 
-    const fetchAppointments = fetch('/api/appointments/my', { credentials: 'include' }).then((res) => res.json()).catch(() => []);
-    const fetchUserProfile = fetch('/api/auth/me', { credentials: 'include' }).then((res) => res.json()).catch(() => ({}));
+    const safeRequest = (endpoint, fallbackValue) => apiFetch(endpoint).catch(() => fallbackValue);
+    const fetchAppointments = safeRequest('/appointments/my', []);
+    const fetchUserProfile = safeRequest('/auth/me', {});
 
     const requests = [fetchAppointments, fetchUserProfile];
 
     if (isProfessional) {
       requests.push(
-        fetch('/api/professionals/me', { credentials: 'include' }).then((res) => res.json()).catch(() => ({})),
-        fetch('/api/professionals/me/availability', { credentials: 'include' }).then((res) => res.json()).catch(() => [])
+        safeRequest('/professionals/me', {}),
+        safeRequest('/professionals/me/availability', [])
       );
     }
 
@@ -300,9 +364,7 @@ export function DashboardPage() {
     const formData = new FormData();
     formData.append('avatar', file);
     try {
-      const res = await fetch('/api/users/avatar', { method: 'POST', credentials: 'include', body: formData });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'No se pudo subir la foto');
+      const data = await apiFetch('/users/avatar', { method: 'POST', body: formData });
       setAvatarPreview(data.avatarUrl || null);
       updateUser?.({ avatarUrl: data.avatarUrl });
       showToast('Foto actualizada', 'success');
@@ -317,9 +379,7 @@ export function DashboardPage() {
     if (!window.confirm('¿Seguro que deseas cancelar esta cita?')) return;
     setAppointments((prev) => prev.map((a) => (a.id === appointmentId ? { ...a, _cancelling: true } : a)));
     try {
-      const res = await fetch(`/api/appointments/${appointmentId}/cancel`, { method: 'PATCH', credentials: 'include' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'No se pudo cancelar la cita');
+      await apiFetch(`/appointments/${appointmentId}/cancel`, { method: 'PATCH' });
       setAppointments((prev) => prev.map((a) => (a.id === appointmentId ? { ...a, status: 'CANCELLED', _cancelling: false } : a)));
       showToast('Cita cancelada', 'success');
     } catch (err) {
@@ -331,25 +391,15 @@ export function DashboardPage() {
   const handleJoinVideo = async (appointment) => {
     setJoiningVideoMap((prev) => ({ ...prev, [appointment.id]: true }));
     try {
-      const sessionRes = await fetch(`/api/appointments/${appointment.id}/video-session`, {
+      const sessionData = await apiFetch(`/appointments/${appointment.id}/video-session`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ forceAuto: false }),
       });
-      const sessionData = await sessionRes.json().catch(() => ({}));
-      if (!sessionRes.ok) throw new Error(sessionData.error || 'No se pudo preparar la videollamada');
 
-      const tokenRes = await fetch(`/api/appointments/${appointment.id}/video-token`, {
-        credentials: 'include',
-      });
-      const tokenData = await tokenRes.json().catch(() => ({}));
-      if (!tokenRes.ok) throw new Error(tokenData.error || 'No se pudo generar acceso seguro');
+      const tokenData = await apiFetch(`/appointments/${appointment.id}/video-token`);
 
-      await fetch(`/api/appointments/${appointment.id}/video-opened`, {
+      await apiFetch(`/appointments/${appointment.id}/video-opened`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: tokenData.token }),
       }).catch(() => null);
 
@@ -415,14 +465,10 @@ export function DashboardPage() {
     try {
       const payload = { provider };
       if (meetingLink) payload.meetingLink = meetingLink;
-      const res = await fetch(`/api/appointments/${appointment.id}/video-session`, {
+      const data = await apiFetch(`/appointments/${appointment.id}/video-session`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'No se pudo guardar la configuracion de videollamada');
 
       const nextMeetingLink = data?.meetingLink || data?.videoSession?.joinUrl || '';
       const nextVideoSession = data?.videoSession || null;
@@ -450,14 +496,10 @@ export function DashboardPage() {
     if (!isProfessional || !isVideoConfigurableStatus(appointment?.status)) return;
     setVideoConfigSavingMap((prev) => ({ ...prev, [appointment.id]: true }));
     try {
-      const res = await fetch(`/api/appointments/${appointment.id}/video-session`, {
+      const data = await apiFetch(`/appointments/${appointment.id}/video-session`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ forceAuto: true, provider: 'jitsi' }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'No se pudo generar la sala automatica');
 
       const nextMeetingLink = data?.meetingLink || data?.videoSession?.joinUrl || '';
       const nextVideoSession = data?.videoSession || null;
@@ -495,15 +537,10 @@ export function DashboardPage() {
         newPassword: profileForm.newPassword,
       };
 
-      const userRes = await fetch('/api/users/me', {
+      await apiFetch('/users/me', {
         method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userPayload),
       });
-
-      const userData = await userRes.json().catch(() => ({}));
-      if (!userRes.ok) throw new Error(userData?.error || 'No se pudo actualizar la cuenta');
 
       updateUser?.({ name: `${profileForm.name} ${profileForm.lastName}`.trim(), phone: profileForm.phone, email: profileForm.email });
 
@@ -519,15 +556,10 @@ export function DashboardPage() {
           hourlyRate: profileForm.hourlyRate,
         };
 
-        const proRes = await fetch('/api/professionals/me', {
+        await apiFetch('/professionals/me', {
           method: 'PUT',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(proPayload),
         });
-
-        const proData = await proRes.json().catch(() => ({}));
-        if (!proRes.ok) throw new Error(proData?.error || 'No se pudo actualizar perfil profesional');
       }
 
       setProfileForm((prev) => ({ ...prev, currentPassword: '', newPassword: '' }));
@@ -541,12 +573,9 @@ export function DashboardPage() {
 
   const handleConfirmTransferPayment = async (appointmentId) => {
     try {
-      const res = await fetch(`/api/appointments/${appointmentId}/confirm-transfer`, {
+      const data = await apiFetch(`/appointments/${appointmentId}/confirm-transfer`, {
         method: 'PATCH',
-        credentials: 'include',
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'No se pudo confirmar el pago');
       setAppointments((prev) => prev.map((a) => (
         a.id === appointmentId ? { ...a, ...data.appointment } : a
       )));
@@ -559,14 +588,10 @@ export function DashboardPage() {
   const handleSaveAvailability = async () => {
     const payload = availabilities.filter((a) => a.active).map((a) => ({ dayOfWeek: a.dayOfWeek, startTime: a.startTime, endTime: a.endTime }));
     try {
-      const res = await fetch('/api/professionals/me/availability', {
+      await apiFetch('/professionals/me/availability', {
         method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ availabilities: payload }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'No se pudo guardar disponibilidad');
       showToast('Disponibilidad actualizada', 'success');
     } catch (err) {
       showToast(err.message || 'Error al actualizar disponibilidad', 'error');
@@ -591,31 +616,7 @@ export function DashboardPage() {
           <h1 className="text-headline-md" style={{ color: 'var(--primary)' }}>{isProfessional ? 'Dashboard cliente + profesional' : 'Dashboard cliente'}</h1>
         </header>
 
-        <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--outline-variant)', marginBottom: '1.25rem', overflowX: 'auto' }}>
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '0.75rem 0.9rem',
-                fontFamily: 'Manrope',
-                fontWeight: 700,
-                fontSize: '0.875rem',
-                color: activeTab === tab.id ? 'var(--secondary)' : 'var(--on-surface-variant)',
-                borderBottom: activeTab === tab.id ? '2px solid var(--secondary)' : '2px solid transparent',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.375rem',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <DashboardTabNav tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
         {activeTab === 'overview' && (
           <section style={{ display: 'grid', gap: '0.875rem' }}>
@@ -727,7 +728,7 @@ export function DashboardPage() {
                         <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} - {app.timeLabel}</p>
                         <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{app.status}</p>
                         {isProfessional && paymentSummary && (
-                          <p style={{ fontSize: '0.75rem', color: 'var(--secondary)', fontWeight: 700 }}>
+                          <p style={{ fontSize: '0.75rem', color: paymentSummary.label === 'Pago confirmado' ? '#16a34a' : 'var(--secondary)', fontWeight: 700 }}>
                             {paymentSummary.label}: <span style={{ color: 'var(--on-surface-variant)', fontWeight: 600 }}>{paymentSummary.detail}</span>
                           </p>
                         )}

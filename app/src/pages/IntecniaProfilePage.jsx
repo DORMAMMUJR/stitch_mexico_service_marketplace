@@ -257,7 +257,6 @@ export function IntecniaProfilePage() {
                     {prof.category && <span className="badge">{String(prof.category).replaceAll('_', ' ')}</span>}
                     {prof.isVerified && <span className="badge badge-green">Verificado</span>}
                     {prof.biometricDone && <span className="badge">Biometria</span>}
-                    {prof.satVerifiedAt && <span className="badge">SAT</span>}
                   </div>
 
                   <div className="profile-hero-meta">

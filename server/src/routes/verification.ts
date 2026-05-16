@@ -19,7 +19,7 @@ router.post('/upload', authenticate, uploadPrivateDoc.single('constancia'), asyn
       return res.status(400).json({ error: 'professionalId y docType son requeridos' });
     }
 
-    const validDocTypes = ['INE', 'PASSPORT', 'SAT_CONSTANCIA', 'CONOCER_CERT', 'COMPROBANTE_DOMICILIO'];
+    const validDocTypes = ['INE', 'CONOCER_CERT'];
     if (!validDocTypes.includes(docType)) {
       return res.status(400).json({ error: `docType inválido. Válidos: ${validDocTypes.join(', ')}` });
     }

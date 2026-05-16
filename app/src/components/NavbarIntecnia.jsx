@@ -133,6 +133,8 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
   };
 
   const dashboardPath = user?.role === 'ADMIN' ? '/admin' : '/dashboard';
+  const profilePath = user?.role === 'ADMIN' ? '/admin' : '/dashboard?tab=profile';
+  const appointmentsPath = user?.role === 'ADMIN' ? '/admin' : '/dashboard?tab=appointments';
   const publishServicePath = !isAuthenticated
     ? '/register?role=professional'
     : user?.role === 'CLIENT'
@@ -325,7 +327,7 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
                       <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{user?.email || ''}</p>
                     </div>
                     <div style={{ padding: '0.5rem' }}>
-                      <Link to={user?.role === 'PROFESSIONAL' ? '/dashboard?tab=profile' : '/mis-solicitudes'} onClick={() => setProfileOpen(false)} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-md)', color: 'var(--on-surface)', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
+                      <Link to={profilePath} onClick={() => setProfileOpen(false)} className="dropdown-item" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-md)', color: 'var(--on-surface)', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--on-surface-variant)' }}>person</span>
                         Mi Perfil
                       </Link>
@@ -384,7 +386,8 @@ export function NavbarIntecnia({ activePage, showAuthActions = true }) {
             {user?.role === 'CLIENT' && (
               <>
                 <Link to={publishServicePath} className="nav-link" onClick={() => setMobileOpen(false)}>Ofrecer Servicios</Link>
-                <Link to="/dashboard" className="nav-link" onClick={() => setMobileOpen(false)}>Mis Citas</Link>
+                <Link to="/dashboard?tab=profile" className="nav-link" onClick={() => setMobileOpen(false)}>Mi Perfil</Link>
+                <Link to={appointmentsPath} className="nav-link" onClick={() => setMobileOpen(false)}>Mis Citas</Link>
               </>
             )}
             {user?.role === 'ADMIN' && <Link to="/admin" className="nav-link" onClick={() => setMobileOpen(false)}>Super Admin</Link>}

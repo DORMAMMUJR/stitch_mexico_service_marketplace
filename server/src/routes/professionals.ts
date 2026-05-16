@@ -39,6 +39,21 @@ function normalizeArrayInput(input: unknown): string[] {
   return [];
 }
 
+function normalizeSearchTerm(input: string): string {
+  return String(input || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function resolveSearchSpecialty(input: string): string | null {
+  const normalized = normalizeSearchTerm(input);
+  if (!normalized) return null;
+  if (normalized.includes('psicolog')) return 'PSICOLOGIA';
+  return null;
+}
+
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // 1. RUTAS ESTÃTICAS Y PROTEGIDAS PRIMERO (Regla de oro de Express)
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -339,12 +354,20 @@ router.post('/me/submit-review', authenticate, async (req: any, res: any, next: 
 
     if (!professional) return res.status(404).json({ error: 'Perfil no encontrado' });
 
-    // Ahora INE y SAT son opcionales para reducir fricciÃ³n en el registro.
-    // Solo se actualiza el estado a IN_REVIEW.
+    const hasIne = professional.documents.some((doc) => (
+      doc.type === 'INE' && (doc.status === 'PENDING' || doc.status === 'APPROVED')
+    ));
+    const hasCedula = professional.documents.some((doc) => (
+      doc.type === 'CONOCER_CERT' && (doc.status === 'PENDING' || doc.status === 'APPROVED')
+    ));
+
+    if (!hasIne || !hasCedula) {
+      return res.status(400).json({ error: 'Debes subir INE y Cédula profesional antes de enviar tu perfil a revisión.' });
+    }
 
     const updatedProfile = await prisma.professional.update({
       where: { userId },
-      data: { verificationStatus: 'IN_REVIEW' }
+      data: { verificationStatus: 'IN_REVIEW', isVerified: false }
     });
 
     res.json({ message: 'Perfil enviado a revisiÃ³n', profile: updatedProfile });
@@ -479,12 +502,22 @@ router.get('/', async (req, res, next) => {
     }
 
     if (q) {
-      const searchTerm = String(q);
+      const searchTerm = String(q).trim();
+      const searchSpecialty = resolveSearchSpecialty(searchTerm);
+
+      if (searchSpecialty && MEDICAL_SPECIALTY_FILTERS.has(searchSpecialty)) {
+        whereClause.medicalSpecialty = searchSpecialty;
+      }
+
       whereClause.OR = [
         { title: { contains: searchTerm, mode: 'insensitive' } },
         { bio: { contains: searchTerm, mode: 'insensitive' } },
         { user: { name: { contains: searchTerm, mode: 'insensitive' } } },
       ];
+
+      if (searchSpecialty) {
+        whereClause.OR.push({ medicalSpecialty: searchSpecialty as any });
+      }
     }
 
     const normalizedInsurerFilters = normalizeArrayInput(insurers).map((value) => value.toUpperCase()).filter((value) => INSURANCE_PROVIDERS.has(value));
@@ -821,7 +854,6 @@ router.get('/:id', async (req, res, next) => {
       bio: professional.bio,
       isVerified: professional.isVerified,
       biometricDone: professional.biometricDone,
-      satVerifiedAt: professional.satVerifiedAt,
       yearsExp: `${yearsActive}+`,
       projectsCount: `${completedOrders.length}`,
       successRate: `${successRate}%`,

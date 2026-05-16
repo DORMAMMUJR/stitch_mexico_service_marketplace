@@ -3,7 +3,7 @@
  *
  * Exporta DOS instancias de multer con responsabilidades distintas:
  *
- *   uploadPrivateDoc  → Documentos KYC (INE, Pasaporte, Constancia SAT).
+ *   uploadPrivateDoc  → Documentos KYC (INE y Cédula profesional).
  *                       Siempre se guardan bajo el prefijo `private/` en S3.
  *                       NUNCA reciben ACL public-read. La bucket policy de AWS
  *                       bloquea explícitamente el acceso público a ese prefijo.

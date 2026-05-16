@@ -1,7 +1,7 @@
 import React from 'react';
 
 export function TrustBar() {
-  const logos = ['CONCANACO', 'SAT COMPLIANCE', 'ISO 9001', 'MEXICO TECH', 'AMVO'];
+  const logos = ['CONCANACO', 'INE + CÉDULA', 'ISO 9001', 'MEXICO TECH', 'AMVO'];
   
   return (
     <div style={{ background: 'var(--surface-container)', padding: '1.5rem 2rem', textAlign: 'center' }}>

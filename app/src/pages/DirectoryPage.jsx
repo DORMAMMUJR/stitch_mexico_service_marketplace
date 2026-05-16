@@ -46,37 +46,6 @@ const PRICE_RANGES = [
   { label: '$2,000+', min: 2000, max: 5000 },
 ];
 
-const PLACEHOLDER_PROFESSIONALS = [
-  {
-    id: 'placeholder-psy-1',
-    IS_PLACEHOLDER: true,
-    name: 'Dra. Daniela Ruiz',
-    title: 'Psicologia clinica',
-    category: HEALTH_CATEGORY,
-    rating: 4.9,
-    reviewCount: 27,
-    price: 850,
-    isVerified: true,
-    avatarUrl: null,
-    medicalSpecialty: 'PSICOLOGIA',
-    consultationModes: ['TELEMEDICINA'],
-  },
-  {
-    id: 'placeholder-med-2',
-    IS_PLACEHOLDER: true,
-    name: 'Dr. Marco Salinas',
-    title: 'Medicina general',
-    category: HEALTH_CATEGORY,
-    rating: 4.8,
-    reviewCount: 19,
-    price: 1200,
-    isVerified: true,
-    avatarUrl: null,
-    medicalSpecialty: 'MEDICINA_GENERAL',
-    consultationModes: ['PRESENCIAL', 'TELEMEDICINA'],
-  },
-];
-
 export function DirectoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [professionals, setProfessionals] = useState([]);
@@ -101,8 +70,6 @@ export function DirectoryPage() {
   const avatarFallback = '/default-avatar.svg';
 
   const queryFromUrl = searchParams.get('q') || '';
-  const showingPlaceholders = !isLoading && professionals.length === 0;
-  const resultsToRender = showingPlaceholders ? PLACEHOLDER_PROFESSIONALS : professionals;
 
   useEffect(() => {
     setSearchTerm(queryFromUrl);
@@ -380,19 +347,19 @@ export function DirectoryPage() {
             </div>
           )}
 
-          {showingPlaceholders && (
+          {!isLoading && professionals.length === 0 && (
             <div className="card" style={{ textAlign: 'center', padding: '1.5rem', marginBottom: '1rem' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '32px', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', display: 'block' }}>person_search</span>
-              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.375rem' }}>Directorio en actualizacion</h3>
-              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>Mostrando especialistas de ejemplo mientras llegan mas perfiles reales.</p>
+              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.375rem' }}>Sin especialistas para este filtro</h3>
+              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>Prueba con otro filtro o limpia la busqueda para ver mas perfiles.</p>
             </div>
           )}
 
           <div className="directory-results-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '1rem' }}>
-            {resultsToRender.map((p) => {
-              const profilePath = p.IS_PLACEHOLDER ? '/register?role=professional' : `/profile/${p.id}`;
-              const chatPath = p.IS_PLACEHOLDER ? '/register?role=professional' : `/profile/${p.id}?tab=chat`;
-              const reservePath = p.IS_PLACEHOLDER ? '/register?role=professional' : `/reserva/${p.id}`;
+            {professionals.map((p) => {
+              const profilePath = `/profile/${p.id}`;
+              const chatPath = `/profile/${p.id}?tab=chat`;
+              const reservePath = `/reserva/${p.id}`;
               const displayPrice = Number(p.hourlyRate || p.price || 2000);
 
               return (
@@ -468,7 +435,7 @@ export function DirectoryPage() {
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chat</span> Mensaje
                     </Link>
                     <Link to={profilePath} className="btn btn-outline" style={{ justifyContent: 'center', fontSize: '0.8125rem', textDecoration: 'none' }}>
-                      {p.IS_PLACEHOLDER ? 'Ver ejemplo' : 'Ver perfil'}
+                      Ver perfil
                     </Link>
                     <Link to={reservePath} className="btn btn-primary" style={{ justifyContent: 'center', fontSize: '0.8125rem', textDecoration: 'none' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>calendar_month</span> Agendar

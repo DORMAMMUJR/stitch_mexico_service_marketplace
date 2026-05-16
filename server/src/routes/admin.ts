@@ -617,18 +617,36 @@ router.patch('/verifications/:id/approve', async (req: any, res: any, next: any)
         },
       });
 
-      if (doc.type === 'SAT_CONSTANCIA') {
+      const REQUIRED_DOC_TYPES_FOR_VERIFICATION = ['INE', 'CONOCER_CERT'];
+      const approvedDocs = await tx.verificationDocument.findMany({
+        where: {
+          professionalId: doc.professionalId,
+          status: 'APPROVED',
+          type: { in: REQUIRED_DOC_TYPES_FOR_VERIFICATION as any },
+        },
+        select: { type: true },
+      });
+
+      const approvedTypes = new Set(approvedDocs.map((d: any) => d.type));
+      const hasAllRequiredDocs = REQUIRED_DOC_TYPES_FOR_VERIFICATION.every((docType) => approvedTypes.has(docType));
+
+      if (hasAllRequiredDocs) {
         const updatedProf = await tx.professional.update({
           where: { id: doc.professionalId },
-          data: { isVerified: true, verificationStatus: 'APPROVED', satVerifiedAt: new Date() },
-          include: { user: true }
+          data: { isVerified: true, verificationStatus: 'APPROVED' },
+          include: { user: true },
         });
 
         sendEmail({
           to: updatedProf.user.email,
           subject: '¡Verificación Aprobada! - Intecnia',
-          html: emailTemplates.verificationApproved(updatedProf.user.name)
+          html: emailTemplates.verificationApproved(updatedProf.user.name),
         }).catch((error) => logger.error({ err: error, userId: updatedProf.userId }, 'Error enviando email de verificación aprobada'));
+      } else {
+        await tx.professional.update({
+          where: { id: doc.professionalId },
+          data: { isVerified: false, verificationStatus: 'IN_REVIEW' },
+        });
       }
       return doc;
     });
@@ -663,6 +681,13 @@ router.patch('/verifications/:id/reject', async (req: any, res: any, next: any) 
         }
       }
     });
+
+    if (doc.type === 'INE' || doc.type === 'CONOCER_CERT') {
+      await prisma.professional.update({
+        where: { id: doc.professionalId },
+        data: { isVerified: false, verificationStatus: 'REJECTED' },
+      });
+    }
 
     sendEmail({
       to: doc.professional.user.email,

@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 import { useToast } from '../components/ToastContext';
+import { apiFetch } from '../lib/api';
 
 const defaultStats = {
   totalUsers: 0,
@@ -33,7 +33,8 @@ export function AdminPanel() {
     password: '',
     confirmPassword: '',
   });
-  const [loading, setLoading] = useState(true);
+  const [operationalLoading, setOperationalLoading] = useState(true);
+  const [operationalError, setOperationalError] = useState('');
   const [supportLink, setSupportLink] = useState(localStorage.getItem('platform_support_link') || 'https://wa.me/');
   const [linkDrafts, setLinkDrafts] = useState({});
   const [savingMap, setSavingMap] = useState({});
@@ -53,29 +54,18 @@ export function AdminPanel() {
   const [updatingRoleMap, setUpdatingRoleMap] = useState({});
 
   const { showToast } = useToast();
-  const navigate = useNavigate();
 
   const loadOperationalData = async () => {
     try {
-      setLoading(true);
-      const [docsRes, disputesRes, apptRes, prosRes, opsRes] = await Promise.all([
-        fetch('/api/admin/verifications/pending', { credentials: 'include' }),
-        fetch('/api/orders/admin/disputes', { credentials: 'include' }),
-        fetch('/api/admin/appointments/upcoming', { credentials: 'include' }),
-        fetch('/api/admin/professionals/active', { credentials: 'include' }),
-        fetch('/api/admin/operators', { credentials: 'include' }),
+      setOperationalLoading(true);
+      setOperationalError('');
+      const [docsData, disputesData, apptData, prosData, opsData] = await Promise.all([
+        apiFetch('/admin/verifications/pending'),
+        apiFetch('/orders/admin/disputes').catch(() => []),
+        apiFetch('/admin/appointments/upcoming').catch(() => []),
+        apiFetch('/admin/professionals/active').catch(() => []),
+        apiFetch('/admin/operators').catch(() => []),
       ]);
-
-      if (docsRes.status === 401 || docsRes.status === 403) {
-        navigate('/');
-        return;
-      }
-
-      const docsData = await docsRes.json().catch(() => []);
-      const disputesData = disputesRes.ok ? await disputesRes.json().catch(() => []) : [];
-      const apptData = apptRes.ok ? await apptRes.json().catch(() => []) : [];
-      const prosData = prosRes.ok ? await prosRes.json().catch(() => []) : [];
-      const opsData = opsRes.ok ? await opsRes.json().catch(() => []) : [];
 
       setPendingDocs(Array.isArray(docsData) ? docsData : []);
       setDisputes(Array.isArray(disputesData) ? disputesData : []);
@@ -88,10 +78,12 @@ export function AdminPanel() {
         draftSeed[a.id] = a.meetingLink || '';
       });
       setLinkDrafts(draftSeed);
-    } catch {
-      showToast('No se pudieron cargar los datos de administracion', 'error');
+    } catch (err) {
+      const message = err.message || 'No se pudieron cargar los datos de administracion';
+      setOperationalError(message);
+      showToast(message, 'error');
     } finally {
-      setLoading(false);
+      setOperationalLoading(false);
     }
   };
 
@@ -99,17 +91,7 @@ export function AdminPanel() {
     try {
       setStatsLoading(true);
       setStatsError('');
-      const res = await fetch('/api/admin/stats', { credentials: 'include' });
-
-      if (res.status === 401 || res.status === 403) {
-        navigate('/');
-        return;
-      }
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || 'No se pudo cargar el resumen general');
-      }
+      const data = await apiFetch('/admin/stats');
 
       setStats({
         totalUsers: Number(data.totalUsers || 0),
@@ -131,19 +113,7 @@ export function AdminPanel() {
       setUsersLoading(true);
       setUsersError('');
       const encodedQuery = encodeURIComponent((query || '').trim());
-      const res = await fetch(`/api/admin/users?page=${page}&limit=${usersPagination.limit}&search=${encodedQuery}`, {
-        credentials: 'include',
-      });
-
-      if (res.status === 401 || res.status === 403) {
-        navigate('/');
-        return;
-      }
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || 'No se pudo cargar la lista de usuarios');
-      }
+      const data = await apiFetch(`/admin/users?page=${page}&limit=${usersPagination.limit}&search=${encodedQuery}`);
 
       const pagination = data.pagination || {};
       setUsers(Array.isArray(data.items) ? data.items : []);
@@ -184,15 +154,10 @@ export function AdminPanel() {
 
     setSavingMap((prev) => ({ ...prev, [appointmentId]: true }));
     try {
-      const res = await fetch(`/api/admin/appointments/${appointmentId}/meeting-link`, {
+      const data = await apiFetch(`/admin/appointments/${appointmentId}/meeting-link`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ meetingLink: link }),
       });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'No se pudo guardar el link');
 
       showToast('Link de cita enviado a cliente y profesional', 'success');
       const nextMeetingLink = data?.appointment?.meetingLink || link;
@@ -213,14 +178,10 @@ export function AdminPanel() {
   const handleAutoGenerateVideo = async (appointmentId) => {
     setSavingMap((prev) => ({ ...prev, [appointmentId]: true }));
     try {
-      const res = await fetch(`/api/appointments/${appointmentId}/video-session`, {
+      const data = await apiFetch(`/appointments/${appointmentId}/video-session`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ forceAuto: true, provider: 'jitsi' }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'No se pudo generar sala automatica');
 
       const nextMeetingLink = data?.meetingLink || data?.videoSession?.joinUrl || '';
       const nextVideoSession = data?.videoSession || null;
@@ -268,14 +229,10 @@ export function AdminPanel() {
 
     setCreatingOperator(true);
     try {
-      const res = await fetch('/api/admin/operators', {
+      const data = await apiFetch('/admin/operators', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'No se pudo crear el operador');
 
       setOperators((prev) => [data, ...prev]);
       setOperatorForm({ name: '', email: '', password: '', confirmPassword: '' });
@@ -298,14 +255,10 @@ export function AdminPanel() {
     if (!userId || !role) return;
     setUpdatingRoleMap((prev) => ({ ...prev, [userId]: true }));
     try {
-      const res = await fetch(`/api/admin/users/${userId}/role`, {
+      await apiFetch(`/admin/users/${userId}/role`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'No se pudo actualizar el rol');
       showToast('Rol actualizado correctamente', 'success');
       await Promise.all([
         loadUsers({ page: usersPagination.page, query: usersSearchQuery }),
@@ -323,12 +276,9 @@ export function AdminPanel() {
 
     setDeletingUserId(confirmDeleteUser.id);
     try {
-      const res = await fetch(`/api/admin/users/${confirmDeleteUser.id}`, {
+      await apiFetch(`/admin/users/${confirmDeleteUser.id}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'No se pudo eliminar el usuario');
 
       showToast('Usuario eliminado correctamente', 'success');
       setConfirmDeleteUser(null);
@@ -570,8 +520,13 @@ export function AdminPanel() {
 
         <div className="card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
           <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>Resumen rapido</h2>
-          {loading ? (
+          {operationalLoading ? (
             <p>Cargando...</p>
+          ) : operationalError ? (
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              <p style={{ color: '#ef4444' }}>{operationalError}</p>
+              <button className="btn btn-outline" onClick={loadOperationalData}>Reintentar</button>
+            </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '0.75rem' }}>
               <p style={{ color: 'var(--on-surface-variant)' }}>Verificaciones pendientes: <strong>{pendingDocs.length}</strong></p>
@@ -583,8 +538,10 @@ export function AdminPanel() {
 
         <div className="card" style={{ padding: '1rem' }}>
           <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Links directos de reserva</h2>
-          {loading ? (
+          {operationalLoading ? (
             <p>Cargando profesionales...</p>
+          ) : operationalError ? (
+            <p style={{ color: '#ef4444' }}>{operationalError}</p>
           ) : activeProfessionals.length === 0 ? (
             <p style={{ color: 'var(--on-surface-variant)' }}>No hay profesionales activos para mostrar.</p>
           ) : (
@@ -604,8 +561,10 @@ export function AdminPanel() {
 
         <div className="card" style={{ padding: '1rem' }}>
           <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Asignar link de videollamada por cita</h2>
-          {loading ? (
+          {operationalLoading ? (
             <p>Cargando citas...</p>
+          ) : operationalError ? (
+            <p style={{ color: '#ef4444' }}>{operationalError}</p>
           ) : sortedAppointments.length === 0 ? (
             <p style={{ color: 'var(--on-surface-variant)' }}>No hay citas proximas para gestionar.</p>
           ) : (

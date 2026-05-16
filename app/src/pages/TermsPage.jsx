@@ -25,7 +25,7 @@ export function TermsPage() {
 
           <h2 style={{ fontFamily: 'Manrope', fontWeight: 600, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '1rem' }}>3. Verificación Profesional</h2>
           <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.8, marginBottom: '0' }}>
-            Todos los profesionales están sujetos a un proceso de verificación (Biometría, SAT, CONOCER). Sin embargo, la responsabilidad final sobre la calidad del servicio recae en el profesional contratado.
+            Todos los profesionales están sujetos a un proceso de verificación documental mediante INE y Cédula profesional. Sin embargo, la responsabilidad final sobre la calidad del servicio recae en el profesional contratado.
           </p>
         </div>
       </main>

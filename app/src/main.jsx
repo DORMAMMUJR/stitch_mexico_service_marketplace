@@ -103,7 +103,7 @@ ReactDOM.createRoot(document.getElementById('app')).render(
               {/* ── Rutas protegidas — CLIENT ───────────────────────────── */}
               <Route path="/mis-solicitudes" element={
                 <PrivateRoute allowedRoles={['CLIENT', 'PROFESSIONAL']}>
-                  <Navigate to="/dashboard" replace />
+                  <Navigate to="/dashboard?tab=appointments" replace />
                 </PrivateRoute>
               } />
 

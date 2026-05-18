@@ -488,6 +488,8 @@ import { ordersRouter } from './routes/orders';
 import { messagesRouter } from './routes/messages';
 import { adminRouter } from './routes/admin';
 import { verificationRouter } from './routes/verification';
+import { availabilityRouter } from './routes/availability';
+import { remindersRouter } from './routes/reminders';
 
 // â”€â”€â”€ Servir archivos subidos localmente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -504,6 +506,8 @@ app.use('/api/orders', ordersRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/verification', verificationRouter);
+app.use('/api/availability', availabilityRouter);
+app.use('/api/reminders', remindersRouter);
 
 // â”€â”€â”€ Servir el build del frontend React â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const frontendDist = path.join(__dirname, '../public');

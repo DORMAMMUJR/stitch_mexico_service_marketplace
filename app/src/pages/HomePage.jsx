@@ -11,7 +11,9 @@ const CATEGORIES = [
 ];
 
 const CATEGORY_MAP = {
-  HEALTH_WELLNESS: 'Salud y bienestar',
+  PSYCHOLOGY: 'Psicologia',
+  MEDICINE: 'Medicina',
+  WELLNESS: 'Bienestar',
 };
 
 // Tarjetas de placeholder visibles solo cuando no hay profesionales reales
@@ -22,7 +24,7 @@ const PLACEHOLDER_PROFESSIONALS = [
     IS_PLACEHOLDER: true,
     user: { name: 'Dra. Sofía Ramírez', avatarUrl: null },
     title: 'Psicóloga Clínica',
-    category: 'HEALTH_WELLNESS',
+    category: 'PSYCHOLOGY',
     rating: 4.9,
     reviews: 38,
     price: 350,
@@ -36,7 +38,7 @@ const PLACEHOLDER_PROFESSIONALS = [
     IS_PLACEHOLDER: true,
     user: { name: 'Dr. Carlos Mendoza', avatarUrl: null },
     title: 'Médico General',
-    category: 'HEALTH_WELLNESS',
+    category: 'MEDICINE',
     rating: 4.8,
     reviews: 21,
     price: 600,
@@ -50,7 +52,7 @@ const PLACEHOLDER_PROFESSIONALS = [
     IS_PLACEHOLDER: true,
     user: { name: 'Dra. Elena Torres', avatarUrl: null },
     title: 'Nutrióloga Clínica',
-    category: 'HEALTH_WELLNESS',
+    category: 'WELLNESS',
     rating: 4.9,
     reviews: 19,
     price: 520,
@@ -64,7 +66,7 @@ const PLACEHOLDER_PROFESSIONALS = [
     IS_PLACEHOLDER: true,
     user: { name: 'Dr. Roberto Vega', avatarUrl: null },
     title: 'Psiquiatra',
-    category: 'HEALTH_WELLNESS',
+    category: 'PSYCHOLOGY',
     rating: 4.7,
     reviews: 24,
     price: 450,

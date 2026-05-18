@@ -14,9 +14,15 @@ router.use(authenticate);
  * Garantiza que chat(A,B) === chat(B,A) sin importar quién inicia.
  */
 const CONVERSATION_SEPARATOR = '_';
+const MEDICAL_CONVERSATION_SUFFIX = ':medical';
 
-function buildConversationId(id1: string, id2: string): string {
-  return [id1, id2].sort().join(CONVERSATION_SEPARATOR);
+function buildConversationId(id1: string, id2: string, sensitive: boolean): string {
+  const baseId = [id1, id2].sort().join(CONVERSATION_SEPARATOR);
+  return sensitive ? `${baseId}${MEDICAL_CONVERSATION_SUFFIX}` : baseId;
+}
+
+function getConversationParticipants(conversationId: string): string[] {
+  return conversationId.replace(MEDICAL_CONVERSATION_SUFFIX, '').split(CONVERSATION_SEPARATOR);
 }
 
 function isClinicalContent(text: string): boolean {
@@ -71,11 +77,13 @@ router.get('/conversations', async (req, res, next) => {
 
         conversationsMap.set(msg.conversationId, {
           conversationId: msg.conversationId,
+          channel: msg.conversationId.endsWith(MEDICAL_CONVERSATION_SUFFIX) ? 'MEDICAL_SENSITIVE' : 'GENERAL',
           contact: other,
           lastMessage: {
             content: decryptMessageContent(msg),
             createdAt: msg.createdAt,
             isMine: msg.senderId === myId,
+            sensitivity: msg.contentSensitivity,
           },
           unreadCount: 0, // default, se actualizará abajo
         });
@@ -125,7 +133,7 @@ router.get('/:conversationId', async (req, res, next) => {
 
   // Seguridad: verificar que el usuario es parte de esta conversación
   // Usamos split en lugar de includes() para evitar falsos positivos con IDs que son substrings
-  const participants = conversationId.split(CONVERSATION_SEPARATOR);
+  const participants = getConversationParticipants(conversationId);
   if (!participants.includes(myId)) {
     return res.status(403).json({ error: 'No tienes acceso a esta conversación' });
   }
@@ -193,10 +201,18 @@ router.post('/', async (req, res, next) => {
       return res.status(404).json({ error: 'Usuario receptor no encontrado' });
     }
 
-    const conversationId = buildConversationId(myId, receiverId);
-
     const trimmedContent = content.trim();
     const clinical = isClinicalContent(trimmedContent);
+    const sender = await prisma.user.findUnique({
+      where: { id: myId },
+      select: { sensitiveHealthDataConsentedAt: true },
+    });
+
+    if (clinical && !sender?.sensitiveHealthDataConsentedAt) {
+      return res.status(403).json({ error: 'Requiere consentimiento de tratamiento de datos sensibles de salud' });
+    }
+
+    const conversationId = buildConversationId(myId, receiverId, clinical);
     const encryptionEnabled = clinical && canEncryptMessages();
     const encryptedPayload = encryptionEnabled ? encryptMessage(trimmedContent) : null;
 
@@ -240,7 +256,7 @@ router.delete('/:conversationId', async (req, res, next) => {
   const myId = me.userId;
   const { conversationId } = req.params;
 
-  const participants = conversationId.split(CONVERSATION_SEPARATOR);
+  const participants = getConversationParticipants(conversationId);
   if (!participants.includes(myId)) {
     return res.status(403).json({ error: 'No tienes acceso a esta conversación' });
   }

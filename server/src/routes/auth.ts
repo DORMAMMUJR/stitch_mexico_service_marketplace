@@ -6,6 +6,7 @@ import { prisma } from '../lib/db';
 import { env } from '../config/env';
 import { sendEmail, emailTemplates } from '../lib/email';
 import { logger } from '../lib/logger';
+import { DEFAULT_PROFESSIONAL_CATEGORY } from '../constants/verificationFields';
 
 const router = Router();
 
@@ -41,7 +42,7 @@ function getJwtAlgorithm(key: string): 'RS256' | 'HS256' {
 // ─── POST /api/auth/register ─────────────────────────────────────────────────
 router.post('/register', registerLimiter, async (req, res, next) => {
   try {
-    const { email, password, name, phone, role, guest_id, acceptedTerms, acceptedPrivacy, privacyConsentedAt } = req.body;
+    const { email, password, name, phone, role, guest_id, acceptedTerms, acceptedPrivacy, acceptedSensitiveHealthData, privacyConsentedAt, sensitiveHealthDataConsentedAt } = req.body;
 
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const fullName = String(name || '').trim();
@@ -64,6 +65,10 @@ router.post('/register', registerLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'Debes aceptar términos y aviso de privacidad para crear la cuenta' });
     }
 
+    if (!acceptedSensitiveHealthData) {
+      return res.status(400).json({ error: 'Debes aceptar el tratamiento de datos sensibles de salud para usar la plataforma' });
+    }
+
     const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       return res.status(400).json({ error: 'El email ya está en uso' });
@@ -72,9 +77,14 @@ router.post('/register', registerLimiter, async (req, res, next) => {
     const passwordHash = await bcrypt.hash(passwordValue, 10);
     const userRole = role === 'PROFESSIONAL' ? 'PROFESSIONAL' : 'CLIENT';
     const parsedPrivacyConsentedAt = privacyConsentedAt ? new Date(privacyConsentedAt) : new Date();
+    const parsedSensitiveHealthDataConsentedAt = sensitiveHealthDataConsentedAt ? new Date(sensitiveHealthDataConsentedAt) : new Date();
 
     if (Number.isNaN(parsedPrivacyConsentedAt.getTime())) {
       return res.status(400).json({ error: 'privacyConsentedAt debe ser una fecha válida' });
+    }
+
+    if (Number.isNaN(parsedSensitiveHealthDataConsentedAt.getTime())) {
+      return res.status(400).json({ error: 'sensitiveHealthDataConsentedAt debe ser una fecha valida' });
     }
 
     const user = await prisma.user.create({
@@ -86,6 +96,7 @@ router.post('/register', registerLimiter, async (req, res, next) => {
         role: userRole,
         termsConsentedAt: new Date(),
         privacyConsentedAt: parsedPrivacyConsentedAt,
+        sensitiveHealthDataConsentedAt: parsedSensitiveHealthDataConsentedAt,
       },
     });
 
@@ -94,7 +105,7 @@ router.post('/register', registerLimiter, async (req, res, next) => {
         data: {
           userId: user.id,
           title: '',
-          category: 'HEALTH_WELLNESS',
+          category: DEFAULT_PROFESSIONAL_CATEGORY as any,
           currency: 'MXN',
         },
       });

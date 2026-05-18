@@ -13,7 +13,7 @@ import { apiFetch } from '../lib/api';
  * - credentials:'include' via apiFetch — la cookie HttpOnly se envia correctamente
  *
  * @param {string|null} professionalId
- * @returns {{ data: Array, isLoading: boolean, error: Error|null, refetch: Function }}
+ * @returns {{ data: Array|Object, isLoading: boolean, error: Error|null, refetch: Function }}
  */
 export function useAvailability(professionalId) {
   const { data, isLoading, error, refetch } = useQuery({
@@ -22,8 +22,7 @@ export function useAvailability(professionalId) {
     enabled:  !!professionalId,
     staleTime: 1000 * 60 * 2,  // 2 min — la disponibilidad puede cambiar frecuentemente
     gcTime:    1000 * 60 * 5,  // 5 min en cache inactiva
-    // Normalizar: garantizar que siempre retorna un array aunque el backend devuelva null
-    select: (json) => (Array.isArray(json) ? json : []),
+    select: (json) => (Array.isArray(json) || Array.isArray(json?.days) ? json : []),
   });
 
   return {

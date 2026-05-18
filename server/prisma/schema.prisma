@@ -18,6 +18,7 @@ model User {
   emailVerified       Boolean   @default(false)
   termsConsentedAt    DateTime?
   privacyConsentedAt  DateTime?  // Consentimiento aviso privacidad
+  sensitiveHealthDataConsentedAt DateTime? // Consentimiento explicito datos sensibles de salud
   biometricConsentAt  DateTime?  // Consentimiento explícito biométricos
   deletionRequestedAt DateTime?  // Solicitud de supresión ARCO
   createdAt           DateTime  @default(now())
@@ -42,9 +43,20 @@ model Professional {
   bio                String?
   category           Category
   medicalSpecialty   MedicalSpecialty?
+  treatedConditions  String[]  @default([])
   consultationModes  ConsultationMode[] @default([])
+  officeAddress      String?
+  experienceYears    Int?
+  certifications     String[]  @default([])
+  associations       String[]  @default([])
+  emergencyDisclaimerAccepted Boolean @default(false)
+  serviceAreas       String[]  @default([])
+  languages          String[]  @default([])
   acceptedInsurers   InsuranceProvider[] @default([])
   slotIntervalMinutes Int      @default(30)
+  presencialRate     Decimal?  @db.Decimal(10, 2)
+  telemedicineRate   Decimal?  @db.Decimal(10, 2)
+  homeVisitRate      Decimal?  @db.Decimal(10, 2)
   subcategories      String[]
   hourlyRate         Decimal?  @db.Decimal(10, 2)
   currency           String    @default("MXN")
@@ -64,6 +76,8 @@ model Professional {
   // Stripe / Payouts
   stripeAccountId    String?   // Stripe Connected Account ID
   payoutEnabled      Boolean   @default(false)  // true cuando Stripe verifica la cuenta
+  isFeatured         Boolean   @default(false)
+  featuredRank       Int       @default(0)
 
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -73,6 +87,8 @@ model Professional {
   reviews            Review[]  @relation("ReviewTarget")
   documents          VerificationDocument[]
   availabilities     Availability[]
+  availabilityRules  AvailabilityRule[]
+  availabilityOverrides AvailabilityOverride[]
   appointments       Appointment[]
   portfolioItems     PortfolioItem[]
   profileViews       ProfileView[]
@@ -262,15 +278,9 @@ enum Role {
 }
 
 enum Category {
-  LEGAL
-  FINANCE_TAX
-  ENGINEERING
-  IT_SECURITY
-  PLUMBING
-  ELECTRICAL
-  HVAC
-  GENERAL_MAINTENANCE
-  HEALTH_WELLNESS
+  PSYCHOLOGY
+  MEDICINE
+  WELLNESS
 }
 
 enum MedicalSpecialty {
@@ -386,6 +396,8 @@ model Appointment {
   client         User?             @relation(fields: [clientId], references: [id])
   professional   Professional      @relation(fields: [professionalId], references: [id])
   review         Review?
+  events         AppointmentEvent[]
+  reminderJobs   ReminderJob[]
 
   // 1.2 — Evita citas duplicadas en el mismo slot
   @@unique([professionalId, scheduledAt])
@@ -397,12 +409,107 @@ model Appointment {
 }
 
 enum AppointmentStatus {
+  REQUESTED
+  CONFIRMED
   PENDING_PAYMENT
   SCHEDULED
   IN_PROGRESS
   COMPLETED
   NO_SHOW
   CANCELLED
+}
+
+model AvailabilityRule {
+  id             String       @id @default(cuid())
+  professionalId String
+  dayOfWeek      Int
+  startTime      String
+  endTime        String
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, dayOfWeek])
+  @@index([professionalId, dayOfWeek])
+}
+
+model AvailabilityOverride {
+  id             String                   @id @default(cuid())
+  professionalId String
+  date           DateTime
+  startTime      String?
+  endTime        String?
+  type           AvailabilityOverrideType
+  reason         String?
+  createdAt      DateTime                 @default(now())
+
+  professional   Professional             @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, date])
+}
+
+enum AvailabilityOverrideType {
+  BLOCK
+  EXTRA_AVAILABLE
+}
+
+model AppointmentEvent {
+  id            String                @id @default(cuid())
+  appointmentId String
+  actorUserId   String?
+  type          AppointmentEventType
+  fromStatus    AppointmentStatus?
+  toStatus      AppointmentStatus?
+  metadata      Json?
+  createdAt     DateTime              @default(now())
+
+  appointment   Appointment           @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+enum AppointmentEventType {
+  REQUESTED
+  CONFIRMED
+  RESCHEDULE_REQUESTED
+  RESCHEDULED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+  REMINDER_SENT
+}
+
+model ReminderJob {
+  id            String             @id @default(cuid())
+  appointmentId String
+  channel       ReminderChannel
+  status        ReminderJobStatus  @default(PENDING)
+  scheduledFor  DateTime
+  sentAt        DateTime?
+  failedAt      DateTime?
+  error         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  appointment   Appointment        @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
+  @@index([appointmentId])
+}
+
+enum ReminderChannel {
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+enum ReminderJobStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 enum MessageSensitivity {

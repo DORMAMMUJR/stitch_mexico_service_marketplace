@@ -2,7 +2,12 @@
 import { prisma } from '../lib/db';
 import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import { uploadPublicImage } from '../lib/upload';
-import { CRITICAL_FIELDS } from '../constants/verificationFields';
+import {
+  CRITICAL_FIELDS,
+  DEFAULT_PROFESSIONAL_CATEGORY,
+  PROFESSIONAL_CATEGORIES,
+  normalizeProfessionalCategory,
+} from '../constants/verificationFields';
 import { resolveSymptomToSpecialty } from '../lib/clinicalCatalog';
 
 const router = Router();
@@ -24,8 +29,7 @@ const MEDICAL_SPECIALTIES = new Set([
 
 const CONSULTATION_MODES = new Set(['PRESENCIAL', 'DOMICILIO', 'TELEMEDICINA']);
 const INSURANCE_PROVIDERS = new Set(['GNP', 'AXA', 'METLIFE', 'MAPFRE', 'ALLIANZ', 'BBVA', 'INBURSA', 'QUALITAS', 'PLAN_PRIVADO']);
-const HEALTH_CATEGORY = 'HEALTH_WELLNESS';
-const HEALTH_CATEGORIES = new Set([HEALTH_CATEGORY]);
+const HEALTH_CATEGORIES = new Set(PROFESSIONAL_CATEGORIES);
 const MEDICAL_SPECIALTY_FILTERS = new Set(['PSICOLOGIA', 'PSIQUIATRIA', 'MEDICINA_GENERAL', 'MEDICINA_INTERNA', 'PEDIATRIA', 'GINECOLOGIA', 'TRAUMATOLOGIA', 'ORTOPEDIA', 'DERMATOLOGIA', 'CARDIOLOGIA', 'ODONTOLOGIA', 'NUTRICION']);
 
 function normalizeArrayInput(input: unknown): string[] {
@@ -37,6 +41,26 @@ function normalizeArrayInput(input: unknown): string[] {
       .filter(Boolean);
   }
   return [];
+}
+
+function normalizeTextInput(input: unknown): string | null {
+  if (typeof input !== 'string') return null;
+  const value = input.trim();
+  return value || null;
+}
+
+function normalizeMoneyInput(input: unknown): number | null | undefined {
+  if (input === undefined) return undefined;
+  if (input === null || input === '') return null;
+  const value = Number(input);
+  return Number.isFinite(value) && value >= 0 ? value : Number.NaN;
+}
+
+function normalizeIntegerInput(input: unknown): number | null | undefined {
+  if (input === undefined) return undefined;
+  if (input === null || input === '') return null;
+  const value = Number(input);
+  return Number.isInteger(value) && value >= 0 ? value : Number.NaN;
 }
 
 function normalizeSearchTerm(input: string): string {
@@ -51,7 +75,37 @@ function resolveSearchSpecialty(input: string): string | null {
   const normalized = normalizeSearchTerm(input);
   if (!normalized) return null;
   if (normalized.includes('psicolog')) return 'PSICOLOGIA';
+  if (normalized.includes('psiquiatr')) return 'PSIQUIATRIA';
+  if (normalized.includes('nutric')) return 'NUTRICION';
+  if (normalized.includes('pediatr')) return 'PEDIATRIA';
+  if (normalized.includes('ginecolog')) return 'GINECOLOGIA';
+  if (normalized.includes('traumatolog')) return 'TRAUMATOLOGIA';
+  if (normalized.includes('ortoped')) return 'ORTOPEDIA';
+  if (normalized.includes('dermatolog')) return 'DERMATOLOGIA';
+  if (normalized.includes('cardiolog')) return 'CARDIOLOGIA';
+  if (normalized.includes('odontolog')) return 'ODONTOLOGIA';
+  if (normalized.includes('medicina interna')) return 'MEDICINA_INTERNA';
+  if (normalized.includes('medicina') || normalized.includes('general')) return 'MEDICINA_GENERAL';
   return null;
+}
+
+function buildPriceFilter(minPrice: unknown, maxPrice: unknown) {
+  const min = minPrice ? parseFloat(String(minPrice)) : null;
+  const max = maxPrice ? parseFloat(String(maxPrice)) : null;
+  const range: any = {};
+
+  if (Number.isFinite(min)) range.gte = min;
+  if (Number.isFinite(max)) range.lte = max;
+  if (!range.gte && !range.lte) return null;
+
+  return {
+    OR: [
+      { hourlyRate: range },
+      { presencialRate: range },
+      { telemedicineRate: range },
+      { homeVisitRate: range },
+    ],
+  };
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -176,11 +230,22 @@ router.get('/me', authenticate, async (req: any, res: any, next: any) => {
         userId: req.user.userId,
         title: '',
         bio: null,
-        category: HEALTH_CATEGORY,
+        category: DEFAULT_PROFESSIONAL_CATEGORY,
         medicalSpecialty: null,
         consultationModes: [],
+        treatedConditions: [],
         acceptedInsurers: [],
+        officeAddress: null,
+        experienceYears: null,
+        certifications: [],
+        associations: [],
+        emergencyDisclaimerAccepted: false,
+        serviceAreas: [],
+        languages: [],
         slotIntervalMinutes: 30,
+        presencialRate: null,
+        telemedicineRate: null,
+        homeVisitRate: null,
         hourlyRate: null,
         isVerified: false,
         verificationStatus: 'PENDING',
@@ -219,7 +284,7 @@ router.post('/me/ensure', authenticate, async (req: any, res: any, next: any) =>
       data: {
         userId,
         title: '',
-        category: HEALTH_CATEGORY,
+        category: DEFAULT_PROFESSIONAL_CATEGORY,
         slotIntervalMinutes: 30,
         currency: 'MXN',
       }
@@ -234,19 +299,50 @@ router.post('/me/ensure', authenticate, async (req: any, res: any, next: any) =>
 // PUT /api/professionals/me (Actualizar o crear perfil â€” upsert)
 router.put('/me', authenticate, async (req: any, res, next) => {
   try {
-    const { title, category, bio, hourlyRate, medicalSpecialty, consultationModes, acceptedInsurers, slotIntervalMinutes } = req.body;
+    const {
+      title,
+      category,
+      bio,
+      hourlyRate,
+      medicalSpecialty,
+      treatedConditions,
+      consultationModes,
+      officeAddress,
+      experienceYears,
+      certifications,
+      associations,
+      emergencyDisclaimerAccepted,
+      serviceAreas,
+      languages,
+      acceptedInsurers,
+      slotIntervalMinutes,
+      presencialRate,
+      telemedicineRate,
+      homeVisitRate,
+    } = req.body;
     const userId = req.user.userId;
-    const normalizedCategory = String(category || HEALTH_CATEGORY).trim().toUpperCase();
+    const normalizedCategory = normalizeProfessionalCategory(category);
     const normalizedConsultationModes = normalizeArrayInput(consultationModes).map((value) => value.toUpperCase());
+    const normalizedTreatedConditions = normalizeArrayInput(treatedConditions);
+    const normalizedOfficeAddress = normalizeTextInput(officeAddress);
+    const normalizedExperienceYears = normalizeIntegerInput(experienceYears);
+    const normalizedCertifications = normalizeArrayInput(certifications);
+    const normalizedAssociations = normalizeArrayInput(associations);
+    const normalizedEmergencyDisclaimerAccepted = emergencyDisclaimerAccepted === true || emergencyDisclaimerAccepted === 'true';
+    const normalizedServiceAreas = normalizeArrayInput(serviceAreas);
+    const normalizedLanguages = normalizeArrayInput(languages);
     const normalizedInsurers = normalizeArrayInput(acceptedInsurers).map((value) => value.toUpperCase());
     const normalizedMedicalSpecialty = medicalSpecialty ? String(medicalSpecialty).trim().toUpperCase() : null;
     const normalizedSlotInterval = slotIntervalMinutes !== undefined ? Number(slotIntervalMinutes) : undefined;
+    const normalizedPresencialRate = normalizeMoneyInput(presencialRate);
+    const normalizedTelemedicineRate = normalizeMoneyInput(telemedicineRate);
+    const normalizedHomeVisitRate = normalizeMoneyInput(homeVisitRate);
 
     if (normalizedMedicalSpecialty && !MEDICAL_SPECIALTIES.has(normalizedMedicalSpecialty)) {
       return res.status(400).json({ error: 'medicalSpecialty invalida' });
     }
-    if (!HEALTH_CATEGORIES.has(normalizedCategory)) {
-      return res.status(400).json({ error: 'Solo se permite la categoria de salud en KonectIA.' });
+    if (!normalizedCategory) {
+      return res.status(400).json({ error: 'Categoria invalida. Usa Psicologia, Medicina o Bienestar.' });
     }
 
     if (normalizedConsultationModes.some((mode) => !CONSULTATION_MODES.has(mode))) {
@@ -259,6 +355,14 @@ router.put('/me', authenticate, async (req: any, res, next) => {
 
     if (normalizedSlotInterval !== undefined && ![20, 30, 45].includes(normalizedSlotInterval)) {
       return res.status(400).json({ error: 'slotIntervalMinutes debe ser 20, 30 o 45' });
+    }
+
+    if ([normalizedPresencialRate, normalizedTelemedicineRate, normalizedHomeVisitRate].some((value) => Number.isNaN(value))) {
+      return res.status(400).json({ error: 'Los precios por tipo de consulta deben ser numeros validos' });
+    }
+
+    if (Number.isNaN(normalizedExperienceYears)) {
+      return res.status(400).json({ error: 'experienceYears debe ser un numero entero valido' });
     }
 
     // 1. Buscar si ya existe (puede no existir si el usuario era CLIENT)
@@ -278,11 +382,22 @@ router.put('/me', authenticate, async (req: any, res, next) => {
         data: {
           userId,
           title: title || '',
-          category: HEALTH_CATEGORY as any,
+          category: normalizedCategory as any,
           medicalSpecialty: normalizedMedicalSpecialty as any,
+          treatedConditions: normalizedTreatedConditions,
           consultationModes: normalizedConsultationModes as any,
+          officeAddress: normalizedOfficeAddress,
+          experienceYears: normalizedExperienceYears ?? null,
+          certifications: normalizedCertifications,
+          associations: normalizedAssociations,
+          emergencyDisclaimerAccepted: normalizedEmergencyDisclaimerAccepted,
+          serviceAreas: normalizedServiceAreas,
+          languages: normalizedLanguages,
           acceptedInsurers: normalizedInsurers as any,
           slotIntervalMinutes: normalizedSlotInterval || 30,
+          presencialRate: normalizedPresencialRate ?? null,
+          telemedicineRate: normalizedTelemedicineRate ?? null,
+          homeVisitRate: normalizedHomeVisitRate ?? null,
           bio: bio || null,
           hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
           currency: 'MXN',
@@ -296,7 +411,27 @@ router.put('/me', authenticate, async (req: any, res, next) => {
     }
 
     // 2. Detectar si hay cambios en campos crÃ­ticos
-    const incomingData: any = { title, category: HEALTH_CATEGORY, bio, hourlyRate, medicalSpecialty, consultationModes: normalizedConsultationModes, acceptedInsurers: normalizedInsurers, slotIntervalMinutes: normalizedSlotInterval };
+    const incomingData: any = {
+      title,
+      category: normalizedCategory,
+      bio,
+      hourlyRate,
+      medicalSpecialty,
+      treatedConditions: normalizedTreatedConditions,
+      consultationModes: normalizedConsultationModes,
+      officeAddress: normalizedOfficeAddress,
+      experienceYears: normalizedExperienceYears,
+      certifications: normalizedCertifications,
+      associations: normalizedAssociations,
+      emergencyDisclaimerAccepted: normalizedEmergencyDisclaimerAccepted,
+      serviceAreas: normalizedServiceAreas,
+      languages: normalizedLanguages,
+      acceptedInsurers: normalizedInsurers,
+      slotIntervalMinutes: normalizedSlotInterval,
+      presencialRate: normalizedPresencialRate,
+      telemedicineRate: normalizedTelemedicineRate,
+      homeVisitRate: normalizedHomeVisitRate,
+    };
     let criticalChanged = false;
 
     for (const field of CRITICAL_FIELDS) {
@@ -310,11 +445,22 @@ router.put('/me', authenticate, async (req: any, res, next) => {
     // 3. Preparar datos de actualizaciÃ³n
     const updateData: any = {
       title: title || professional.title,
-      category: HEALTH_CATEGORY as any,
+      category: normalizedCategory as any,
       medicalSpecialty: normalizedMedicalSpecialty !== null ? (normalizedMedicalSpecialty as any) : professional.medicalSpecialty,
+      treatedConditions: treatedConditions !== undefined ? normalizedTreatedConditions : professional.treatedConditions,
       consultationModes: normalizedConsultationModes.length > 0 ? (normalizedConsultationModes as any) : professional.consultationModes,
+      officeAddress: officeAddress !== undefined ? normalizedOfficeAddress : professional.officeAddress,
+      experienceYears: experienceYears !== undefined ? normalizedExperienceYears : professional.experienceYears,
+      certifications: certifications !== undefined ? normalizedCertifications : professional.certifications,
+      associations: associations !== undefined ? normalizedAssociations : professional.associations,
+      emergencyDisclaimerAccepted: emergencyDisclaimerAccepted !== undefined ? normalizedEmergencyDisclaimerAccepted : professional.emergencyDisclaimerAccepted,
+      serviceAreas: serviceAreas !== undefined ? normalizedServiceAreas : professional.serviceAreas,
+      languages: languages !== undefined ? normalizedLanguages : professional.languages,
       acceptedInsurers: normalizedInsurers.length > 0 ? (normalizedInsurers as any) : professional.acceptedInsurers,
       slotIntervalMinutes: normalizedSlotInterval || professional.slotIntervalMinutes || 30,
+      presencialRate: normalizedPresencialRate !== undefined ? normalizedPresencialRate : professional.presencialRate,
+      telemedicineRate: normalizedTelemedicineRate !== undefined ? normalizedTelemedicineRate : professional.telemedicineRate,
+      homeVisitRate: normalizedHomeVisitRate !== undefined ? normalizedHomeVisitRate : professional.homeVisitRate,
       bio: bio !== undefined ? bio : professional.bio,
       hourlyRate: hourlyRate ? parseFloat(hourlyRate) : professional.hourlyRate,
     };
@@ -488,17 +634,19 @@ router.put('/me/availability', authenticate, async (req: any, res: any, next: an
 // GET /api/professionals
 router.get('/', async (req, res, next) => {
   try {
-    const { category, q, maxPrice, minPrice, minRating, verifiedOnly, insurers, consultationMode, symptom } = req.query;
+    const { category, q, maxPrice, minPrice, minRating, verifiedOnly, insurers, consultationMode, symptom, specialty, location, immediate } = req.query;
 
     const whereClause: any = {
-      category: HEALTH_CATEGORY,
+      category: { in: PROFESSIONAL_CATEGORIES as any },
+      AND: [],
     };
 
     if (category) {
-      const normalizedCategory = String(category).trim().toUpperCase();
-      if (!HEALTH_CATEGORIES.has(normalizedCategory)) {
+      const normalizedCategories = normalizeArrayInput(category).map((value) => value.toUpperCase());
+      if (normalizedCategories.some((value) => !HEALTH_CATEGORIES.has(value as any))) {
         return res.json([]);
       }
+      whereClause.category = normalizedCategories.length === 1 ? normalizedCategories[0] : { in: normalizedCategories as any };
     }
 
     if (q) {
@@ -517,7 +665,13 @@ router.get('/', async (req, res, next) => {
 
       if (searchSpecialty) {
         whereClause.OR.push({ medicalSpecialty: searchSpecialty as any });
+        whereClause.OR.push({ treatedConditions: { has: searchTerm } });
       }
+    }
+
+    const normalizedSpecialtyFilter = specialty ? String(specialty).trim().toUpperCase() : null;
+    if (normalizedSpecialtyFilter && MEDICAL_SPECIALTY_FILTERS.has(normalizedSpecialtyFilter)) {
+      whereClause.medicalSpecialty = normalizedSpecialtyFilter;
     }
 
     const normalizedInsurerFilters = normalizeArrayInput(insurers).map((value) => value.toUpperCase()).filter((value) => INSURANCE_PROVIDERS.has(value));
@@ -538,14 +692,33 @@ router.get('/', async (req, res, next) => {
       }
     }
 
-    if (maxPrice) {
-      whereClause.hourlyRate = { ...(whereClause.hourlyRate || {}), lte: parseFloat(String(maxPrice)) };
+    const locationTerm = normalizeTextInput(location);
+    if (locationTerm) {
+      whereClause.AND.push({
+        OR: [
+          { city: { contains: locationTerm, mode: 'insensitive' } },
+          { state: { contains: locationTerm, mode: 'insensitive' } },
+          { officeAddress: { contains: locationTerm, mode: 'insensitive' } },
+          { serviceAreas: { has: locationTerm } },
+        ],
+      });
     }
-    if (minPrice) {
-      whereClause.hourlyRate = { ...(whereClause.hourlyRate || {}), gte: parseFloat(String(minPrice)) };
+
+    if (String(immediate).toLowerCase() === 'true') {
+      whereClause.availabilities = { some: { dayOfWeek: new Date().getDay() } };
     }
+
+    const priceFilter = buildPriceFilter(minPrice, maxPrice);
+    if (priceFilter) {
+      whereClause.AND.push(priceFilter);
+    }
+
     if (String(verifiedOnly).toLowerCase() === 'true') {
       whereClause.isVerified = true;
+    }
+
+    if (whereClause.AND.length === 0) {
+      delete whereClause.AND;
     }
 
     const professionals = await prisma.professional.findMany({
@@ -555,6 +728,8 @@ router.get('/', async (req, res, next) => {
         reviews: { select: { rating: true } }
       },
       orderBy: [
+        { isFeatured: 'desc' },
+        { featuredRank: 'asc' },
         { isVerified: 'desc' },
         { createdAt: 'desc' },
       ],
@@ -573,9 +748,16 @@ router.get('/', async (req, res, next) => {
         title: p.title,
         category: p.category,
         medicalSpecialty: p.medicalSpecialty,
+        treatedConditions: p.treatedConditions,
         consultationModes: p.consultationModes,
+        officeAddress: p.officeAddress,
+        serviceAreas: p.serviceAreas,
+        languages: p.languages,
         acceptedInsurers: p.acceptedInsurers,
         slotIntervalMinutes: p.slotIntervalMinutes || 30,
+        presencialRate: p.presencialRate ? Number(p.presencialRate) : null,
+        telemedicineRate: p.telemedicineRate ? Number(p.telemedicineRate) : null,
+        homeVisitRate: p.homeVisitRate ? Number(p.homeVisitRate) : null,
         hourlyRate: p.hourlyRate,
         isVerified: p.isVerified,
         rating: rating,
@@ -615,7 +797,7 @@ router.get('/:id/review-eligibility', authenticate, async (req: any, res, next) 
     }
 
     const professional = await prisma.professional.findFirst({
-      where: { id: professionalId, category: HEALTH_CATEGORY },
+      where: { id: professionalId, category: { in: PROFESSIONAL_CATEGORIES as any } },
       select: { id: true },
     });
     if (!professional) {
@@ -679,7 +861,7 @@ router.post('/:id/reviews', authenticate, async (req: any, res, next) => {
     }
 
     const professional = await prisma.professional.findFirst({
-      where: { id: professionalId, category: HEALTH_CATEGORY },
+      where: { id: professionalId, category: { in: PROFESSIONAL_CATEGORIES as any } },
       select: { id: true },
     });
     if (!professional) {
@@ -741,13 +923,17 @@ router.get('/:id/reviews', async (req, res, next) => {
   try {
     const { id } = req.params;
     const professional = await prisma.professional.findFirst({
-      where: { id, category: HEALTH_CATEGORY },
+      where: { id, category: { in: PROFESSIONAL_CATEGORIES as any } },
       select: { id: true },
     });
     if (!professional) return res.json([]);
 
     const reviews = await prisma.review.findMany({
-      where: { professionalId: id },
+      where: {
+        professionalId: id,
+        appointmentId: { not: null },
+        appointment: { is: { status: 'COMPLETED' } },
+      },
       include: {
         author: {
           select: { name: true, avatarUrl: true },
@@ -763,6 +949,7 @@ router.get('/:id/reviews', async (req, res, next) => {
       avatarUrl: r.author.avatarUrl,
       rating: r.rating,
       comment: r.comment,
+      isVerified: true,
       date: r.createdAt,
     }));
 
@@ -779,10 +966,10 @@ router.get('/:id', optionalAuthenticate, async (req: any, res, next) => {
     const viewerUserId = req.user?.userId || null;
 
     const professional = await prisma.professional.findFirst({
-      where: { id, category: HEALTH_CATEGORY },
+      where: { id, category: { in: PROFESSIONAL_CATEGORIES as any } },
       include: {
         user: true,
-        reviews: true,
+        reviews: { include: { appointment: true } },
         orders: true,
         portfolioItems: { orderBy: { createdAt: 'desc' } },
       },
@@ -813,9 +1000,12 @@ router.get('/:id', optionalAuthenticate, async (req: any, res, next) => {
       (o: any) => !['DRAFT', 'CANCELADO'].includes(o.status)
     );
 
-    const totalReviews = professional.reviews.length;
+    const verifiedAppointmentReviews = professional.reviews.filter((review: any) => (
+      review.appointmentId && review.appointment?.status === 'COMPLETED'
+    ));
+    const totalReviews = verifiedAppointmentReviews.length;
     const avgRating = totalReviews > 0
-      ? professional.reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / totalReviews
+      ? verifiedAppointmentReviews.reduce((acc: number, r: any) => acc + r.rating, 0) / totalReviews
       : 5.0;
 
     const yearsActive = Math.max(
@@ -853,7 +1043,7 @@ router.get('/:id', optionalAuthenticate, async (req: any, res, next) => {
       bio: professional.bio,
       isVerified: professional.isVerified,
       biometricDone: professional.biometricDone,
-      yearsExp: `${yearsActive}+`,
+      yearsExp: `${professional.experienceYears ?? yearsActive}+`,
       projectsCount: `${completedOrders.length}`,
       successRate: `${successRate}%`,
       rating: avgRating.toFixed(1),
@@ -863,9 +1053,20 @@ router.get('/:id', optionalAuthenticate, async (req: any, res, next) => {
       currency: professional.currency || 'MXN',
       category: professional.category,
       medicalSpecialty: professional.medicalSpecialty,
+      treatedConditions: professional.treatedConditions,
       consultationModes: professional.consultationModes,
+      officeAddress: professional.officeAddress,
+      experienceYears: professional.experienceYears,
+      certifications: professional.certifications,
+      associations: professional.associations,
+      emergencyDisclaimerAccepted: professional.emergencyDisclaimerAccepted,
+      serviceAreas: professional.serviceAreas,
+      languages: professional.languages,
       acceptedInsurers: professional.acceptedInsurers,
       slotIntervalMinutes: professional.slotIntervalMinutes || 30,
+      presencialRate: professional.presencialRate ? Number(professional.presencialRate) : null,
+      telemedicineRate: professional.telemedicineRate ? Number(professional.telemedicineRate) : null,
+      homeVisitRate: professional.homeVisitRate ? Number(professional.homeVisitRate) : null,
       portfolioItems: professional.portfolioItems,
     });
   } catch (error) {

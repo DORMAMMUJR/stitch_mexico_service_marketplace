@@ -6,6 +6,7 @@ import { authenticate } from '../middleware/auth';
 import { sendEmail, emailTemplates } from '../lib/email';
 import { notifyUser } from '../lib/notifications';
 import { logger } from '../lib/logger';
+import { DEFAULT_PROFESSIONAL_CATEGORY } from '../constants/verificationFields';
 
 const router = Router();
 
@@ -99,6 +100,12 @@ function toPositiveInt(value: unknown, fallback: number) {
   return parsed;
 }
 
+function parseFeaturedRank(value: unknown) {
+  const parsed = Number.parseInt(String(value ?? '0'), 10);
+  if (Number.isNaN(parsed) || parsed < 0) return 0;
+  return Math.min(parsed, 999);
+}
+
 const SALES_COMPLETED_STATUSES: OrderStatus[] = ['PAYOUT_COMPLETADO', 'COMPLETADO'];
 const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
   'DRAFT',
@@ -109,7 +116,6 @@ const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
   'PAYOUT_INICIADO',
   'PAYOUT_FALLIDO',
 ];
-const HEALTH_CATEGORY = 'HEALTH_WELLNESS';
 
 function parseRole(value: unknown): Role | null {
   const normalized = String(value ?? '').trim().toUpperCase();
@@ -231,6 +237,65 @@ router.get('/stats', async (_req: any, res: any, next: any) => {
         completed: completedOrders,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/specialty-kpis
+router.get('/specialty-kpis', async (_req: any, res: any, next: any) => {
+  try {
+    const professionals = await prisma.professional.findMany({
+      select: {
+        id: true,
+        category: true,
+        medicalSpecialty: true,
+        isVerified: true,
+        appointments: { select: { status: true } },
+        reviews: { select: { rating: true } },
+        orders: { select: { status: true, agreedPrice: true } },
+      },
+    });
+
+    const buckets = new Map<string, any>();
+    professionals.forEach((pro) => {
+      const specialty = pro.medicalSpecialty || pro.category || 'SIN_ESPECIALIDAD';
+      const bucket = buckets.get(specialty) || {
+        specialty,
+        professionals: 0,
+        verifiedProfessionals: 0,
+        appointments: 0,
+        completedAppointments: 0,
+        reviews: 0,
+        ratingSum: 0,
+        completedRevenue: 0,
+      };
+
+      bucket.professionals += 1;
+      if (pro.isVerified) bucket.verifiedProfessionals += 1;
+      bucket.appointments += pro.appointments.length;
+      bucket.completedAppointments += pro.appointments.filter((a) => a.status === 'COMPLETED').length;
+      bucket.reviews += pro.reviews.length;
+      bucket.ratingSum += pro.reviews.reduce((sum, review) => sum + review.rating, 0);
+      bucket.completedRevenue += pro.orders
+        .filter((order) => SALES_COMPLETED_STATUSES.includes(order.status))
+        .reduce((sum, order) => sum + Number(order.agreedPrice || 0), 0);
+
+      buckets.set(specialty, bucket);
+    });
+
+    res.json([...buckets.values()]
+      .map((bucket) => ({
+        specialty: bucket.specialty,
+        professionals: bucket.professionals,
+        verifiedProfessionals: bucket.verifiedProfessionals,
+        appointments: bucket.appointments,
+        completedAppointments: bucket.completedAppointments,
+        reviews: bucket.reviews,
+        averageRating: bucket.reviews > 0 ? Number((bucket.ratingSum / bucket.reviews).toFixed(1)) : null,
+        completedRevenue: bucket.completedRevenue,
+      }))
+      .sort((a, b) => b.completedAppointments - a.completedAppointments || b.professionals - a.professionals));
   } catch (error) {
     next(error);
   }
@@ -472,7 +537,7 @@ router.patch('/users/:id/role', async (req: any, res: any, next: any) => {
           data: {
             userId: targetUserId,
             title: '',
-            category: HEALTH_CATEGORY,
+            category: DEFAULT_PROFESSIONAL_CATEGORY as any,
             currency: 'MXN',
           },
         });
@@ -743,9 +808,15 @@ router.get('/professionals/active', async (_req: any, res: any, next: any) => {
         id: true,
         title: true,
         category: true,
+        isFeatured: true,
+        featuredRank: true,
         user: { select: { name: true, email: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { isFeatured: 'desc' },
+        { featuredRank: 'asc' },
+        { createdAt: 'desc' },
+      ],
       take: 200,
     });
 
@@ -755,7 +826,94 @@ router.get('/professionals/active', async (_req: any, res: any, next: any) => {
       email: p.user?.email || null,
       title: p.title || '',
       category: p.category,
+      isFeatured: p.isFeatured,
+      featuredRank: p.featuredRank,
     })));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/admin/professionals/:id/featured
+router.patch('/professionals/:id/featured', async (req: any, res: any, next: any) => {
+  try {
+    const professionalId = String(req.params?.id || '').trim();
+    if (!professionalId) {
+      return res.status(400).json({ error: 'ID de profesional invalido' });
+    }
+
+    const updated = await prisma.professional.update({
+      where: { id: professionalId },
+      data: {
+        isFeatured: Boolean(req.body?.isFeatured),
+        featuredRank: parseFeaturedRank(req.body?.featuredRank),
+      },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        isFeatured: true,
+        featuredRank: true,
+        user: { select: { name: true, email: true } },
+      },
+    });
+
+    res.json({
+      id: updated.id,
+      name: updated.user?.name || 'Profesional',
+      email: updated.user?.email || null,
+      title: updated.title || '',
+      category: updated.category,
+      isFeatured: updated.isFeatured,
+      featuredRank: updated.featuredRank,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/reviews
+router.get('/reviews', async (_req: any, res: any, next: any) => {
+  try {
+    const reviews = await prisma.review.findMany({
+      include: {
+        author: { select: { name: true, email: true } },
+        professional: { include: { user: { select: { name: true, email: true } } } },
+        appointment: { select: { id: true, scheduledAt: true, status: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    res.json(reviews.map((review) => ({
+      id: review.id,
+      rating: review.rating,
+      comment: review.comment,
+      isVerified: review.isVerified,
+      createdAt: review.createdAt,
+      appointment: review.appointment,
+      author: review.author,
+      professional: {
+        id: review.professionalId,
+        name: review.professional.user?.name || 'Profesional',
+        email: review.professional.user?.email || null,
+      },
+    })));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/admin/reviews/:id
+router.delete('/reviews/:id', async (req: any, res: any, next: any) => {
+  try {
+    const reviewId = String(req.params?.id || '').trim();
+    if (!reviewId) {
+      return res.status(400).json({ error: 'ID de resena invalido' });
+    }
+
+    await prisma.review.delete({ where: { id: reviewId } });
+    res.json({ message: 'Resena eliminada correctamente', reviewId });
   } catch (error) {
     next(error);
   }

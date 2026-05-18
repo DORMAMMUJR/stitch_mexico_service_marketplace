@@ -77,8 +77,9 @@ async function upsertSuperAdmin() {
 }
 
 async function main() {
-  await upsertSpecialist('demo.psicologia@intecnia.mx', 'Pamela Ortega', 'Psicologa Clinica', 'HEALTH_WELLNESS', 'Ciudad de Mexico');
-  await upsertSpecialist('demo.legal@intecnia.mx', 'Andres Salinas', 'Abogado Corporativo', 'LEGAL', 'Ciudad de Mexico');
+  await upsertSpecialist('demo.psicologia@intecnia.mx', 'Pamela Ortega', 'Psicologa Clinica', 'PSYCHOLOGY', 'Ciudad de Mexico');
+  await upsertSpecialist('demo.medicina@intecnia.mx', 'Carlos Mendoza', 'Medico General', 'MEDICINE', 'Ciudad de Mexico');
+  await upsertSpecialist('demo.bienestar@intecnia.mx', 'Elena Torres', 'Nutriologa Clinica', 'WELLNESS', 'Ciudad de Mexico');
   await upsertSuperAdmin();
 }
 

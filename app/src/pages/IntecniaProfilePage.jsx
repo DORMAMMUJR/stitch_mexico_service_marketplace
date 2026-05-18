@@ -8,6 +8,31 @@ import { useProfile } from '../hooks/useProfile';
 import { useReviews } from '../hooks/useReviews';
 import { useAuth } from '../hooks/useAuth';
 
+const MEDICAL_SPECIALTY_LABELS = {
+  MEDICINA_GENERAL: 'Medicina general',
+  PEDIATRIA: 'Pediatria',
+  GINECOLOGIA: 'Ginecologia',
+  TRAUMATOLOGIA: 'Traumatologia',
+  ORTOPEDIA: 'Ortopedia',
+  DERMATOLOGIA: 'Dermatologia',
+  PSIQUIATRIA: 'Psiquiatria',
+  PSICOLOGIA: 'Psicologia',
+  CARDIOLOGIA: 'Cardiologia',
+  ODONTOLOGIA: 'Odontologia',
+  NUTRICION: 'Nutricion',
+  MEDICINA_INTERNA: 'Medicina interna',
+};
+
+const CONSULTATION_MODE_LABELS = {
+  PRESENCIAL: 'Presencial',
+  TELEMEDICINA: 'Online',
+  DOMICILIO: 'Domicilio',
+};
+
+function listValue(value) {
+  return Array.isArray(value) && value.length > 0 ? value.join(', ') : '';
+}
+
 export function IntecniaProfilePage() {
   const { id } = useParams();
   const { user, isAuthenticated } = useAuth();
@@ -32,6 +57,14 @@ export function IntecniaProfilePage() {
     const t = setTimeout(() => setBookingBanner(''), 4200);
     return () => clearTimeout(t);
   }, [bookingBanner]);
+
+  useEffect(() => {
+    if (window.location.hash !== '#booking') return;
+    const t = setTimeout(() => {
+      bookingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     const shouldCheck = Boolean(id && isAuthenticated && user?.role === 'CLIENT');
@@ -80,48 +113,97 @@ export function IntecniaProfilePage() {
       date: new Date(r.date).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' }),
       rating: r.rating,
       comment: r.comment,
+      isVerified: Boolean(r.isVerified),
     }));
   }, [dbReviews]);
   const specialtyCards = useMemo(() => {
     if (!profile) return [];
     const cards = [];
-    if (profile.category) {
+    if (profile.medicalSpecialty) {
       cards.push({
-        title: 'Categoria principal',
-        value: String(profile.category).replaceAll('_', ' '),
+        title: 'Especialidad medica',
+        value: MEDICAL_SPECIALTY_LABELS[profile.medicalSpecialty] || String(profile.medicalSpecialty).replaceAll('_', ' '),
       });
     }
-    if (profile.yearsExp) {
+    if (profile.treatedConditions?.length) {
+      cards.push({
+        title: 'Padecimientos',
+        value: listValue(profile.treatedConditions),
+      });
+    }
+    if (profile.consultationModes?.length) {
+      cards.push({
+        title: 'Modalidad',
+        value: profile.consultationModes.map((mode) => CONSULTATION_MODE_LABELS[mode] || mode).join(', '),
+      });
+    }
+    if (profile.officeAddress) {
+      cards.push({
+        title: 'Consultorio',
+        value: profile.officeAddress,
+      });
+    }
+    if (profile.experienceYears !== null && profile.experienceYears !== undefined && profile.experienceYears !== '') {
       cards.push({
         title: 'Experiencia',
-        value: `${profile.yearsExp} anos activos`,
+        value: `${profile.experienceYears} ano${Number(profile.experienceYears) === 1 ? '' : 's'} de practica`,
       });
     }
-    if (profile.successRate) {
+    if (profile.certifications?.length) {
       cards.push({
-        title: 'Tasa de exito',
-        value: profile.successRate,
+        title: 'Certificaciones',
+        value: listValue(profile.certifications),
       });
     }
-    if (profile.projectsCount) {
+    if (profile.associations?.length) {
       cards.push({
-        title: 'Proyectos completados',
-        value: profile.projectsCount,
+        title: 'Asociaciones',
+        value: listValue(profile.associations),
+      });
+    }
+    if (profile.serviceAreas?.length) {
+      cards.push({
+        title: 'Zonas',
+        value: listValue(profile.serviceAreas),
+      });
+    }
+    if (profile.languages?.length) {
+      cards.push({
+        title: 'Idiomas',
+        value: listValue(profile.languages),
+      });
+    }
+    if (profile.acceptedInsurers?.length) {
+      cards.push({
+        title: 'Aseguradoras',
+        value: listValue(profile.acceptedInsurers),
       });
     }
     return cards.length ? cards : [{ title: 'Especialidad', value: 'Atencion profesional personalizada' }];
+  }, [profile]);
+
+  const pricingCards = useMemo(() => {
+    if (!profile) return [];
+    return [
+      { title: 'Presencial', value: profile.presencialRate },
+      { title: 'Online', value: profile.telemedicineRate },
+      { title: 'Domicilio', value: profile.homeVisitRate },
+    ].filter((item) => item.value !== null && item.value !== undefined && item.value !== '');
   }, [profile]);
   const coverImage = useMemo(() => {
     if (!Array.isArray(profile?.portfolioItems) || profile.portfolioItems.length === 0) return '';
     return profile.portfolioItems[0]?.imageUrl || '';
   }, [profile]);
+  const officePhotos = useMemo(() => (
+    Array.isArray(profile?.portfolioItems) ? profile.portfolioItems.filter((item) => item?.imageUrl) : []
+  ), [profile]);
 
   const protectPrivateAction = (e) => {
     if (isAuthenticated) return;
     e.stopPropagation();
     e.preventDefault();
     sessionStorage.setItem('redirectTo', `${window.location.pathname}${window.location.search}${window.location.hash}`);
-    navigate('/login');
+    navigate('/register');
   };
 
   const scrollToChat = () => chatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -261,7 +343,7 @@ export function IntecniaProfilePage() {
 
                   <div className="profile-hero-meta">
                     <p className="profile-rate">
-                      {prof.hourlyRate ? `Desde $${Number(prof.hourlyRate).toLocaleString('es-MX')} ${prof.currency || 'MXN'} / hora` : 'Tarifa por confirmar'}
+                      {prof.hourlyRate ? `Desde $${Number(prof.hourlyRate).toLocaleString('es-MX')} ${prof.currency || 'MXN'}` : 'Tarifa por confirmar'}
                     </p>
                     <p className="profile-rating">
                       {prof.rating ? `⭐ ${prof.rating} (${prof.reviewCount || reviews.length} resenas)` : 'Sin resenas aun'}
@@ -286,6 +368,41 @@ export function IntecniaProfilePage() {
                 </p>
               </article>
 
+              <article className="card glass-card profile-trust-card">
+                <div className="profile-trust-header">
+                  <div>
+                    <p className="profile-specialty-label">Confianza del paciente</p>
+                    <h2>Senales verificables antes de reservar</h2>
+                  </div>
+                  {prof.isVerified && <span className="badge badge-green">Perfil verificado</span>}
+                </div>
+                <div className="profile-trust-grid">
+                  <div className="profile-trust-item">
+                    <span className="material-symbols-outlined icon-filled">verified</span>
+                    <p>Reviews solo de pacientes con cita completada.</p>
+                  </div>
+                  <div className="profile-trust-item">
+                    <span className="material-symbols-outlined">medical_information</span>
+                    <p>No es servicio de emergencia medica.</p>
+                  </div>
+                  <div className="profile-trust-item">
+                    <span className="material-symbols-outlined">workspace_premium</span>
+                    <p>{prof.certifications?.length ? listValue(prof.certifications) : 'Certificaciones pendientes de publicar.'}</p>
+                  </div>
+                  <div className="profile-trust-item">
+                    <span className="material-symbols-outlined">groups</span>
+                    <p>{prof.associations?.length ? listValue(prof.associations) : 'Asociaciones profesionales no publicadas.'}</p>
+                  </div>
+                </div>
+                {officePhotos.length > 0 && (
+                  <div className="profile-office-gallery">
+                    {officePhotos.slice(0, 4).map((item) => (
+                      <img key={item.id || item.imageUrl} src={item.imageUrl} alt="Consultorio" />
+                    ))}
+                  </div>
+                )}
+              </article>
+
               <article className="card glass-card" style={{ padding: '1.5rem' }}>
                 <h2 style={{ fontFamily: 'Manrope', fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem', marginBottom: '0.875rem' }}>Especialidades</h2>
                 <div className="profile-specialties-grid">
@@ -297,6 +414,23 @@ export function IntecniaProfilePage() {
                   ))}
                 </div>
               </article>
+
+              {pricingCards.length > 0 && (
+                <article className="card glass-card" style={{ padding: '1.5rem' }}>
+                  <h2 style={{ fontFamily: 'Manrope', fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem', marginBottom: '0.875rem' }}>Precios por consulta</h2>
+                  <div className="profile-specialties-grid">
+                    {pricingCards.map((card) => (
+                      <div key={card.title} className="profile-specialty-card">
+                        <p className="profile-specialty-label">{card.title}</p>
+                        <p className="profile-specialty-value">${Number(card.value).toLocaleString('es-MX')} {prof.currency || 'MXN'}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ margin: '0.75rem 0 0', color: 'var(--on-surface-variant)', fontSize: '0.85rem' }}>
+                    Duracion de consulta: {prof.slotIntervalMinutes || 30} minutos
+                  </p>
+                </article>
+              )}
 
               <article className="card glass-card" style={{ padding: '1.5rem' }}>
                 <h2 style={{ fontFamily: 'Manrope', fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem', marginBottom: '0.75rem' }}>Reseñas</h2>
@@ -364,6 +498,9 @@ export function IntecniaProfilePage() {
                           <p style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem' }}>{r.name}</p>
                           <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{r.date}</p>
                         </div>
+                        {r.isVerified && (
+                          <span className="badge badge-green" style={{ marginBottom: '0.45rem' }}>Cita completada</span>
+                        )}
                         <div style={{ display: 'flex', gap: '2px', marginBottom: '0.35rem' }}>
                           {Array.from({ length: Math.max(1, Number(r.rating || 0)) }).map((_, starIdx) => (
                             <span key={starIdx} className="material-symbols-outlined icon-filled" style={{ fontSize: '13px', color: '#f59e0b' }}>star</span>
@@ -380,7 +517,7 @@ export function IntecniaProfilePage() {
 
           <aside className="profile-side-col">
             <div className="profile-sticky-panel">
-              <div ref={bookingRef} onClickCapture={protectPrivateAction}>
+              <div ref={bookingRef}>
                 <AvailabilitySelector
                   professionalId={id}
                   onBooked={(text) => setBookingBanner(text)}

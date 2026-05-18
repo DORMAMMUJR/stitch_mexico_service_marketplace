@@ -9,6 +9,10 @@ import { logger } from '../lib/logger';
 import { getStripe } from '../lib/stripe';
 import { env } from '../config/env';
 import { logSecurityAuditEvent } from '../lib/securityAudit';
+import { ensureSlotInsideAvailability as ensureMedicalSlotInsideAvailability, getEffectiveAvailability } from '../services/appointments/availability';
+import { recordAppointmentEvent } from '../services/appointments/events';
+import { evaluateCancellationPolicy } from '../services/appointments/policies';
+import { createDefaultReminderJobs } from '../services/reminders';
 
 type PaymentMethod = 'BANK_TRANSFER' | 'STRIPE_CARD';
 type VideoProvider = 'jitsi' | 'zoom' | 'meet';
@@ -32,6 +36,7 @@ type AppointmentVideoSession = {
 type AppointmentMeta = {
   plainNotes?: string | null;
   requestedScheduledAt?: string | null;
+  cancellationPolicy?: Record<string, unknown> | null;
   payment?: {
     method?: PaymentMethod;
     status?: string;
@@ -53,6 +58,38 @@ type AppointmentMeta = {
   };
   meetingLink?: string | null;
   videoSession?: AppointmentVideoSession | null;
+};
+
+const PAYMENT_PROTECTION_POLICY = {
+  paymentOptions: {
+    depositPercent: 50,
+    fullPaymentPercent: 100,
+    defaultPaymentPercent: 100,
+    policy: 'DEPOSIT_OR_FULL_PAYMENT',
+  },
+  platformCommission: {
+    rate: 0.1,
+    chargedTo: 'CLIENT',
+    refundable: false,
+  },
+  refunds: {
+    before24h: 'FULL_SERVICE_REFUND',
+    within24h: 'REVIEW_REQUIRED',
+    afterServiceStarted: 'DISPUTE_REQUIRED',
+  },
+  disputes: {
+    windowHours: 72,
+    handledBy: 'ADMIN_REVIEW',
+  },
+  receipts: {
+    receiptProvided: true,
+    invoiceRequest: 'AVAILABLE_AFTER_PAYMENT',
+  },
+  noShow: {
+    policy: 'FUNDS_HELD_FOR_REVIEW',
+    professionalCanMark: true,
+    adminReviewRequired: true,
+  },
 };
 
 const VIDEO_TOKEN_TTL_SECONDS = 60 * 5;
@@ -131,7 +168,7 @@ function isValidSlotForInterval(date: Date, intervalMinutes: number): boolean {
 
 function canUseVideoForStatus(status: string | null | undefined): boolean {
   const normalized = String(status || '').toUpperCase();
-  return normalized === 'SCHEDULED' || normalized === 'IN_PROGRESS';
+  return normalized === 'CONFIRMED' || normalized === 'SCHEDULED' || normalized === 'IN_PROGRESS';
 }
 
 function round2(value: number): number {
@@ -391,7 +428,7 @@ async function isScheduledSlotAvailable(professionalId: string, scheduledAt: Dat
     where: {
       professionalId,
       scheduledAt,
-      status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
+      status: { in: ['REQUESTED', 'CONFIRMED', 'PENDING_PAYMENT', 'SCHEDULED', 'IN_PROGRESS'] },
       ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
     },
     select: { id: true },
@@ -403,12 +440,12 @@ async function isScheduledSlotAvailable(professionalId: string, scheduledAt: Dat
 async function computePricing(professionalId: string) {
   const professional = await prisma.professional.findUnique({
     where: { id: professionalId },
-    select: { id: true, hourlyRate: true, currency: true, user: { select: { name: true } } },
+    select: { id: true, hourlyRate: true, presencialRate: true, telemedicineRate: true, homeVisitRate: true, currency: true, user: { select: { name: true } } },
   });
 
   if (!professional) return null;
 
-  const basePrice = Number(professional.hourlyRate ?? 0);
+  const basePrice = Number(professional.presencialRate ?? professional.telemedicineRate ?? professional.homeVisitRate ?? professional.hourlyRate ?? 0);
   if (!basePrice || basePrice <= 0) {
     return {
       professional,
@@ -416,9 +453,10 @@ async function computePricing(professionalId: string) {
     };
   }
 
-  const commissionRate = 0.1;
+  const commissionRate = PAYMENT_PROTECTION_POLICY.platformCommission.rate;
   const commission = round2(basePrice * commissionRate);
   const total = round2(basePrice + commission);
+  const depositAmount = round2(total * (PAYMENT_PROTECTION_POLICY.paymentOptions.depositPercent / 100));
 
   return {
     professional,
@@ -426,6 +464,7 @@ async function computePricing(professionalId: string) {
     commissionRate,
     commission,
     total,
+    depositAmount,
     currency: professional.currency || 'MXN',
   };
 }
@@ -480,52 +519,10 @@ router.get('/availability/:professionalId', async (req, res, next) => {
 router.get('/availability/:professionalId/effective', async (req, res, next) => {
   try {
     const { professionalId } = req.params;
-    const professional = await prisma.professional.findUnique({ where: { id: professionalId }, select: { id: true, slotIntervalMinutes: true } });
-    if (!professional) return res.status(404).json({ error: 'Profesional no encontrado' });
-    const slotIntervalMinutes = parseProfessionalSlotInterval(professional.slotIntervalMinutes);
-
-    const [availabilities, bookedAppointments] = await Promise.all([
-      prisma.availability.findMany({ where: { professionalId }, orderBy: { dayOfWeek: 'asc' } }),
-      prisma.appointment.findMany({
-        where: { professionalId, status: { in: ['SCHEDULED', 'IN_PROGRESS'] }, scheduledAt: { gte: new Date() } },
-        select: { scheduledAt: true },
-      }),
-    ]);
-
-    const bookedByDay = new Map<number, Set<string>>();
-    for (const appointment of bookedAppointments) {
-      if (!appointment.scheduledAt) continue;
-      const day = getDayOfWeek(appointment.scheduledAt);
-      const time = getSlotTimeHHMM(appointment.scheduledAt);
-      if (!bookedByDay.has(day)) bookedByDay.set(day, new Set());
-      bookedByDay.get(day)?.add(time);
-    }
-
-    const toMinutes = (hhmm: string) => {
-      const [h, m] = hhmm.split(':').map(Number);
-      return h * 60 + m;
-    };
-    const toHHMM = (mins: number) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
-
-    const effective = availabilities.map((block) => {
-      const start = toMinutes(block.startTime);
-      const end = toMinutes(block.endTime);
-      const slots: string[] = [];
-      for (let current = start; current < end; current += slotIntervalMinutes) {
-        slots.push(toHHMM(current));
-      }
-      const booked = bookedByDay.get(block.dayOfWeek) ?? new Set<string>();
-      return {
-        dayOfWeek: block.dayOfWeek,
-        startTime: block.startTime,
-        endTime: block.endTime,
-        slotIntervalMinutes,
-        slots,
-        bookedTimes: Array.from(booked),
-        availableSlots: slots.filter((time) => !booked.has(time)),
-      };
-    });
-
+    const from = req.query.from ? parseScheduledAt(String(req.query.from)) : null;
+    const to = req.query.to ? parseScheduledAt(String(req.query.to)) : null;
+    const effective = await getEffectiveAvailability(professionalId, from, to);
+    if (!effective) return res.status(404).json({ error: 'Profesional no encontrado' });
     res.json(effective);
   } catch (error: any) {
     if (error?.type === 'StripeCardError' || error?.type === 'StripeInvalidRequestError') {
@@ -556,15 +553,19 @@ router.get('/pricing/:professionalId', async (req, res, next) => {
       professionalName: pricing.professional.user.name,
       currency: pricing.currency,
       basePrice: pricing.basePrice,
+      pricesByMode: {
+        presencial: pricing.professional.presencialRate ? Number(pricing.professional.presencialRate) : null,
+        online: pricing.professional.telemedicineRate ? Number(pricing.professional.telemedicineRate) : null,
+        domicilio: pricing.professional.homeVisitRate ? Number(pricing.professional.homeVisitRate) : null,
+      },
       commissionRate: pricing.commissionRate,
       commission: pricing.commission,
       total: pricing.total,
+      depositAmount: pricing.depositAmount,
       paymentMethods: ['BANK_TRANSFER', 'STRIPE_CARD'],
       defaultPaymentMethod: 'BANK_TRANSFER',
-      paymentGuarantee: {
-        requiredPercent: 100,
-        policy: 'FULL_PREPAY_REQUIRED',
-      },
+      paymentGuarantee: PAYMENT_PROTECTION_POLICY.paymentOptions,
+      paymentProtection: PAYMENT_PROTECTION_POLICY,
     });
   } catch (error) {
     next(error);
@@ -732,7 +733,7 @@ router.post('/checkout', authenticate, async (req: any, res: any, next: any) => 
       return res.status(400).json({ error: `Las citas deben agendarse en intervalos de ${slotIntervalMinutes} minutos exactos.` });
     }
 
-    const availabilityCheck = await ensureSlotInsideAvailability(professionalId, scheduledAt);
+    const availabilityCheck = await ensureMedicalSlotInsideAvailability(professionalId, scheduledAt);
     if (!availabilityCheck.ok) {
       return res.status(availabilityCheck.status).json({ error: availabilityCheck.error });
     }
@@ -788,6 +789,14 @@ router.post('/checkout', authenticate, async (req: any, res: any, next: any) => 
         notes: serializeAppointmentMeta(appointmentMeta),
         status: 'PENDING_PAYMENT',
       },
+    });
+
+    await recordAppointmentEvent({
+      appointmentId: appointment.id,
+      actorUserId: clientId,
+      type: 'REQUESTED',
+      toStatus: 'PENDING_PAYMENT',
+      metadata: { method: 'STRIPE_CARD', requestedScheduledAt: scheduledAt.toISOString() },
     });
 
     try {
@@ -940,7 +949,7 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
       return res.status(400).json({ error: `Monto invalido. Total esperado: ${pricing.total}` });
     }
 
-    const availabilityCheck = await ensureSlotInsideAvailability(professionalId, scheduledAt);
+    const availabilityCheck = await ensureMedicalSlotInsideAvailability(professionalId, scheduledAt);
     if (!availabilityCheck.ok) {
       return res.status(availabilityCheck.status).json({ error: availabilityCheck.error });
     }
@@ -988,6 +997,14 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
         notes: serializeAppointmentMeta(appointmentMeta),
         status: 'PENDING_PAYMENT',
       },
+    });
+
+    await recordAppointmentEvent({
+      appointmentId: appointment.id,
+      actorUserId: clientId,
+      type: 'REQUESTED',
+      toStatus: 'PENDING_PAYMENT',
+      metadata: { method: 'BANK_TRANSFER', requestedScheduledAt: scheduledAt.toISOString() },
     });
 
     notifyUser({
@@ -1066,7 +1083,7 @@ router.patch('/:id/confirm-transfer', authenticate, async (req: any, res: any, n
       return res.status(400).json({ error: `El horario solicitado no respeta el intervalo clinico de ${slotIntervalMinutes} minutos.` });
     }
 
-    const availabilityCheck = await ensureSlotInsideAvailability(appointment.professionalId, requestedScheduledAt);
+    const availabilityCheck = await ensureMedicalSlotInsideAvailability(appointment.professionalId, requestedScheduledAt);
     if (!availabilityCheck.ok) {
       return res.status(availabilityCheck.status).json({ error: availabilityCheck.error });
     }
@@ -1090,10 +1107,20 @@ router.patch('/:id/confirm-transfer', authenticate, async (req: any, res: any, n
       where: { id: appointment.id },
       data: {
         scheduledAt: requestedScheduledAt,
-        status: 'SCHEDULED',
+        status: 'CONFIRMED',
         notes: serializeAppointmentMeta(updatedMeta),
       },
     });
+
+    await recordAppointmentEvent({
+      appointmentId: appointment.id,
+      actorUserId: userId,
+      type: 'CONFIRMED',
+      fromStatus: appointment.status,
+      toStatus: 'CONFIRMED',
+      metadata: { method: 'BANK_TRANSFER', scheduledAt: requestedScheduledAt.toISOString() },
+    });
+    await createDefaultReminderJobs(appointment.id, requestedScheduledAt);
 
     if (appointment.clientId && appointment.client) {
       notifyUser({
@@ -1117,6 +1144,167 @@ router.patch('/:id/confirm-transfer', authenticate, async (req: any, res: any, n
     });
 
     res.json({ message: 'Pago validado y cita confirmada', appointment: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/:id/confirm', authenticate, async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.userId;
+    const role = String(req.user?.role || '').toUpperCase();
+    const { id } = req.params;
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        professional: { include: { user: { select: { id: true, email: true } } } },
+        client: { select: { id: true, email: true } },
+      },
+    });
+
+    if (!appointment) return res.status(404).json({ error: 'Cita no encontrada' });
+    if (role !== 'ADMIN' && appointment.professional.userId !== userId) {
+      return res.status(403).json({ error: 'No tienes permiso para confirmar esta cita' });
+    }
+    if (!['REQUESTED', 'PENDING_PAYMENT', 'SCHEDULED'].includes(appointment.status)) {
+      return res.status(400).json({ error: `No se puede confirmar una cita en estado: ${appointment.status}` });
+    }
+
+    const meta = parseAppointmentMeta(appointment.notes);
+    const scheduledAt = appointment.scheduledAt || parseRequestedSlotFromMeta(meta);
+    if (!scheduledAt) return res.status(400).json({ error: 'La cita no tiene horario solicitado' });
+
+    const availabilityCheck = await ensureMedicalSlotInsideAvailability(appointment.professionalId, scheduledAt, appointment.id);
+    if (!availabilityCheck.ok) return res.status(availabilityCheck.status).json({ error: availabilityCheck.error });
+
+    const updatedMeta: AppointmentMeta = {
+      ...(meta || {}),
+      requestedScheduledAt: scheduledAt.toISOString(),
+      payment: {
+        ...(meta?.payment || {}),
+        confirmedAt: new Date().toISOString(),
+      },
+    };
+
+    const updated = await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: {
+        scheduledAt,
+        status: 'CONFIRMED',
+        notes: serializeAppointmentMeta(updatedMeta),
+      },
+    });
+
+    await recordAppointmentEvent({
+      appointmentId: appointment.id,
+      actorUserId: userId,
+      type: 'CONFIRMED',
+      fromStatus: appointment.status,
+      toStatus: 'CONFIRMED',
+      metadata: { scheduledAt: scheduledAt.toISOString() },
+    });
+    await createDefaultReminderJobs(appointment.id, scheduledAt);
+
+    if (appointment.clientId && appointment.client) {
+      notifyUser({
+        userId: appointment.clientId,
+        type: 'ORDER_STATUS',
+        title: 'Cita confirmada',
+        body: `Tu cita para ${formatDateForNotification(scheduledAt)} fue confirmada.`,
+        metadata: { appointmentId: appointment.id },
+        email: appointment.client.email,
+        emailSubject: 'Tu cita fue confirmada - Intecnia',
+        emailHtml: `<p>Tu cita quedo confirmada para ${formatDateForNotification(scheduledAt)}.</p>`,
+      }).catch((error) => logger.error({ err: error, appointmentId: appointment.id }, 'Error notificando confirmacion al cliente'));
+    }
+
+    res.json({ message: 'Cita confirmada', appointment: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/:id/reschedule', authenticate, async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.userId;
+    const role = String(req.user?.role || '').toUpperCase();
+    const { id } = req.params;
+    const scheduledAt = parseScheduledAt(String(req.body?.scheduledAt || ''));
+    if (!scheduledAt) return res.status(400).json({ error: 'scheduledAt debe ser una fecha ISO valida' });
+    if (scheduledAt <= new Date()) return res.status(400).json({ error: 'No se puede reprogramar a una fecha pasada' });
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        professional: { include: { user: { select: { id: true, email: true } } } },
+        client: { select: { id: true, email: true } },
+      },
+    });
+
+    if (!appointment) return res.status(404).json({ error: 'Cita no encontrada' });
+    const isClient = appointment.clientId === userId;
+    const isProfessional = appointment.professional.userId === userId;
+    if (role !== 'ADMIN' && !isClient && !isProfessional) {
+      return res.status(403).json({ error: 'No tienes permiso para reprogramar esta cita' });
+    }
+    if (!['REQUESTED', 'CONFIRMED', 'PENDING_PAYMENT', 'SCHEDULED'].includes(appointment.status)) {
+      return res.status(400).json({ error: `No se puede reprogramar una cita en estado: ${appointment.status}` });
+    }
+
+    const availabilityCheck = await ensureMedicalSlotInsideAvailability(appointment.professionalId, scheduledAt, appointment.id);
+    if (!availabilityCheck.ok) return res.status(availabilityCheck.status).json({ error: availabilityCheck.error });
+
+    const nextStatus = isClient && role !== 'ADMIN' ? 'REQUESTED' : 'CONFIRMED';
+    const currentMeta = parseAppointmentMeta(appointment.notes) || {};
+    const updatedMeta: AppointmentMeta = {
+      ...currentMeta,
+      requestedScheduledAt: scheduledAt.toISOString(),
+    };
+
+    const updated = await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: {
+        scheduledAt: nextStatus === 'CONFIRMED' ? scheduledAt : appointment.scheduledAt,
+        status: nextStatus as any,
+        notes: serializeAppointmentMeta(updatedMeta),
+      },
+    });
+
+    await recordAppointmentEvent({
+      appointmentId: appointment.id,
+      actorUserId: userId,
+      type: nextStatus === 'CONFIRMED' ? 'RESCHEDULED' : 'RESCHEDULE_REQUESTED',
+      fromStatus: appointment.status,
+      toStatus: nextStatus,
+      metadata: { requestedScheduledAt: scheduledAt.toISOString(), previousScheduledAt: appointment.scheduledAt?.toISOString() || null },
+    });
+
+    res.json({ message: nextStatus === 'CONFIRMED' ? 'Cita reprogramada' : 'Solicitud de reprogramacion enviada', appointment: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:id/events', authenticate, async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.userId;
+    const role = String(req.user?.role || '').toUpperCase();
+    const { id } = req.params;
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: { professional: { select: { userId: true } } },
+    });
+    if (!appointment) return res.status(404).json({ error: 'Cita no encontrada' });
+    if (role !== 'ADMIN' && appointment.clientId !== userId && appointment.professional.userId !== userId) {
+      return res.status(403).json({ error: 'No tienes permiso para ver este historial' });
+    }
+
+    const events = await prisma.appointmentEvent.findMany({
+      where: { appointmentId: id },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(events);
   } catch (error) {
     next(error);
   }
@@ -1241,7 +1429,7 @@ router.get('/:id/video-token', authenticate, async (req: any, res: any, next: an
     await prisma.appointment.update({
       where: { id: appointment.id },
       data: {
-        status: appointment.status === 'SCHEDULED' ? 'IN_PROGRESS' : appointment.status,
+        status: ['CONFIRMED', 'SCHEDULED'].includes(appointment.status) ? 'IN_PROGRESS' : appointment.status,
         notes: serializeAppointmentMeta({
           ...nextMeta,
           videoSession: nextVideoSession,
@@ -1359,7 +1547,7 @@ router.patch('/:id/complete', authenticate, async (req: any, res: any, next: any
     if (!canComplete) {
       return res.status(403).json({ error: 'No tienes permiso para completar esta cita' });
     }
-    if (!['SCHEDULED', 'IN_PROGRESS'].includes(appointment.status)) {
+    if (!['CONFIRMED', 'SCHEDULED', 'IN_PROGRESS'].includes(appointment.status)) {
       return res.status(400).json({ error: `Solo se puede completar una cita activa. Estado actual: ${appointment.status}` });
     }
 
@@ -1389,6 +1577,15 @@ router.patch('/:id/complete', authenticate, async (req: any, res: any, next: any
       metadata: { paymentStatus: 'PAID_RELEASED' },
     });
 
+    await recordAppointmentEvent({
+      appointmentId: appointment.id,
+      actorUserId: userId,
+      type: 'COMPLETED',
+      fromStatus: appointment.status,
+      toStatus: 'COMPLETED',
+      metadata: { paymentStatus: 'PAID_RELEASED' },
+    });
+
     res.json({ message: 'Cita completada y fondos liberados', appointment: updated });
   } catch (error) {
     next(error);
@@ -1415,7 +1612,7 @@ router.patch('/:id/no-show', authenticate, async (req: any, res: any, next: any)
     if (!canMarkNoShow) {
       return res.status(403).json({ error: 'No tienes permiso para marcar no-show' });
     }
-    if (!['SCHEDULED', 'IN_PROGRESS'].includes(appointment.status)) {
+    if (!['CONFIRMED', 'SCHEDULED', 'IN_PROGRESS'].includes(appointment.status)) {
       return res.status(400).json({ error: `No se puede marcar no-show desde estado ${appointment.status}` });
     }
 
@@ -1445,6 +1642,15 @@ router.patch('/:id/no-show', authenticate, async (req: any, res: any, next: any)
       metadata: { paymentStatus: 'NO_SHOW_HOLD' },
     });
 
+    await recordAppointmentEvent({
+      appointmentId: appointment.id,
+      actorUserId: userId,
+      type: 'NO_SHOW',
+      fromStatus: appointment.status,
+      toStatus: 'NO_SHOW',
+      metadata: { paymentStatus: 'NO_SHOW_HOLD' },
+    });
+
     res.json({ message: 'Cita marcada como no-show. Fondos retenidos para revision.', appointment: updated });
   } catch (error) {
     next(error);
@@ -1454,6 +1660,7 @@ router.patch('/:id/no-show', authenticate, async (req: any, res: any, next: any)
 router.patch('/:id/cancel', authenticate, async (req: any, res: any, next: any) => {
   try {
     const userId = req.user?.userId;
+    const role = String(req.user?.role || '').toUpperCase();
     const { id } = req.params;
 
     const appointment = await prisma.appointment.findUnique({
@@ -1473,24 +1680,29 @@ router.patch('/:id/cancel', authenticate, async (req: any, res: any, next: any) 
     const isClient = appointment.clientId === userId;
     const isProfessional = appointment.professional.userId === userId;
 
-    if (!isClient && !isProfessional) {
+    if (role !== 'ADMIN' && !isClient && !isProfessional) {
       return res.status(403).json({ error: 'No tienes permiso para cancelar esta cita' });
     }
 
-    if (!['SCHEDULED', 'PENDING_PAYMENT'].includes(appointment.status)) {
+    if (!['REQUESTED', 'CONFIRMED', 'SCHEDULED', 'PENDING_PAYMENT'].includes(appointment.status)) {
       return res.status(400).json({
         error: `No se puede cancelar una cita en estado: ${appointment.status}`,
       });
     }
 
-    const updated = await prisma.appointment.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
-    });
-
     const meta = parseAppointmentMeta(appointment.notes);
     const requestedAt = parseRequestedSlotFromMeta(meta);
     const referenceDate = appointment.scheduledAt || requestedAt;
+    const cancellationPolicy = evaluateCancellationPolicy(referenceDate);
+    const updatedMeta = serializeAppointmentMeta({
+      ...(meta || {}),
+      cancellationPolicy,
+    });
+
+    const updated = await prisma.appointment.update({
+      where: { id },
+      data: { status: 'CANCELLED', notes: updatedMeta },
+    });
 
     if (isClient && appointment.professional.user) {
       notifyUser({
@@ -1523,7 +1735,16 @@ router.patch('/:id/cancel', authenticate, async (req: any, res: any, next: any) 
       actorUserId: userId,
       appointmentId: appointment.id,
       targetUserId: isClient ? appointment.professional.userId : appointment.clientId,
-      metadata: { previousStatus: appointment.status },
+      metadata: { previousStatus: appointment.status, cancellationPolicy },
+    });
+
+    await recordAppointmentEvent({
+      appointmentId: appointment.id,
+      actorUserId: userId,
+      type: 'CANCELLED',
+      fromStatus: appointment.status,
+      toStatus: 'CANCELLED',
+      metadata: { cancellationPolicy },
     });
 
     res.json({ message: 'Cita cancelada con exito', appointment: updated });

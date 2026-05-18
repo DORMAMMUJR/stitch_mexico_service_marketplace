@@ -10,6 +10,7 @@ export function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [acceptSensitiveHealthData, setAcceptSensitiveHealthData] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -29,13 +30,14 @@ export function RegisterPage() {
     email.trim() !== '' &&
     password.trim() !== '' &&
     acceptTerms &&
-    acceptPrivacy;
+    acceptPrivacy &&
+    acceptSensitiveHealthData;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!isFormValid) {
-      setError('Completa los 4 campos y acepta Terminos y Condiciones y Aviso de Privacidad.');
+      setError('Completa los 4 campos y acepta Terminos, Aviso de Privacidad y tratamiento de datos sensibles de salud.');
       return;
     }
 
@@ -58,7 +60,9 @@ export function RegisterPage() {
           guest_id: guestId,
           acceptedTerms: acceptTerms,
           acceptedPrivacy: acceptPrivacy,
+          acceptedSensitiveHealthData: acceptSensitiveHealthData,
           privacyConsentedAt: new Date().toISOString(),
+          sensitiveHealthDataConsentedAt: new Date().toISOString(),
         }),
       });
 
@@ -237,6 +241,18 @@ export function RegisterPage() {
                     Aviso de Privacidad
                   </Link>{' '}
                   *
+                </span>
+              </label>
+
+              <label style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', cursor: 'pointer', fontSize: '0.8125rem', color: 'var(--on-surface)', lineHeight: 1.5 }}>
+                <input
+                  type="checkbox"
+                  checked={acceptSensitiveHealthData}
+                  onChange={(e) => setAcceptSensitiveHealthData(e.target.checked)}
+                  style={{ marginTop: '2px', accentColor: 'var(--secondary)', flexShrink: 0, width: '1rem', height: '1rem' }}
+                />
+                <span>
+                  Acepto el tratamiento de datos sensibles de salud y el aviso de privacidad especifico para servicios de salud. *
                 </span>
               </label>
             </div>

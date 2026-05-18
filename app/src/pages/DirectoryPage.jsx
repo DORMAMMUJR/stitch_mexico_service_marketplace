@@ -4,10 +4,12 @@ import { NavbarIntecnia } from '../components/NavbarIntecnia';
 import { Footer } from '../components/Footer';
 import { useToast } from '../components/ToastContext';
 
-const HEALTH_CATEGORY = 'HEALTH_WELLNESS';
+const HEALTH_CATEGORIES = ['PSYCHOLOGY', 'MEDICINE', 'WELLNESS'];
 
 const CATEGORY_MAP = {
-  HEALTH_WELLNESS: 'Salud y Bienestar',
+  PSYCHOLOGY: 'Psicologia',
+  MEDICINE: 'Medicina',
+  WELLNESS: 'Bienestar',
 };
 
 const MEDICAL_SPECIALTY_LABELS = {
@@ -31,6 +33,8 @@ const HEALTH_FILTERS = [
   { label: 'Bienestar', query: 'bienestar' },
 ];
 
+const PATIENT_SEARCH_SUGGESTIONS = ['ansiedad', 'dolor de espalda', 'diabetes', 'nutricion', 'terapia de pareja'];
+const SPECIALTY_OPTIONS = Object.entries(MEDICAL_SPECIALTY_LABELS).map(([value, label]) => ({ value, label }));
 const INSURER_OPTIONS = ['GNP', 'AXA', 'METLIFE', 'MAPFRE', 'ALLIANZ', 'BBVA', 'INBURSA', 'QUALITAS', 'PLAN_PRIVADO'];
 const CONSULTATION_MODE_OPTIONS = [
   { value: 'PRESENCIAL', label: 'Consultorio presencial' },
@@ -58,6 +62,9 @@ export function DirectoryPage() {
   const [minRating, setMinRating] = useState(0);
   const [verifiedOnly, setVerifiedOnly] = useState(searchParams.get('verifiedOnly') === 'true');
   const [symptomTerm, setSymptomTerm] = useState(searchParams.get('symptom') || '');
+  const [specialty, setSpecialty] = useState(searchParams.get('specialty') || '');
+  const [locationTerm, setLocationTerm] = useState(searchParams.get('location') || '');
+  const [immediateOnly, setImmediateOnly] = useState(searchParams.get('immediate') === 'true');
   const [consultationMode, setConsultationMode] = useState(searchParams.get('consultationMode') || '');
   const [selectedInsurers, setSelectedInsurers] = useState(
     (searchParams.get('insurers') || '')
@@ -78,6 +85,9 @@ export function DirectoryPage() {
   useEffect(() => {
     setVerifiedOnly(searchParams.get('verifiedOnly') === 'true');
     setSymptomTerm(searchParams.get('symptom') || '');
+    setSpecialty(searchParams.get('specialty') || '');
+    setLocationTerm(searchParams.get('location') || '');
+    setImmediateOnly(searchParams.get('immediate') === 'true');
     setConsultationMode(searchParams.get('consultationMode') || '');
     setSelectedInsurers(
       (searchParams.get('insurers') || '')
@@ -95,6 +105,15 @@ export function DirectoryPage() {
     if (symptomTerm.trim()) next.set('symptom', symptomTerm.trim());
     else next.delete('symptom');
 
+    if (specialty) next.set('specialty', specialty);
+    else next.delete('specialty');
+
+    if (locationTerm.trim()) next.set('location', locationTerm.trim());
+    else next.delete('location');
+
+    if (immediateOnly) next.set('immediate', 'true');
+    else next.delete('immediate');
+
     if (consultationMode) next.set('consultationMode', consultationMode);
     else next.delete('consultationMode');
 
@@ -104,20 +123,23 @@ export function DirectoryPage() {
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
-  }, [verifiedOnly, symptomTerm, consultationMode, selectedInsurers, searchParams, setSearchParams]);
+  }, [verifiedOnly, symptomTerm, specialty, locationTerm, immediateOnly, consultationMode, selectedInsurers, searchParams, setSearchParams]);
 
   useEffect(() => {
     const fetchProfessionals = async () => {
       setIsLoading(true);
       try {
         const params = new URLSearchParams();
-        params.set('category', HEALTH_CATEGORY);
+        params.set('category', HEALTH_CATEGORIES.join(','));
         if (searchTerm.trim()) params.set('q', searchTerm.trim());
         params.set('minPrice', String(priceMin));
         params.set('maxPrice', String(priceCap));
         if (minRating > 0) params.set('minRating', String(minRating));
         if (verifiedOnly) params.set('verifiedOnly', 'true');
         if (symptomTerm.trim()) params.set('symptom', symptomTerm.trim());
+        if (specialty) params.set('specialty', specialty);
+        if (locationTerm.trim()) params.set('location', locationTerm.trim());
+        if (immediateOnly) params.set('immediate', 'true');
         if (consultationMode) params.set('consultationMode', consultationMode);
         if (selectedInsurers.length > 0) params.set('insurers', selectedInsurers.join(','));
 
@@ -135,7 +157,7 @@ export function DirectoryPage() {
       }
     };
     fetchProfessionals();
-  }, [searchTerm, priceMin, priceCap, minRating, verifiedOnly, symptomTerm, consultationMode, selectedInsurers]);
+  }, [searchTerm, priceMin, priceCap, minRating, verifiedOnly, symptomTerm, specialty, locationTerm, immediateOnly, consultationMode, selectedInsurers]);
 
   const toggleInsurer = (insurer) => {
     setSelectedInsurers((prev) => (prev.includes(insurer) ? prev.filter((item) => item !== insurer) : [...prev, insurer]));
@@ -152,6 +174,34 @@ export function DirectoryPage() {
       <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.0625rem', color: 'var(--secondary)', marginBottom: '1rem' }}>Filtros</h3>
 
       <div style={{ marginBottom: '1.25rem' }}>
+        <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>Especialidad</label>
+        <select
+          value={specialty}
+          onChange={(e) => setSpecialty(e.target.value)}
+          className="input-field"
+          style={{ width: '100%', fontSize: '0.8125rem', marginBottom: '1.25rem' }}
+        >
+          <option value="">Todas las especialidades</option>
+          {SPECIALTY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+
+        <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>Ubicacion</label>
+        <input
+          type="text"
+          value={locationTerm}
+          onChange={(e) => setLocationTerm(e.target.value)}
+          placeholder="Ciudad, estado o zona"
+          className="input-field"
+          style={{ width: '100%', fontSize: '0.8125rem', marginBottom: '1.25rem' }}
+        />
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', marginBottom: '1.25rem', cursor: 'pointer' }}>
+          <input type="checkbox" checked={immediateOnly} onChange={(e) => setImmediateOnly(e.target.checked)} style={{ accentColor: 'var(--secondary)' }} />
+          Disponibilidad inmediata
+        </label>
+
         <label className="text-label-md" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.5rem' }}>Rango de precios (MXN)</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
           {PRICE_RANGES.map((opt) => (
@@ -225,6 +275,9 @@ export function DirectoryPage() {
           setMinRating(0);
           setVerifiedOnly(false);
           setSymptomTerm('');
+          setSpecialty('');
+          setLocationTerm('');
+          setImmediateOnly(false);
           setConsultationMode('');
           setSelectedInsurers([]);
           showToast('Filtros reiniciados', 'info');
@@ -269,16 +322,75 @@ export function DirectoryPage() {
           </button>
         </div>
 
-        <div className="directory-search-box" style={{ marginTop: '0.875rem', display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.75rem' }}>
-          <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>search</span>
+        <div className="directory-patient-search-grid" style={{ marginTop: '0.875rem', display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 0.8fr)', gap: '0.625rem' }}>
+          <div className="directory-search-box" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.75rem' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>search</span>
+            <input
+              type="text"
+              value={symptomTerm}
+              onChange={(e) => setSymptomTerm(e.target.value)}
+              placeholder="Sintoma o necesidad: ansiedad, diabetes..."
+              className="input-field directory-search-input"
+              style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: '0.5rem 0.25rem' }}
+            />
+          </div>
+
+          <select
+            value={specialty}
+            onChange={(e) => setSpecialty(e.target.value)}
+            className="input-field"
+            style={{ minHeight: '48px', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-lg)' }}
+          >
+            <option value="">Especialidad</option>
+            {SPECIALTY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+
+          <div className="directory-search-box" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.75rem' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>location_on</span>
+            <input
+              type="text"
+              value={locationTerm}
+              onChange={(e) => setLocationTerm(e.target.value)}
+              placeholder="Ubicacion"
+              className="input-field directory-search-input"
+              style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: '0.5rem 0.25rem' }}
+            />
+          </div>
+        </div>
+
+        <div className="directory-search-box" style={{ marginTop: '0.625rem', display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.75rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>manage_search</span>
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Psicologia, medicina, bienestar..."
+            placeholder="Buscar por nombre, titulo o categoria..."
             className="input-field directory-search-input"
             style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: '0.5rem 0.25rem' }}
           />
+        </div>
+
+        <div className="directory-quick-filters" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+          {PATIENT_SEARCH_SUGGESTIONS.map((suggestion) => (
+            <button
+              key={suggestion}
+              onClick={() => setSymptomTerm(suggestion)}
+              className={`btn ${symptomTerm.toLowerCase() === suggestion ? 'btn-primary' : 'btn-outline'}`}
+              style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+            >
+              {suggestion}
+            </button>
+          ))}
+          <button
+            onClick={() => setImmediateOnly((prev) => !prev)}
+            className={`btn ${immediateOnly ? 'btn-primary' : 'btn-outline'}`}
+            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>bolt</span>
+            Hoy
+          </button>
         </div>
 
         <div className="directory-quick-filters" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
@@ -360,7 +472,7 @@ export function DirectoryPage() {
               const profilePath = `/profile/${p.id}`;
               const chatPath = `/profile/${p.id}?tab=chat`;
               const reservePath = `/reserva/${p.id}`;
-              const displayPrice = Number(p.hourlyRate || p.price || 2000);
+              const displayPrice = Number(p.presencialRate || p.telemedicineRate || p.homeVisitRate || p.hourlyRate || p.price || 2000);
 
               return (
                 <div key={p.id} className="pro-card" style={{ width: '100%', minWidth: 0, margin: 0 }}>
@@ -402,7 +514,7 @@ export function DirectoryPage() {
                             {p.isVerified ? 'Verificado' : 'Perfil en revision'}
                           </span>
                           <span style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', fontWeight: 600, padding: '0.15rem 0.4rem', borderRadius: '9999px', border: '1px solid var(--outline-variant)' }}>
-                            {CATEGORY_MAP[p.category] || CATEGORY_MAP[HEALTH_CATEGORY]}
+                          {CATEGORY_MAP[p.category] || 'Especialista health-first'}
                           </span>
                         </div>
 

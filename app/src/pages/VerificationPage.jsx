@@ -4,7 +4,7 @@ import { Footer } from '../components/Footer';
 import { useToast } from '../components/ToastContext';
 import { useAuth } from '../hooks/useAuth';
 import { apiFetch } from '../lib/api';
-import { CATEGORIES } from '../constants/verificationFields';
+import { CATEGORIES, DEFAULT_PROFESSIONAL_CATEGORY } from '../constants/verificationFields';
 
 export function VerificationPage() {
   const REQUIRED_DOC_TYPES = ['INE', 'CONOCER_CERT'];
@@ -19,7 +19,7 @@ export function VerificationPage() {
   const [selectedDocType, setSelectedDocType] = useState('INE');
 
   // Step 0: Profile Form State
-  const [profileForm, setProfileForm] = useState({ title: '', category: 'GENERAL_MAINTENANCE', bio: '', hourlyRate: '' });
+  const [profileForm, setProfileForm] = useState({ title: '', category: DEFAULT_PROFESSIONAL_CATEGORY, bio: '', hourlyRate: '' });
 
   // File Upload State
   const [file, setFile] = useState(null);
@@ -55,7 +55,7 @@ export function VerificationPage() {
         setProfile(data);
         setProfileForm({
           title: data.title || '',
-          category: data.category || 'GENERAL_MAINTENANCE',
+          category: CATEGORIES[data.category] ? data.category : DEFAULT_PROFESSIONAL_CATEGORY,
           bio: data.bio || '',
           hourlyRate: data.hourlyRate || '',
         });
@@ -201,7 +201,7 @@ export function VerificationPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontFamily: 'Manrope', fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Proceso de Certificación Institucional</h1>
-            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem', maxWidth: '480px' }}>Complete su perfil para acceder al ecosistema de servicios profesionales de alto nivel en México.</p>
+            <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem', maxWidth: '480px' }}>Completa tu perfil para integrarte al ecosistema health-first de Psicologia, Medicina y Bienestar.</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div>
@@ -233,10 +233,10 @@ export function VerificationPage() {
               <div className="grid-2">
                 <div>
                   <label className="text-label-md">Título Profesional</label>
-                  <input type="text" value={profileForm.title} onChange={(e) => setProfileForm({ ...profileForm, title: e.target.value })} className="form-input" placeholder="Ej. Especialista en Seguridad" required />
+                  <input type="text" value={profileForm.title} onChange={(e) => setProfileForm({ ...profileForm, title: e.target.value })} className="form-input" placeholder="Ej. Psicologa clinica" required />
                 </div>
                 <div>
-                  <label className="text-label-md">Categoría Principal</label>
+                  <label className="text-label-md">Area health-first</label>
                   <select value={profileForm.category} onChange={(e) => setProfileForm({ ...profileForm, category: e.target.value })} className="form-input" required>
                     {Object.entries(CATEGORIES).map(([key, label]) => (
                       <option key={key} value={key}>{label}</option>
@@ -247,7 +247,7 @@ export function VerificationPage() {
 
               <div>
                 <label className="text-label-md">Biografía Profesional</label>
-                <textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} className="form-input" placeholder="Describa su experiencia y especialidades..." rows="4" required></textarea>
+                <textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} className="form-input" placeholder="Describe tu experiencia clinica, medica o de bienestar..." rows="4" required></textarea>
               </div>
 
               <div>

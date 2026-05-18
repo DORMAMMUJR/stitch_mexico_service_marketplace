@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   detectHandoffIntent,
   getGuidedFallbackReply,
+  getSensitiveHealthChatNotice,
   shouldSendHandoffSummary,
 } from './chatAssistant.js';
 
@@ -25,4 +26,11 @@ test('shouldSendHandoffSummary prevents duplicates when summarySent is true', ()
   });
 
   assert.equal(shouldSend, false);
+});
+
+test('getSensitiveHealthChatNotice separates medical data from general chat', () => {
+  const notice = getSensitiveHealthChatNotice();
+
+  assert.match(notice, /datos sensibles de salud/i);
+  assert.match(notice, /no es expediente clinico/i);
 });

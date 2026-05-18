@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAvailability } from '../hooks/useAvailability';
 
+const PENDING_BOOKING_KEY = 'pendingBookingContext';
+
 export function AvailabilitySelector({ professionalId, onBooked }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -23,6 +25,31 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
   const navigate = useNavigate();
 
   const { data: availability, isLoading: availLoading, refetch: refetchAvailability } = useAvailability(professionalId);
+  const protection = pricing?.paymentProtection || {};
+  const paymentGuarantee = pricing?.paymentGuarantee || {};
+
+  useEffect(() => {
+    if (!professionalId) return;
+    const raw = sessionStorage.getItem(PENDING_BOOKING_KEY);
+    if (!raw) return;
+
+    try {
+      const pending = JSON.parse(raw);
+      if (pending?.professionalId !== professionalId || !pending?.selectedSlot) return;
+
+      const slotDate = new Date(pending.selectedSlot);
+      if (Number.isNaN(slotDate.getTime())) return;
+
+      slotDate.setHours(0, 0, 0, 0);
+      setSelectedDate(slotDate);
+      setSelectedSlot(pending.selectedSlot);
+      setPaymentMethod(pending.paymentMethod === 'STRIPE_CARD' ? 'STRIPE_CARD' : 'BANK_TRANSFER');
+      setTransferReference(pending.transferReference || '');
+      setMessage({ type: 'success', text: 'Retomamos tu reserva. Revisa los datos y confirma el agendado.' });
+    } catch {
+      sessionStorage.removeItem(PENDING_BOOKING_KEY);
+    }
+  }, [professionalId]);
 
   useEffect(() => {
     let mounted = true;
@@ -58,7 +85,17 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
   }, []);
 
   const slotsForSelectedDate = useMemo(() => {
-    if (!selectedDate || !availability?.length) return [];
+    if (!selectedDate || !availability) return [];
+
+    if (Array.isArray(availability?.days)) {
+      const dateKey = selectedDate.toISOString().slice(0, 10);
+      const day = availability.days.find((item) => item.date === dateKey);
+      return (day?.slots || [])
+        .filter((slot) => slot.status === 'AVAILABLE')
+        .map((slot) => ({ label: slot.time, iso: slot.scheduledAt }));
+    }
+
+    if (!availability?.length) return [];
 
     const dayOfWeek = selectedDate.getDay();
     const block = availability.find((a) => a.dayOfWeek === dayOfWeek);
@@ -93,7 +130,12 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
   }, [selectedDate, availability]);
 
   const selectedDayHasAvailability = useMemo(() => {
-    if (!selectedDate || !availability?.length) return false;
+    if (!selectedDate || !availability) return false;
+    if (Array.isArray(availability?.days)) {
+      const dateKey = selectedDate.toISOString().slice(0, 10);
+      return availability.days.some((item) => item.date === dateKey && item.slots?.some((slot) => slot.status === 'AVAILABLE'));
+    }
+    if (!availability?.length) return false;
     const dayOfWeek = selectedDate.getDay();
     return availability.some((a) => a.dayOfWeek === dayOfWeek);
   }, [selectedDate, availability]);
@@ -115,7 +157,19 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
 
   const ensureAuthenticated = () => {
     if (!isAuthenticated) {
-      navigate('/login');
+      sessionStorage.setItem(
+        PENDING_BOOKING_KEY,
+        JSON.stringify({
+          professionalId,
+          selectedSlot,
+          paymentMethod,
+          transferReference: transferReference.trim(),
+          returnTo: `${window.location.pathname}${window.location.search}#booking`,
+          savedAt: new Date().toISOString(),
+        })
+      );
+      sessionStorage.setItem('redirectTo', `${window.location.pathname}${window.location.search}#booking`);
+      navigate('/register?intent=booking');
       return false;
     }
     return true;
@@ -182,6 +236,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
       setTransferReference('');
       setTransferProofFile(null);
       setTransferProofUrl('');
+      sessionStorage.removeItem(PENDING_BOOKING_KEY);
       refetchAvailability();
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
@@ -218,6 +273,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
         throw new Error('No fue posible iniciar el pago con tarjeta.');
       }
 
+      sessionStorage.removeItem(PENDING_BOOKING_KEY);
       window.location.href = checkout.checkoutUrl;
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
@@ -239,7 +295,10 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
         ) : (
           days.map((d) => {
             const dayOfWeek = d.getDay();
-            const hasAvail = availability?.some((a) => a.dayOfWeek === dayOfWeek);
+            const dateKey = d.toISOString().slice(0, 10);
+            const hasAvail = Array.isArray(availability?.days)
+              ? availability.days.some((item) => item.date === dateKey && item.slots?.some((slot) => slot.status === 'AVAILABLE'))
+              : availability?.some((a) => a.dayOfWeek === dayOfWeek);
             const isSelected = selectedDate?.toDateString() === d.toDateString();
 
             return (
@@ -329,8 +388,15 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
                 <p><strong>Comision plataforma (10%):</strong> ${Number(pricing.commission).toLocaleString('es-MX')} {pricing.currency}</p>
                 <p style={{ fontWeight: 800, color: 'var(--primary)' }}><strong>Total:</strong> ${Number(pricing.total).toLocaleString('es-MX')} {pricing.currency}</p>
                 <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
-                  Garantía de asistencia: {pricing?.paymentGuarantee?.requiredPercent || 100}% pagado al agendar.
+                  Anticipo disponible: {paymentGuarantee.depositPercent || 50}% (${Number(pricing.depositAmount || 0).toLocaleString('es-MX')} {pricing.currency}) o pago completo.
                 </p>
+                <div style={{ marginTop: '0.5rem', display: 'grid', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--on-surface-variant)', lineHeight: 1.35 }}>
+                  <p>Comision de plataforma no reembolsable: {Math.round(Number(protection?.platformCommission?.rate || pricing.commissionRate || 0) * 100)}%.</p>
+                  <p>Reembolsos: antes de 24h aplica reembolso del servicio; dentro de 24h o servicio iniciado pasa a revision.</p>
+                  <p>Disputas: ventana de {protection?.disputes?.windowHours || 72}h con revision admin.</p>
+                  <p>Recibo disponible al confirmar pago; factura bajo solicitud.</p>
+                  <p>No-show: fondos retenidos para revision.</p>
+                </div>
               </div>
             </div>
           ) : null}
@@ -369,7 +435,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
                 className="btn btn-primary profile-booking-submit"
                 style={{ width: '100%', justifyContent: 'center', opacity: canSubmitTransfer && !isLoading ? 1 : 0.5 }}
               >
-                {isLoading || transferProofUploading ? 'Procesando...' : isAuthenticated ? 'Enviar comprobante y solicitar cita' : 'Inicia sesion para agendar'}
+                {isLoading || transferProofUploading ? 'Procesando...' : isAuthenticated ? 'Enviar comprobante y solicitar cita' : 'Crear cuenta para agendar'}
               </button>
             </>
           ) : (
@@ -379,7 +445,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
               className="btn btn-primary profile-booking-submit"
               style={{ width: '100%', justifyContent: 'center', opacity: !isLoading ? 1 : 0.6 }}
             >
-              {isLoading ? 'Redirigiendo a pago...' : isAuthenticated ? 'Pagar y confirmar (tarjeta)' : 'Inicia sesion para pagar'}
+              {isLoading ? 'Redirigiendo a pago...' : isAuthenticated ? 'Pagar y confirmar (tarjeta)' : 'Crear cuenta para pagar'}
             </button>
           )}
         </div>
@@ -392,7 +458,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
       )}
 
       <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', textAlign: 'center', marginTop: '0.75rem', lineHeight: 1.35, whiteSpace: 'normal', overflowWrap: 'anywhere', maxWidth: '100%' }}>
-        La cita se confirma solo al pago exitoso.
+        La cita se confirma solo al pago exitoso. La proteccion cubre reembolsos, disputas, recibos y no-show bajo revision.
       </p>
     </div>
   );

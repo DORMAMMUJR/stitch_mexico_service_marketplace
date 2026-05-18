@@ -12,9 +12,8 @@ Reglas estrictas:
 
 const QUICK_SERVICES = [
   'Psicología',
-  'Asesoría Legal',
-  'Contabilidad',
-  'Soporte Técnico',
+  'Medicina',
+  'Bienestar',
 ];
 
 export function VisoBot() {

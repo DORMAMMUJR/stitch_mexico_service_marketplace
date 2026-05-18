@@ -25,6 +25,8 @@ export function AdminPanel() {
   const [disputes, setDisputes] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [activeProfessionals, setActiveProfessionals] = useState([]);
+  const [specialtyKpis, setSpecialtyKpis] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [operators, setOperators] = useState([]);
   const [creatingOperator, setCreatingOperator] = useState(false);
   const [operatorForm, setOperatorForm] = useState({
@@ -38,6 +40,8 @@ export function AdminPanel() {
   const [supportLink, setSupportLink] = useState(localStorage.getItem('platform_support_link') || 'https://wa.me/');
   const [linkDrafts, setLinkDrafts] = useState({});
   const [savingMap, setSavingMap] = useState({});
+  const [featuredSavingMap, setFeaturedSavingMap] = useState({});
+  const [reviewDeletingMap, setReviewDeletingMap] = useState({});
 
   const [stats, setStats] = useState(defaultStats);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -60,12 +64,14 @@ export function AdminPanel() {
     try {
       setOperationalLoading(true);
       setOperationalError('');
-      const [docsData, disputesData, apptData, prosData, opsData] = await Promise.all([
+      const [docsData, disputesData, apptData, prosData, opsData, kpisData, reviewsData] = await Promise.all([
         apiFetch('/admin/verifications/pending'),
         apiFetch('/orders/admin/disputes').catch(() => []),
         apiFetch('/admin/appointments/upcoming').catch(() => []),
         apiFetch('/admin/professionals/active').catch(() => []),
         apiFetch('/admin/operators').catch(() => []),
+        apiFetch('/admin/specialty-kpis').catch(() => []),
+        apiFetch('/admin/reviews').catch(() => []),
       ]);
 
       setPendingDocs(Array.isArray(docsData) ? docsData : []);
@@ -73,6 +79,8 @@ export function AdminPanel() {
       setAppointments(Array.isArray(apptData) ? apptData : []);
       setActiveProfessionals(Array.isArray(prosData) ? prosData : []);
       setOperators(Array.isArray(opsData) ? opsData : []);
+      setSpecialtyKpis(Array.isArray(kpisData) ? kpisData : []);
+      setReviews(Array.isArray(reviewsData) ? reviewsData : []);
 
       const draftSeed = {};
       (Array.isArray(apptData) ? apptData : []).forEach((a) => {
@@ -210,6 +218,41 @@ export function AdminPanel() {
     }
   };
 
+  const handleToggleFeatured = async (professional, nextFeatured, nextRank = professional.featuredRank || 0) => {
+    setFeaturedSavingMap((prev) => ({ ...prev, [professional.id]: true }));
+    try {
+      const updated = await apiFetch(`/admin/professionals/${professional.id}/featured`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          isFeatured: nextFeatured,
+          featuredRank: Number(nextRank || 0),
+        }),
+      });
+      setActiveProfessionals((prev) => prev.map((pro) => (pro.id === professional.id ? updated : pro)));
+      showToast('Destacado actualizado', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al actualizar destacado', 'error');
+    } finally {
+      setFeaturedSavingMap((prev) => ({ ...prev, [professional.id]: false }));
+    }
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    if (!reviewId) return;
+    const ok = window.confirm('Eliminar esta resena publica?');
+    if (!ok) return;
+    setReviewDeletingMap((prev) => ({ ...prev, [reviewId]: true }));
+    try {
+      await apiFetch(`/admin/reviews/${reviewId}`, { method: 'DELETE' });
+      setReviews((prev) => prev.filter((review) => review.id !== reviewId));
+      showToast('Resena eliminada', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al eliminar resena', 'error');
+    } finally {
+      setReviewDeletingMap((prev) => ({ ...prev, [reviewId]: false }));
+    }
+  };
+
   const handleCreateOperator = async (e) => {
     e.preventDefault();
     const payload = {
@@ -335,6 +378,7 @@ export function AdminPanel() {
     { key: 'orders', label: 'Ordenes Totales', value: stats.totalOrders },
     { key: 'pending-payment', label: 'Citas Pendientes de Pago', value: stats.pendingPaymentAppointments },
     { key: 'disputes', label: 'Disputas Activas', value: stats.activeDisputes },
+    { key: 'reviews', label: 'Resenas en Moderacion', value: reviews.length },
     {
       key: 'revenue',
       label: 'Ingresos en Ordenes Completadas',
@@ -371,7 +415,7 @@ export function AdminPanel() {
         </div>
 
         <div className="card glass-card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
-          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Gestion de Usuarios</h2>
+          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Reportes de usuarios</h2>
 
           <form onSubmit={handleUsersSearch} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.875rem' }}>
             <input
@@ -572,8 +616,65 @@ export function AdminPanel() {
           )}
         </div>
 
+        <div className="card glass-card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
+          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>KPIs por especialidad</h2>
+          {operationalLoading ? (
+            <p style={{ color: 'var(--on-surface-variant)' }}>Cargando KPIs...</p>
+          ) : specialtyKpis.length === 0 ? (
+            <p style={{ color: 'var(--on-surface-variant)' }}>Aun no hay datos por especialidad.</p>
+          ) : (
+            <div style={{ overflowX: 'auto', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '760px' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
+                    {['Especialidad', 'Profesionales', 'Verificados', 'Citas', 'Completadas', 'Rating', 'Ingresos'].map((label) => (
+                      <th key={label} style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--primary)', fontSize: '0.8rem' }}>{label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {specialtyKpis.map((row) => (
+                    <tr key={row.specialty} style={{ borderTop: '1px solid var(--outline-variant)' }}>
+                      <td style={{ padding: '0.75rem', color: 'var(--on-surface)', fontWeight: 700 }}>{row.specialty}</td>
+                      <td style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>{row.professionals}</td>
+                      <td style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>{row.verifiedProfessionals}</td>
+                      <td style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>{row.appointments}</td>
+                      <td style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>{row.completedAppointments}</td>
+                      <td style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>{row.averageRating || 'N/D'}</td>
+                      <td style={{ padding: '0.75rem', color: 'var(--primary)', fontWeight: 800 }}>${Number(row.completedRevenue || 0).toLocaleString('es-MX')} MXN</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="card glass-card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
+          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Disputas</h2>
+          {operationalLoading ? (
+            <p style={{ color: 'var(--on-surface-variant)' }}>Cargando disputas...</p>
+          ) : disputes.length === 0 ? (
+            <p style={{ color: 'var(--on-surface-variant)' }}>No hay disputas activas.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.625rem' }}>
+              {disputes.map((order) => (
+                <div key={order.id} style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.75rem', display: 'grid', gap: '0.35rem' }}>
+                  <p style={{ color: 'var(--primary)', fontWeight: 800, margin: 0 }}>Orden {order.id}</p>
+                  <p style={{ color: 'var(--on-surface-variant)', margin: 0, fontSize: '0.82rem' }}>
+                    Cliente: {order.client?.name || 'N/D'} · Profesional: {order.professional?.user?.name || 'N/D'}
+                  </p>
+                  <p style={{ color: 'var(--on-surface-variant)', margin: 0, fontSize: '0.82rem' }}>
+                    Motivo: {order.disputeReason || 'Sin motivo registrado'} · Monto: ${Number(order.agreedPrice || 0).toLocaleString('es-MX')} {order.currency || 'MXN'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
-          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Revision de documentos KYC</h2>
+          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Verificaciones pendientes</h2>
           {operationalLoading ? (
             <p>Cargando documentos...</p>
           ) : operationalError ? (
@@ -620,8 +721,8 @@ export function AdminPanel() {
           )}
         </div>
 
-        <div className="card" style={{ padding: '1rem' }}>
-          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Links directos de reserva</h2>
+        <div className="card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
+          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Control de profesionales destacados</h2>
           {operationalLoading ? (
             <p>Cargando profesionales...</p>
           ) : operationalError ? (
@@ -634,9 +735,33 @@ export function AdminPanel() {
                 <div key={pro.id} style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <div>
                     <p style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.9rem' }}>{pro.name}</p>
-                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem' }}>{pro.title || 'Profesional verificado'}</p>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem' }}>
+                      {pro.title || 'Profesional verificado'} · {pro.category} · {pro.isFeatured ? 'Destacado' : 'Normal'}
+                    </p>
                   </div>
-                  <button className="btn btn-outline" onClick={() => copyReservationLink(pro.id)}>Copiar link</button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--on-surface-variant)', fontSize: '0.8rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(pro.isFeatured)}
+                        disabled={Boolean(featuredSavingMap[pro.id])}
+                        onChange={(e) => handleToggleFeatured(pro, e.target.checked)}
+                      />
+                      Destacar
+                    </label>
+                    <input
+                      className="input-field"
+                      type="number"
+                      min="0"
+                      max="999"
+                      value={pro.featuredRank || 0}
+                      disabled={Boolean(featuredSavingMap[pro.id])}
+                      onChange={(e) => handleToggleFeatured(pro, Boolean(pro.isFeatured), e.target.value)}
+                      style={{ width: '88px', padding: '0.45rem 0.55rem' }}
+                      aria-label="Orden destacado"
+                    />
+                    <button className="btn btn-outline" onClick={() => copyReservationLink(pro.id)}>Copiar link</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -644,7 +769,7 @@ export function AdminPanel() {
         </div>
 
         <div className="card" style={{ padding: '1rem' }}>
-          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Asignar link de videollamada por cita</h2>
+          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Citas y pagos</h2>
           {operationalLoading ? (
             <p>Cargando citas...</p>
           ) : operationalError ? (
@@ -689,6 +814,42 @@ export function AdminPanel() {
                       {savingMap[appt.id] ? 'Generando...' : 'Generar sala automatica'}
                     </button>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card glass-card" style={{ padding: '1rem', marginTop: '1.25rem' }}>
+          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Moderacion de resenas</h2>
+          {operationalLoading ? (
+            <p style={{ color: 'var(--on-surface-variant)' }}>Cargando resenas...</p>
+          ) : reviews.length === 0 ? (
+            <p style={{ color: 'var(--on-surface-variant)' }}>No hay resenas publicadas.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.625rem' }}>
+              {reviews.map((review) => (
+                <div key={review.id} style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.75rem', display: 'grid', gap: '0.45rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <div>
+                      <p style={{ color: 'var(--primary)', fontWeight: 800, margin: 0 }}>{review.rating}/5 · {review.professional?.name || 'Profesional'}</p>
+                      <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8rem', margin: 0 }}>
+                        Autor: {review.author?.name || 'Cliente'} · {review.createdAt ? new Date(review.createdAt).toLocaleString('es-MX') : 'N/D'}
+                      </p>
+                    </div>
+                    <button
+                      className="btn btn-outline"
+                      style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                      onClick={() => handleDeleteReview(review.id)}
+                      disabled={Boolean(reviewDeletingMap[review.id])}
+                    >
+                      {reviewDeletingMap[review.id] ? 'Eliminando...' : 'Eliminar'}
+                    </button>
+                  </div>
+                  <p style={{ color: 'var(--on-surface)', margin: 0, lineHeight: 1.5 }}>{review.comment || 'Sin comentario'}</p>
+                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem', margin: 0 }}>
+                    {review.appointment?.status ? `Cita ${review.appointment.status}` : 'Sin cita vinculada'} · {review.isVerified ? 'Verificada' : 'No verificada'}
+                  </p>
                 </div>
               ))}
             </div>

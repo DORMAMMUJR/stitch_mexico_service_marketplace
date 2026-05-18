@@ -29,6 +29,10 @@ export function getGuidedFallbackReply(professionalName) {
   return `Ahora mismo no pude consultar al asistente inteligente. Para avanzar, usa el calendario visible arriba en el perfil de ${name} y elige dia y horario disponible para agendar tu cita.`;
 }
 
+export function getSensitiveHealthChatNotice() {
+  return 'Los datos sensibles de salud deben enviarse solo en el canal medico sensible. Este chat no es expediente clinico y no sustituye consulta, diagnostico ni tratamiento.';
+}
+
 export function shouldSendHandoffSummary({ summarySent, nextAction, userMessage }) {
   if (summarySent) return false;
   if (nextAction === 'HANDOFF_HUMAN') return true;

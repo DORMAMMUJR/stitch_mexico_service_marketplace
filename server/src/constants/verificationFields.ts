@@ -12,3 +12,12 @@ export const CRITICAL_FIELDS = ['title', 'category'];
  * Campos que pueden editarse sin afectar el estado de verificación.
  */
 export const MINOR_FIELDS = ['bio', 'hourlyRate', 'city', 'state', 'latitude', 'longitude'];
+
+export const PROFESSIONAL_CATEGORIES = ['PSYCHOLOGY', 'MEDICINE', 'WELLNESS'] as const;
+
+export const DEFAULT_PROFESSIONAL_CATEGORY = 'PSYCHOLOGY';
+
+export function normalizeProfessionalCategory(value: unknown) {
+  const normalized = String(value || DEFAULT_PROFESSIONAL_CATEGORY).trim().toUpperCase();
+  return PROFESSIONAL_CATEGORIES.includes(normalized as any) ? normalized : null;
+}

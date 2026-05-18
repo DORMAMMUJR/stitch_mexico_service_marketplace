@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { useChat } from '../hooks/useChat';
+import { getSensitiveHealthChatNotice } from '../lib/chatAssistant';
 
 /**
  * @typedef {'bot' | 'user'} ChatSender
@@ -153,6 +154,9 @@ export function ChatWidget({ professionalName, professionalId }) {
   return (
     <section className="card glass-card profile-chat-widget profile-chat-shell profile-chat-root" aria-label="Chat con asistente">
       <ChatHeader professionalNameUpper={professionalNameUpper} />
+      <div className="profile-chat-health-notice">
+        {getSensitiveHealthChatNotice()}
+      </div>
       {/* Lista separada para evitar re-render al teclear en el input. */}
       <MessageList messages={messages} isTyping={isTyping} />
       <ChatInput

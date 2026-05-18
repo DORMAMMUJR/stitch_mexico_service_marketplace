@@ -4,10 +4,10 @@ import { Footer } from '../components/Footer';
 
 export function MarketplacePage() {
   const demoProducts = [
-    { id: 1, name: 'Kit de Herramientas Pro', price: '$1,890 MXN', tag: 'Hogar', stock: 'Disponible' },
-    { id: 2, name: 'Agenda Terapéutica 2026', price: '$420 MXN', tag: 'Salud', stock: 'Disponible' },
-    { id: 3, name: 'Plantilla Legal Express', price: '$790 MXN', tag: 'Legal', stock: 'Últimas piezas' },
-    { id: 4, name: 'Pack Branding Freelancer', price: '$1,250 MXN', tag: 'Digital', stock: 'Disponible' },
+    { id: 1, name: 'Diario de bienestar', price: '$390 MXN', tag: 'Bienestar', stock: 'Disponible' },
+    { id: 2, name: 'Agenda terapeutica 2026', price: '$420 MXN', tag: 'Salud', stock: 'Disponible' },
+    { id: 3, name: 'Guia de preparacion medica', price: '$290 MXN', tag: 'Medicina', stock: 'Disponible' },
+    { id: 4, name: 'Plan de seguimiento psicologico', price: '$520 MXN', tag: 'Psicologia', stock: 'Disponible' },
   ];
 
   return (
@@ -19,7 +19,7 @@ export function MarketplacePage() {
             Marketplace
           </h1>
           <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem' }}>
-            Explora productos recomendados por profesionales. Compra rápida y clara.
+            Explora productos recomendados por profesionales. Compra rÃ¡rapida y clara.
           </p>
         </section>
 

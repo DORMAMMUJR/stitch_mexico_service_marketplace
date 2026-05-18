@@ -70,7 +70,7 @@ function inferVideoProviderFromUrl(url) {
 
 function isVideoConfigurableStatus(status) {
   const normalized = String(status || '').toUpperCase();
-  return normalized === 'SCHEDULED' || normalized === 'IN_PROGRESS';
+  return normalized === 'CONFIRMED' || normalized === 'SCHEDULED' || normalized === 'IN_PROGRESS';
 }
 
 function parseAppointmentMeta(notes) {
@@ -118,6 +118,40 @@ function canConfirmTransferPayment(appointment) {
   const paymentStatus = String(payment.status || '').toUpperCase();
   const status = String(appointment?.status || '').toUpperCase();
   return status === 'PENDING_PAYMENT' && method === 'BANK_TRANSFER' && paymentStatus === 'TRANSFER_SUBMITTED';
+}
+
+function canConfirmAppointment(appointment) {
+  const status = String(appointment?.status || '').toUpperCase();
+  return ['REQUESTED', 'PENDING_PAYMENT', 'SCHEDULED'].includes(status) && !canConfirmTransferPayment(appointment);
+}
+
+function getAppointmentAmount(appointment) {
+  const meta = parseAppointmentMeta(appointment?.notes);
+  const payment = meta?.payment || {};
+  return Number(payment.total || payment.basePrice || appointment?.total || 0) || 0;
+}
+
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    maximumFractionDigits: 0,
+  });
+}
+
+function getVerificationLabel(profile) {
+  if (profile?.isVerified) return 'Verificado';
+  const status = String(profile?.verificationStatus || '').toUpperCase();
+  if (status === 'IN_REVIEW') return 'En revision';
+  if (status === 'REJECTED') return 'Requiere correccion';
+  return 'Pendiente';
+}
+
+function isUpcomingAppointment(appointment) {
+  const status = String(appointment?.status || '').toUpperCase();
+  const scheduledTime = appointment?.scheduledAt ? new Date(appointment.scheduledAt).getTime() : 0;
+  return ['REQUESTED', 'PENDING_PAYMENT', 'CONFIRMED', 'SCHEDULED', 'IN_PROGRESS'].includes(status)
+    && (!scheduledTime || scheduledTime >= Date.now());
 }
 
 const DASHBOARD_DEFAULT_TAB = 'overview';
@@ -169,6 +203,7 @@ export function DashboardPage() {
   const [activeVideoSession, setActiveVideoSession] = useState(null);
   const [selectedClientAppointment, setSelectedClientAppointment] = useState(null);
   const [hasActivePayments, setHasActivePayments] = useState(false);
+  const [professionalProfile, setProfessionalProfile] = useState(null);
 
   const [dashboardData, setDashboardData] = useState({
     profileViews: 0,
@@ -186,17 +221,31 @@ export function DashboardPage() {
     newPassword: '',
     title: '',
     bio: '',
-    category: 'HEALTH_WELLNESS',
+    category: 'PSYCHOLOGY',
     medicalSpecialty: '',
+    treatedConditions: '',
     consultationModes: [],
+    officeAddress: '',
+    experienceYears: '',
+    certifications: '',
+    associations: '',
+    emergencyDisclaimerAccepted: false,
+    serviceAreas: '',
+    languages: '',
     acceptedInsurers: [],
     slotIntervalMinutes: 30,
+    presencialRate: '',
+    telemedicineRate: '',
+    homeVisitRate: '',
     hourlyRate: '',
   });
 
   const [savingProfile, setSavingProfile] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [officePhotos, setOfficePhotos] = useState([]);
+  const [savingOfficePhoto, setSavingOfficePhoto] = useState(false);
   const avatarInputRef = useRef(null);
+  const officePhotoInputRef = useRef(null);
 
   const [availabilities, setAvailabilities] = useState([]);
 
@@ -205,11 +254,11 @@ export function DashboardPage() {
       { id: 'overview', label: 'Tablero', icon: 'dashboard' },
       { id: 'appointments', label: 'Citas', icon: 'event' },
       { id: 'messages', label: 'Mensajes', icon: 'forum' },
-      { id: 'profile', label: 'Perfil', icon: 'person' },
+      { id: 'profile', label: isProfessional ? 'Perfil/verificacion' : 'Perfil', icon: 'person' },
     ];
 
     if (isProfessional) {
-      base.push({ id: 'availability', label: 'Horario', icon: 'schedule' });
+      base.push({ id: 'availability', label: 'Disponibilidad', icon: 'schedule' });
     }
 
     return base;
@@ -272,11 +321,14 @@ export function DashboardPage() {
         const lastName = lastParts.join(' ');
 
         if (isProfessional) {
+          setProfessionalProfile(proProfileJson || null);
           setDashboardData({
             appointmentsScheduled: normalizedAppointments.length,
             completedAppointments: normalizedAppointments.filter((a) => String(a.status || '').toUpperCase() === 'COMPLETED').length,
             profileViews: 0,
-            totalRevenue: 0,
+            totalRevenue: normalizedAppointments
+              .filter((a) => String(a.status || '').toUpperCase() === 'COMPLETED')
+              .reduce((sum, a) => sum + getAppointmentAmount(a), 0),
           });
           setHasActivePayments(Boolean(proProfileJson?.stripeAccountId));
 
@@ -289,13 +341,25 @@ export function DashboardPage() {
             newPassword: '',
             title: proProfileJson?.title || '',
             bio: proProfileJson?.bio || '',
-            category: proProfileJson?.category || 'HEALTH_WELLNESS',
+            category: proProfileJson?.category || 'PSYCHOLOGY',
             medicalSpecialty: proProfileJson?.medicalSpecialty || '',
+            treatedConditions: Array.isArray(proProfileJson?.treatedConditions) ? proProfileJson.treatedConditions.join(', ') : '',
             consultationModes: Array.isArray(proProfileJson?.consultationModes) ? proProfileJson.consultationModes : [],
+            officeAddress: proProfileJson?.officeAddress || '',
+            experienceYears: proProfileJson?.experienceYears ?? '',
+            certifications: Array.isArray(proProfileJson?.certifications) ? proProfileJson.certifications.join(', ') : '',
+            associations: Array.isArray(proProfileJson?.associations) ? proProfileJson.associations.join(', ') : '',
+            emergencyDisclaimerAccepted: Boolean(proProfileJson?.emergencyDisclaimerAccepted),
+            serviceAreas: Array.isArray(proProfileJson?.serviceAreas) ? proProfileJson.serviceAreas.join(', ') : '',
+            languages: Array.isArray(proProfileJson?.languages) ? proProfileJson.languages.join(', ') : '',
             acceptedInsurers: Array.isArray(proProfileJson?.acceptedInsurers) ? proProfileJson.acceptedInsurers : [],
             slotIntervalMinutes: SLOT_INTERVAL_OPTIONS.includes(Number(proProfileJson?.slotIntervalMinutes)) ? Number(proProfileJson.slotIntervalMinutes) : 30,
+            presencialRate: proProfileJson?.presencialRate || '',
+            telemedicineRate: proProfileJson?.telemedicineRate || '',
+            homeVisitRate: proProfileJson?.homeVisitRate || '',
             hourlyRate: proProfileJson?.hourlyRate || '',
           });
+          setOfficePhotos(Array.isArray(proProfileJson?.portfolioItems) ? proProfileJson.portfolioItems : []);
 
           if (Array.isArray(proAvailabilityJson) && proAvailabilityJson.length > 0) {
             const merged = defaultAvailabilities.map((def) => {
@@ -324,13 +388,25 @@ export function DashboardPage() {
             newPassword: '',
             title: '',
             bio: '',
-            category: 'HEALTH_WELLNESS',
+            category: 'PSYCHOLOGY',
             medicalSpecialty: '',
+            treatedConditions: '',
             consultationModes: [],
+            officeAddress: '',
+            experienceYears: '',
+            certifications: '',
+            associations: '',
+            emergencyDisclaimerAccepted: false,
+            serviceAreas: '',
+            languages: '',
             acceptedInsurers: [],
             slotIntervalMinutes: 30,
+            presencialRate: '',
+            telemedicineRate: '',
+            homeVisitRate: '',
             hourlyRate: '',
           });
+          setOfficePhotos([]);
         }
       })
       .catch(() => showToast('No se pudieron cargar todos los datos del panel', 'error'))
@@ -356,6 +432,31 @@ export function DashboardPage() {
     });
   }, [appointments, isProfessional]);
 
+  const professionalPanelData = useMemo(() => {
+    const upcoming = appointments
+      .filter(isUpcomingAppointment)
+      .sort((a, b) => {
+        const aTime = a?.scheduledAt ? new Date(a.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
+        const bTime = b?.scheduledAt ? new Date(b.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+      });
+    const history = appointments.filter((appointment) => !isUpcomingAppointment(appointment));
+    const completed = appointments.filter((appointment) => String(appointment.status || '').toUpperCase() === 'COMPLETED');
+    const pendingActions = appointments.filter((appointment) => {
+      const status = String(appointment.status || '').toUpperCase();
+      return ['REQUESTED', 'PENDING_PAYMENT', 'CONFIRMED', 'SCHEDULED', 'IN_PROGRESS'].includes(status);
+    });
+
+    return {
+      upcoming,
+      history,
+      pendingActions,
+      revenue: completed.reduce((sum, appointment) => sum + getAppointmentAmount(appointment), 0),
+      activeAvailabilityDays: availabilities.filter((slot) => slot.active).length,
+      verificationLabel: getVerificationLabel(professionalProfile),
+    };
+  }, [appointments, availabilities, professionalProfile]);
+
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -370,6 +471,36 @@ export function DashboardPage() {
       showToast(err.message || 'Error al actualizar foto', 'error');
     } finally {
       if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
+  const handleOfficePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('image', file);
+    setSavingOfficePhoto(true);
+    try {
+      const data = await apiFetch('/professionals/me/portfolio', { method: 'POST', body: formData });
+      if (data?.portfolioItem) {
+        setOfficePhotos((prev) => [data.portfolioItem, ...prev]);
+      }
+      showToast('Foto de consultorio agregada', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al subir foto de consultorio', 'error');
+    } finally {
+      setSavingOfficePhoto(false);
+      if (officePhotoInputRef.current) officePhotoInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteOfficePhoto = async (itemId) => {
+    try {
+      await apiFetch(`/professionals/me/portfolio/${itemId}`, { method: 'DELETE' });
+      setOfficePhotos((prev) => prev.filter((item) => item.id !== itemId));
+      showToast('Foto eliminada', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al eliminar foto', 'error');
     }
   };
 
@@ -548,9 +679,20 @@ export function DashboardPage() {
           bio: profileForm.bio,
           category: profileForm.category,
           medicalSpecialty: profileForm.medicalSpecialty || null,
+          treatedConditions: profileForm.treatedConditions,
           consultationModes: Array.isArray(profileForm.consultationModes) ? profileForm.consultationModes : [],
+          officeAddress: profileForm.officeAddress,
+          experienceYears: profileForm.experienceYears === '' ? null : Number(profileForm.experienceYears),
+          certifications: profileForm.certifications,
+          associations: profileForm.associations,
+          emergencyDisclaimerAccepted: Boolean(profileForm.emergencyDisclaimerAccepted),
+          serviceAreas: profileForm.serviceAreas,
+          languages: profileForm.languages,
           acceptedInsurers: Array.isArray(profileForm.acceptedInsurers) ? profileForm.acceptedInsurers : [],
           slotIntervalMinutes: Number(profileForm.slotIntervalMinutes) || 30,
+          presencialRate: profileForm.presencialRate,
+          telemedicineRate: profileForm.telemedicineRate,
+          homeVisitRate: profileForm.homeVisitRate,
           hourlyRate: profileForm.hourlyRate,
         };
 
@@ -580,6 +722,23 @@ export function DashboardPage() {
       showToast('Pago confirmado y cita agendada', 'success');
     } catch (err) {
       showToast(err.message || 'Error al confirmar pago', 'error');
+    }
+  };
+
+  const handleConfirmAppointment = async (appointmentId) => {
+    setAppointmentActionMap((prev) => ({ ...prev, [appointmentId]: 'confirm' }));
+    try {
+      const data = await apiFetch(`/appointments/${appointmentId}/confirm`, {
+        method: 'PATCH',
+      });
+      setAppointments((prev) => prev.map((a) => (
+        a.id === appointmentId ? { ...a, ...(data.appointment || {}), _cancelling: false } : a
+      )));
+      showToast('Cita confirmada', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al confirmar cita', 'error');
+    } finally {
+      setAppointmentActionMap((prev) => ({ ...prev, [appointmentId]: '' }));
     }
   };
 
@@ -644,8 +803,8 @@ export function DashboardPage() {
 
       <main className="container dashboard-premium" style={{ padding: '2rem 1rem 3rem' }}>
         <header style={{ marginBottom: '1.5rem' }}>
-          <p className="text-label-md" style={{ color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>PANEL UNIFICADO</p>
-          <h1 className="text-headline-md" style={{ color: 'var(--primary)' }}>{isProfessional ? 'Dashboard cliente + profesional' : 'Dashboard cliente'}</h1>
+          <p className="text-label-md" style={{ color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{isProfessional ? 'PANEL DEL DOCTOR' : 'PANEL DEL CLIENTE'}</p>
+          <h1 className="text-headline-md" style={{ color: 'var(--primary)' }}>{isProfessional ? 'Consultas, pacientes y operaciones' : 'Dashboard cliente'}</h1>
         </header>
 
         <DashboardTabNav tabs={tabs} activeTab={activeTab} onChange={handleTabChange} />
@@ -654,8 +813,8 @@ export function DashboardPage() {
           <section style={{ display: 'grid', gap: '0.875rem' }}>
             <div className="dashboard-kpi-grid">
               <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas agendadas</p>
-                <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.appointmentsScheduled}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{isProfessional ? 'Citas proximas' : 'Citas agendadas'}</p>
+                <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{isProfessional ? professionalPanelData.upcoming.length : dashboardData.appointmentsScheduled}</p>
               </div>
 
               <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
@@ -665,45 +824,41 @@ export function DashboardPage() {
 
               <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
                 <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Ingresos</p>
-                <p style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--on-surface-variant)' }}>Proximamente</p>
+                <p style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)' }}>{isProfessional ? formatCurrency(professionalPanelData.revenue) : 'Proximamente'}</p>
               </div>
 
               {isProfessional && (
                 <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Vistas de perfil</p>
-                  <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.profileViews}</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Perfil/verificacion</p>
+                  <p style={{ fontSize: '1.1rem', fontWeight: 800, color: professionalProfile?.isVerified ? '#16a34a' : 'var(--secondary)' }}>{professionalPanelData.verificationLabel}</p>
                 </div>
               )}
             </div>
 
             {isProfessional && (
-              <div className="card glass-card" style={{ padding: '0.875rem 1rem', border: '1px solid var(--outline-variant)' }}>
-                {hasActivePayments ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: 'var(--secondary-container)', color: 'var(--on-secondary-container)', borderRadius: '9999px', padding: '0.35rem 0.7rem', fontSize: '0.8125rem', fontWeight: 700 }}>
-                    Estado de pagos: Activo <span>{'\u2713'}</span>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => navigate('/settings')}
-                  >
-                    Configurar pagos para recibir depositos {'\u2192'}
-                  </button>
+              <div className="card glass-card" style={{ padding: '0.875rem 1rem', border: '1px solid var(--outline-variant)', display: 'flex', gap: '0.625rem', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-primary" onClick={() => handleTabChange('appointments')}>Gestionar citas</button>
+                <button type="button" className="btn btn-outline" onClick={() => handleTabChange('availability')}>Editar disponibilidad</button>
+                <button type="button" className="btn btn-outline" onClick={() => handleTabChange('profile')}>Perfil/verificacion</button>
+                <button type="button" className="btn btn-outline" onClick={() => handleTabChange('messages')}>Mensajes</button>
+                {!hasActivePayments && (
+                  <button type="button" className="btn btn-outline" onClick={() => navigate('/settings')}>Configurar pagos</button>
                 )}
               </div>
             )}
 
             <div className="card glass-card" style={{ padding: '1rem' }}>
-              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>Actividad reciente</h3>
-              {appointments.slice(0, 4).length === 0 ? (
-                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>Sin actividad reciente.</p>
+              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>{isProfessional ? 'Citas proximas' : 'Actividad reciente'}</h3>
+              {(isProfessional ? professionalPanelData.upcoming : appointments).slice(0, 4).length === 0 ? (
+                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>{isProfessional ? 'Sin citas proximas.' : 'Sin actividad reciente.'}</p>
               ) : (
                 <div style={{ display: 'grid', gap: '0.5rem' }}>
-                  {appointments.slice(0, 4).map((app) => {
+                  {(isProfessional ? professionalPanelData.upcoming : appointments).slice(0, 4).map((app) => {
                     const paymentSummary = getAppointmentPaymentSummary(app);
+                    const counterpart = isProfessional ? app.client : app.professional?.user;
                     return (
                       <div key={app.id} style={{ padding: '0.625rem 0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)' }}>
+                        <p style={{ color: 'var(--secondary)', fontWeight: 700, fontSize: '0.8rem' }}>{counterpart?.name || (isProfessional ? 'Paciente' : 'Profesional')}</p>
                         <p style={{ color: 'var(--on-surface)', fontWeight: 600, fontSize: '0.875rem' }}>{app.dateLabel} · {app.timeLabel}</p>
                         <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem' }}>{app.status}</p>
                         {isProfessional && paymentSummary && (
@@ -717,12 +872,38 @@ export function DashboardPage() {
                 </div>
               )}
             </div>
+
+            {isProfessional && (
+              <div className="dashboard-kpi-grid">
+                <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Acciones pendientes</p>
+                  <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{professionalPanelData.pendingActions.length}</p>
+                </div>
+                <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Dias disponibles</p>
+                  <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{professionalPanelData.activeAvailabilityDays}</p>
+                </div>
+                <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Pacientes/historial</p>
+                  <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{professionalPanelData.history.length}</p>
+                </div>
+                <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Pagos</p>
+                  <p style={{ fontSize: '1.1rem', fontWeight: 800, color: hasActivePayments ? '#16a34a' : 'var(--secondary)' }}>{hasActivePayments ? 'Activo' : 'Pendiente'}</p>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
         {activeTab === 'appointments' && (
           <section className="card glass-card" style={{ padding: '1rem' }}>
-            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '1rem', color: 'var(--primary)' }}>Mis citas</h2>
+            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '0.25rem', color: 'var(--primary)' }}>{isProfessional ? 'Pacientes, citas proximas e historicas' : 'Mis citas'}</h2>
+            {isProfessional && (
+              <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                Proximas: <strong>{professionalPanelData.upcoming.length}</strong> · Historicas: <strong>{professionalPanelData.history.length}</strong>
+              </p>
+            )}
             {appointments.length === 0 ? (
               <p style={{ color: 'var(--on-surface-variant)' }}>No hay citas registradas.</p>
             ) : (
@@ -741,7 +922,10 @@ export function DashboardPage() {
                   const isSavingVideoConfig = Boolean(videoConfigSavingMap[app.id]);
                   const paymentSummary = getAppointmentPaymentSummary(app);
                   const showConfirmTransferButton = isProfessional && canConfirmTransferPayment(app);
-                  const canResolveAppointment = isProfessional && (normalizedStatus === 'SCHEDULED' || normalizedStatus === 'IN_PROGRESS');
+                  const showConfirmButton = isProfessional && canConfirmAppointment(app);
+                  const canResolveAppointment = isProfessional && (normalizedStatus === 'CONFIRMED' || normalizedStatus === 'SCHEDULED' || normalizedStatus === 'IN_PROGRESS');
+                  const canCancelAppointment = ['REQUESTED', 'CONFIRMED', 'SCHEDULED', 'PENDING_PAYMENT'].includes(normalizedStatus);
+                  const isConfirmingAppointment = appointmentActionMap[app.id] === 'confirm';
                   const isCompletingAppointment = appointmentActionMap[app.id] === 'complete';
                   const isNoShowAppointment = appointmentActionMap[app.id] === 'no-show';
 
@@ -844,6 +1028,17 @@ export function DashboardPage() {
                             Confirmar pago y agendar
                           </button>
                         )}
+                        {showConfirmButton && (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => handleConfirmAppointment(app.id)}
+                            disabled={isConfirmingAppointment}
+                            style={{ marginTop: '0.375rem', fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
+                          >
+                            {isConfirmingAppointment ? 'Confirmando...' : 'Confirmar cita'}
+                          </button>
+                        )}
                         {canResolveAppointment && (
                           <div style={{ marginTop: '0.375rem', display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
                             <button
@@ -867,7 +1062,7 @@ export function DashboardPage() {
                           </div>
                         )}
                       </div>
-                      {app.status === 'SCHEDULED' && (
+                      {canCancelAppointment && (
                         <button onClick={() => handleCancelAppointment(app.id)} disabled={app._cancelling} className="btn btn-outline" style={{ borderColor: 'var(--error)', color: 'var(--error)' }}>
                           {app._cancelling ? 'Cancelando...' : 'Cancelar'}
                         </button>
@@ -888,7 +1083,17 @@ export function DashboardPage() {
 
         {activeTab === 'profile' && (
           <section className="card glass-card" style={{ padding: '1rem' }}>
-            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '1rem', color: 'var(--primary)' }}>Ajustes de perfil</h2>
+            <h2 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '1rem', color: 'var(--primary)' }}>{isProfessional ? 'Perfil y verificacion' : 'Ajustes de perfil'}</h2>
+
+            {isProfessional && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', padding: '0.875rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.02)', marginBottom: '1rem' }}>
+                <div>
+                  <p style={{ margin: 0, color: 'var(--on-surface-variant)', fontSize: '0.75rem' }}>Estado de verificacion</p>
+                  <p style={{ margin: 0, color: professionalProfile?.isVerified ? '#16a34a' : 'var(--secondary)', fontWeight: 800 }}>{professionalPanelData.verificationLabel}</p>
+                </div>
+                <button type="button" className="btn btn-outline" onClick={() => navigate('/verification')}>Subir documentos</button>
+              </div>
+            )}
 
             <form onSubmit={handleSaveProfile} style={{ display: 'grid', gap: '0.75rem', maxWidth: '700px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', marginBottom: '0.25rem' }}>
@@ -922,6 +1127,43 @@ export function DashboardPage() {
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
                   </select>
+                  <textarea className="input-field" placeholder="Padecimientos que atiende (separados por coma)" rows={2} value={profileForm.treatedConditions} onChange={(e) => setProfileForm((p) => ({ ...p, treatedConditions: e.target.value }))} />
+                  <input className="input-field" placeholder="Direccion de consultorio" value={profileForm.officeAddress} onChange={(e) => setProfileForm((p) => ({ ...p, officeAddress: e.target.value }))} />
+                  <input className="input-field" type="number" min="0" step="1" placeholder="Años de experiencia" value={profileForm.experienceYears} onChange={(e) => setProfileForm((p) => ({ ...p, experienceYears: e.target.value }))} />
+                  <textarea className="input-field" placeholder="Certificaciones (separadas por coma)" rows={2} value={profileForm.certifications} onChange={(e) => setProfileForm((p) => ({ ...p, certifications: e.target.value }))} />
+                  <textarea className="input-field" placeholder="Asociaciones profesionales (separadas por coma)" rows={2} value={profileForm.associations} onChange={(e) => setProfileForm((p) => ({ ...p, associations: e.target.value }))} />
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', padding: '0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)', color: 'var(--on-surface)', fontSize: '0.875rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={profileForm.emergencyDisclaimerAccepted}
+                      onChange={(e) => setProfileForm((p) => ({ ...p, emergencyDisclaimerAccepted: e.target.checked }))}
+                      style={{ marginTop: '0.2rem', accentColor: 'var(--secondary)' }}
+                    />
+                    Entiendo que mi perfil debe mostrar que no atiendo emergencias medicas por esta plataforma.
+                  </label>
+                  <div style={{ display: 'grid', gap: '0.65rem', padding: '0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--on-surface-variant)', fontWeight: 700 }}>Fotos reales del consultorio</p>
+                      <input ref={officePhotoInputRef} type="file" accept="image/*" onChange={handleOfficePhotoUpload} style={{ display: 'none' }} />
+                      <button type="button" className="btn btn-outline" onClick={() => officePhotoInputRef.current?.click()} disabled={savingOfficePhoto}>
+                        {savingOfficePhoto ? 'Subiendo...' : 'Agregar foto'}
+                      </button>
+                    </div>
+                    {officePhotos.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.5rem' }}>
+                        {officePhotos.map((item) => (
+                          <div key={item.id} style={{ position: 'relative', minHeight: '88px' }}>
+                            <img src={item.imageUrl} alt="Consultorio" style={{ width: '100%', height: '88px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }} />
+                            <button type="button" onClick={() => handleDeleteOfficePhoto(item.id)} aria-label="Eliminar foto" style={{ position: 'absolute', top: '0.35rem', right: '0.35rem', width: '1.75rem', height: '1.75rem', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(10,14,21,0.82)', color: 'var(--primary)', cursor: 'pointer' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>close</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <input className="input-field" placeholder="Zonas de atencion (separadas por coma)" value={profileForm.serviceAreas} onChange={(e) => setProfileForm((p) => ({ ...p, serviceAreas: e.target.value }))} />
+                  <input className="input-field" placeholder="Idiomas (separados por coma)" value={profileForm.languages} onChange={(e) => setProfileForm((p) => ({ ...p, languages: e.target.value }))} />
                   <div style={{ display: 'grid', gap: '0.5rem', padding: '0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)' }}>
                     <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--on-surface-variant)', fontWeight: 700 }}>Modalidades de consulta</p>
                     <div style={{ display: 'grid', gap: '0.4rem' }}>
@@ -977,6 +1219,11 @@ export function DashboardPage() {
                       <option key={minutes} value={minutes}>{minutes} minutos por cita</option>
                     ))}
                   </select>
+                  <div style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+                    <input className="input-field" type="number" min="0" step="50" placeholder="Precio presencial" value={profileForm.presencialRate} onChange={(e) => setProfileForm((p) => ({ ...p, presencialRate: e.target.value }))} />
+                    <input className="input-field" type="number" min="0" step="50" placeholder="Precio online" value={profileForm.telemedicineRate} onChange={(e) => setProfileForm((p) => ({ ...p, telemedicineRate: e.target.value }))} />
+                    <input className="input-field" type="number" min="0" step="50" placeholder="Precio domicilio" value={profileForm.homeVisitRate} onChange={(e) => setProfileForm((p) => ({ ...p, homeVisitRate: e.target.value }))} />
+                  </div>
                   <input className="input-field" placeholder="Costos/Tarifas" value={profileForm.hourlyRate} onChange={(e) => setProfileForm((p) => ({ ...p, hourlyRate: e.target.value }))} />
                 </>
               )}

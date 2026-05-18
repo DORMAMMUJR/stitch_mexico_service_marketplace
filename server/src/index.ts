@@ -22,7 +22,6 @@ import multer from 'multer';
 import multerS3 from 'multer-s3';
 import { S3Client } from '@aws-sdk/client-s3';
 import { getStripe } from './lib/stripe';
-import Stripe from 'stripe';
 import { prisma } from './lib/db';
 import { EscrowStateMachine } from './lib/escrow';
 import { authenticate } from './middleware/auth';
@@ -31,12 +30,13 @@ import { notifyUser } from './lib/notifications';
 import { logSecurityAuditEvent } from './lib/securityAudit';
 import { verifyWebhookSignature } from './middleware/webhookVerify';
 import { adaptBankTransferWebhook } from './lib/bankTransferAdapter';
-import { webhookLimiter } from './middleware/rateLimiter';
+import { apiLimiter, webhookLimiter } from './middleware/rateLimiter';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
-app.set('trust proxy', 1);
+const trustProxyHops = Number(env.TRUST_PROXY_HOPS ?? (env.NODE_ENV === 'production' ? '1' : '0'));
+app.set('trust proxy', Number.isFinite(trustProxyHops) && trustProxyHops > 0 ? trustProxyHops : false);
 const port = process.env.PORT || 3000;
 
 // âœ… AGREGAR AQUÃ â€” antes de cualquier otro middleware
@@ -107,6 +107,31 @@ function isValidSlotForInterval(date: Date, intervalMinutes: number): boolean {
   return date.getSeconds() === 0 && date.getMilliseconds() === 0 && date.getMinutes() % intervalMinutes === 0;
 }
 
+async function isStripeEventProcessed(eventId: string): Promise<boolean> {
+  const existing = await prisma.securityAuditEvent.findFirst({
+    where: {
+      action: 'stripe.webhook.processed',
+      conversationId: eventId,
+    },
+    select: { id: true },
+  });
+  return Boolean(existing);
+}
+
+async function markStripeEventProcessed(event: any): Promise<void> {
+  await prisma.securityAuditEvent.create({
+    data: {
+      action: 'stripe.webhook.processed',
+      conversationId: event.id,
+      metadata: {
+        eventId: event.id,
+        eventType: event.type,
+        livemode: event.livemode,
+      } as any,
+    },
+  });
+}
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
@@ -148,21 +173,22 @@ app.post('/api/webhooks/stripe', webhookLimiter, express.raw({ type: 'applicatio
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  res.json({ received: true });
-
-  queueMicrotask(async () => {
-    try {
+  try {
+    if (await isStripeEventProcessed(event.id)) {
+      return res.status(200).json({ received: true, idempotent: true });
+    }
     if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object as any;
       const orderId = paymentIntent.metadata.orderId;
 
       if (orderId) {
-        logger.info({ orderId }, 'Pago completado. TransiciÃ³n a FONDOS_EN_ESCROW');
+        logger.info({ orderId }, 'Pago completado. Transicion a FONDOS_EN_ESCROW');
         await EscrowStateMachine.transition(orderId, 'FONDOS_EN_ESCROW', {
           stripePaymentIntentId: paymentIntent.id,
+          stripeEventId: event.id,
         });
       } else {
-        logger.warn('PaymentIntent succeeded pero no tiene orderId en metadata.');
+        logger.warn({ eventId: event.id }, 'PaymentIntent succeeded sin orderId en metadata.');
       }
     }
 
@@ -193,117 +219,120 @@ app.post('/api/webhooks/stripe', webhookLimiter, express.raw({ type: 'applicatio
             const slotIntervalMinutes = parseProfessionalSlotInterval((appointment.professional as any).slotIntervalMinutes);
             if (!isValidSlotForInterval(requestedScheduledAt, slotIntervalMinutes)) {
               logger.warn({ appointmentId, slotIntervalMinutes, requestedScheduledAt: requestedScheduledAt.toISOString() }, 'Webhook Stripe cita: slot invalido para intervalo clinico');
-              return;
-            }
-            const conflict = await prisma.appointment.findFirst({
-              where: {
-                id: { not: appointment.id },
-                professionalId: appointment.professionalId,
-                scheduledAt: requestedScheduledAt,
-                status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
-              },
-              select: { id: true },
-            });
-
-            if (conflict) {
-              const conflictMeta: AppointmentMeta = {
-                ...currentMeta,
-                payment: {
-                  ...(currentMeta.payment || {}),
-                  method: 'STRIPE_CARD',
-                  status: 'PAID_SLOT_CONFLICT',
-                  stripeSessionId: session.id,
-                  stripePaymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
-                  paidAt: new Date().toISOString(),
-                  conflictReason: 'SLOT_ALREADY_CONFIRMED',
-                },
-              };
-
-              await prisma.appointment.update({
-                where: { id: appointment.id },
-                data: { notes: serializeAppointmentMeta(conflictMeta) },
-              });
-
-              logger.warn(
-                { appointmentId: appointment.id, conflictId: conflict.id, requestedScheduledAt: requestedScheduledAt.toISOString() },
-                'Pago Stripe recibido para cita con conflicto de horario. Requiere resolucion manual.'
-              );
-              await logSecurityAuditEvent({
-                action: 'appointment.payment_conflict',
-                appointmentId: appointment.id,
-                targetUserId: appointment.clientId,
-                metadata: { method: 'STRIPE_CARD', status: 'PAID_SLOT_CONFLICT' },
-              });
             } else {
-              const updatedMeta: AppointmentMeta = {
-                ...currentMeta,
-                requestedScheduledAt: requestedScheduledAt.toISOString(),
-                payment: {
-                  ...(currentMeta.payment || {}),
-                  method: 'STRIPE_CARD',
-                  status: 'PAID_HELD',
-                  stripeSessionId: session.id,
-                  stripePaymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
-                  paidAt: new Date().toISOString(),
-                  conflictReason: null,
-                },
-              };
-
-              const scheduledAppointment = await prisma.appointment.update({
-                where: { id: appointment.id },
-                data: {
+              const conflict = await prisma.appointment.findFirst({
+                where: {
+                  id: { not: appointment.id },
+                  professionalId: appointment.professionalId,
                   scheduledAt: requestedScheduledAt,
-                  status: 'SCHEDULED',
-                  notes: serializeAppointmentMeta(updatedMeta),
+                  status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
                 },
+                select: { id: true },
               });
 
-              if (appointment.clientId && appointment.client) {
+              if (conflict) {
+                const conflictMeta: AppointmentMeta = {
+                  ...currentMeta,
+                  payment: {
+                    ...(currentMeta.payment || {}),
+                    method: 'STRIPE_CARD',
+                    status: 'PAID_SLOT_CONFLICT',
+                    stripeSessionId: session.id,
+                    stripePaymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+                    paidAt: new Date().toISOString(),
+                    conflictReason: 'SLOT_ALREADY_CONFIRMED',
+                  },
+                };
+
+                await prisma.appointment.update({
+                  where: { id: appointment.id },
+                  data: { notes: serializeAppointmentMeta(conflictMeta) },
+                });
+
+                logger.warn(
+                  { appointmentId: appointment.id, conflictId: conflict.id, requestedScheduledAt: requestedScheduledAt.toISOString() },
+                  'Pago Stripe recibido para cita con conflicto de horario. Requiere resolucion manual.'
+                );
+                await logSecurityAuditEvent({
+                  action: 'appointment.payment_conflict',
+                  appointmentId: appointment.id,
+                  targetUserId: appointment.clientId,
+                  metadata: { method: 'STRIPE_CARD', status: 'PAID_SLOT_CONFLICT' },
+                });
+              } else {
+                const updatedMeta: AppointmentMeta = {
+                  ...currentMeta,
+                  requestedScheduledAt: requestedScheduledAt.toISOString(),
+                  payment: {
+                    ...(currentMeta.payment || {}),
+                    method: 'STRIPE_CARD',
+                    status: 'PAID_HELD',
+                    stripeSessionId: session.id,
+                    stripePaymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+                    paidAt: new Date().toISOString(),
+                    conflictReason: null,
+                  },
+                };
+
+                const scheduledAppointment = await prisma.appointment.update({
+                  where: { id: appointment.id },
+                  data: {
+                    scheduledAt: requestedScheduledAt,
+                    status: 'SCHEDULED',
+                    notes: serializeAppointmentMeta(updatedMeta),
+                  },
+                });
+
+                if (appointment.clientId && appointment.client) {
+                  const formattedDate = requestedScheduledAt.toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short' });
+                  notifyUser({
+                    userId: appointment.clientId,
+                    type: 'ORDER_STATUS',
+                    title: 'Pago recibido y cita confirmada',
+                    body: `Tu cita para ${formattedDate} fue confirmada.`,
+                    metadata: { appointmentId: scheduledAppointment.id },
+                    email: appointment.client.email,
+                    emailSubject: 'Cita confirmada - Intecnia',
+                    emailHtml: `<p>Recibimos tu pago y tu cita quedo confirmada para ${formattedDate}.</p>`,
+                  }).catch((error) => logger.error({ err: error, appointmentId: scheduledAppointment.id }, 'Error notificando confirmacion de cita al cliente'));
+                }
+
                 const formattedDate = requestedScheduledAt.toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short' });
                 notifyUser({
-                  userId: appointment.clientId,
+                  userId: appointment.professional.userId,
                   type: 'ORDER_STATUS',
-                  title: 'Pago recibido y cita confirmada',
-                  body: `Tu cita para ${formattedDate} fue confirmada.`,
+                  title: 'Nueva cita confirmada con pago',
+                  body: `Se confirmo una cita para ${formattedDate}.`,
                   metadata: { appointmentId: scheduledAppointment.id },
-                  email: appointment.client.email,
-                  emailSubject: 'Cita confirmada - Intecnia',
-                  emailHtml: `<p>Recibimos tu pago y tu cita quedo confirmada para ${formattedDate}.</p>`,
-                }).catch((error) => logger.error({ err: error, appointmentId: scheduledAppointment.id }, 'Error notificando confirmacion de cita al cliente'));
+                  email: appointment.professional.user.email,
+                  emailSubject: 'Cita confirmada por pago - Intecnia',
+                  emailHtml: `<p>Se confirmo una cita con pago exitoso para ${formattedDate}.</p>`,
+                }).catch((error) => logger.error({ err: error, appointmentId: scheduledAppointment.id }, 'Error notificando confirmacion de cita al profesional'));
+
+                await logSecurityAuditEvent({
+                  action: 'appointment.payment_confirmed',
+                  appointmentId: scheduledAppointment.id,
+                  targetUserId: appointment.clientId,
+                  metadata: { method: 'STRIPE_CARD', status: 'PAID_HELD' },
+                });
               }
-
-              const formattedDate = requestedScheduledAt.toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short' });
-              notifyUser({
-                userId: appointment.professional.userId,
-                type: 'ORDER_STATUS',
-                title: 'Nueva cita confirmada con pago',
-                body: `Se confirmo una cita para ${formattedDate}.`,
-                metadata: { appointmentId: scheduledAppointment.id },
-                email: appointment.professional.user.email,
-                emailSubject: 'Cita confirmada por pago - Intecnia',
-                emailHtml: `<p>Se confirmo una cita con pago exitoso para ${formattedDate}.</p>`,
-              }).catch((error) => logger.error({ err: error, appointmentId: scheduledAppointment.id }, 'Error notificando confirmacion de cita al profesional'));
-
-              await logSecurityAuditEvent({
-                action: 'appointment.payment_confirmed',
-                appointmentId: scheduledAppointment.id,
-                targetUserId: appointment.clientId,
-                metadata: { method: 'STRIPE_CARD', status: 'PAID_HELD' },
-              });
             }
           }
         }
       }
     }
-    } catch (err) {
-      logger.error({ err }, 'Error procesando evento de Stripe');
-    }
-  });
+    await markStripeEventProcessed(event);
+    return res.status(200).json({ received: true });
+  } catch (err) {
+    logger.error({ err, eventId: event.id, eventType: event.type }, 'Error procesando evento de Stripe');
+    return res.status(500).json({ error: 'No se pudo procesar el webhook de Stripe' });
+  }
 });
 
 // â”€â”€â”€ Middleware Global JSON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.use(express.json());
 app.use(cookieParser());
+app.use('/api', apiLimiter);
 
 app.post(
   '/api/webhooks/bank-transfer',
@@ -493,10 +522,11 @@ import { remindersRouter } from './routes/reminders';
 
 // â”€â”€â”€ Servir archivos subidos localmente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+const publicUploadsDir = path.join(uploadsDir, 'public');
+if (!fs.existsSync(publicUploadsDir)) {
+  fs.mkdirSync(publicUploadsDir, { recursive: true });
 }
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads/public', express.static(publicUploadsDir));
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
@@ -613,7 +643,7 @@ const chatLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Demasiados mensajes enviados. Por favor espera un momento antes de continuar.' },
 });
-app.post('/api/chat', chatLimiter, async (req, res, next) => {
+app.post('/api/chat', authenticate, chatLimiter, async (req, res, next) => {
   try {
     const rawMessage = normalizeChatText(req.body?.message);
     const rawProfessionalName = normalizeChatText(req.body?.professional);

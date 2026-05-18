@@ -11,6 +11,7 @@ const envSchema = z.object({
   SHADOW_DATABASE_URL: z.string().url().optional(),
   OPENAI_API_KEY: z.string().optional(),
   APP_URL: z.string().default('http://localhost:5173'),
+  TRUST_PROXY_HOPS: z.string().optional(),
 
   JWT_PRIVATE_KEY: z.string().optional(),
   JWT_PUBLIC_KEY: z.string().optional(),
@@ -21,6 +22,9 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_CONNECT_CLIENT_ID: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_OAUTH_REDIRECT_URI: z.string().url().optional(),
 
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().email().optional(),

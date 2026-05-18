@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { prisma } from '../lib/db';
 import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import { notifyUser } from '../lib/notifications';
@@ -9,6 +11,7 @@ import { logger } from '../lib/logger';
 import { getStripe } from '../lib/stripe';
 import { env } from '../config/env';
 import { logSecurityAuditEvent } from '../lib/securityAudit';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { ensureSlotInsideAvailability as ensureMedicalSlotInsideAvailability, getEffectiveAvailability } from '../services/appointments/availability';
 import { recordAppointmentEvent } from '../services/appointments/events';
 import { evaluateCancellationPolicy } from '../services/appointments/policies';
@@ -116,6 +119,21 @@ const HHMM_FORMATTER = new Intl.DateTimeFormat('en-GB', {
 });
 
 const router = Router();
+const localPrivateUploadsDir = path.resolve(__dirname, '../../uploads/private');
+const hasAwsPrivateStorage =
+  !!process.env.AWS_REGION &&
+  !!process.env.AWS_ACCESS_KEY_ID &&
+  !!process.env.AWS_SECRET_ACCESS_KEY &&
+  !!process.env.AWS_S3_BUCKET_NAME;
+const privateS3Client = hasAwsPrivateStorage
+  ? new S3Client({
+      region: process.env.AWS_REGION!,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    })
+  : null;
 
 router.post('/upload-transfer-proof', optionalAuthenticate, uploadPrivateDoc.single('proof'), async (req: any, res: any) => {
   const file = req.file;
@@ -128,8 +146,122 @@ router.post('/upload-transfer-proof', optionalAuthenticate, uploadPrivateDoc.sin
     return res.status(400).json({ error: 'Formato no permitido. Usa PNG, JPG o WEBP.' });
   }
 
-  const proofUrl = file.location || `/uploads/private/${file.filename}`;
+  const proofUrl = typeof file.key === 'string' && file.key.startsWith('private/')
+    ? `private:s3:${file.key}`
+    : `private:local:${String(file.filename || '').trim()}`;
   return res.json({ proofUrl, message: 'Comprobante subido correctamente' });
+});
+
+function canAccessAppointmentProof(reqUser: any, appointment: any): boolean {
+  const role = String(reqUser?.role || '');
+  if (role === 'ADMIN') return true;
+  if (!reqUser?.userId) return false;
+  if (role === 'CLIENT') return appointment.clientId === reqUser.userId;
+  if (role === 'PROFESSIONAL') return appointment.professional?.userId === reqUser.userId;
+  return false;
+}
+
+function resolveLocalProofPath(filename: string): string | null {
+  const safeName = path.basename(filename);
+  if (!safeName || safeName !== filename) return null;
+  const resolved = path.resolve(localPrivateUploadsDir, safeName);
+  if (!resolved.startsWith(localPrivateUploadsDir)) return null;
+  return resolved;
+}
+
+router.get('/:id/transfer-proof', authenticate, async (req: any, res: any, next: any) => {
+  try {
+    const appointmentId = String(req.params.id || '').trim();
+    if (!appointmentId) {
+      return res.status(400).json({ error: 'appointmentId requerido' });
+    }
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: {
+        id: true,
+        clientId: true,
+        professional: { select: { userId: true } },
+        notes: true,
+      },
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ error: 'Comprobante no encontrado' });
+    }
+
+    if (!canAccessAppointmentProof(req.user, appointment)) {
+      logger.warn(
+        { appointmentId, requesterId: req.user?.userId, role: req.user?.role },
+        'Acceso denegado a comprobante de transferencia',
+      );
+      return res.status(403).json({ error: 'No autorizado para ver este comprobante' });
+    }
+
+    const meta = parseAppointmentMeta(appointment.notes);
+    const proofUrl = String(meta?.payment?.proofUrl || '').trim();
+    if (!proofUrl) {
+      return res.status(404).json({ error: 'Comprobante no encontrado' });
+    }
+
+    if (proofUrl.startsWith('private:local:')) {
+      const filename = proofUrl.replace('private:local:', '').trim();
+      const localPath = resolveLocalProofPath(filename);
+      if (!localPath || !fs.existsSync(localPath)) {
+        return res.status(404).json({ error: 'Comprobante no encontrado' });
+      }
+      return res.sendFile(localPath);
+    }
+
+    if (proofUrl.startsWith('private:s3:')) {
+      const key = proofUrl.replace('private:s3:', '').trim();
+      if (!key || !key.startsWith('private/')) {
+        return res.status(404).json({ error: 'Comprobante no encontrado' });
+      }
+      if (!privateS3Client || !process.env.AWS_S3_BUCKET_NAME) {
+        logger.error({ appointmentId }, 'S3 no configurado para lectura de comprobantes privados');
+        return res.status(503).json({ error: 'Comprobante no disponible temporalmente' });
+      }
+
+      const object = await privateS3Client.send(
+        new GetObjectCommand({
+          Bucket: process.env.AWS_S3_BUCKET_NAME,
+          Key: key,
+        }),
+      );
+
+      if (!object.Body) {
+        return res.status(404).json({ error: 'Comprobante no encontrado' });
+      }
+
+      if (object.ContentType) {
+        res.setHeader('Content-Type', object.ContentType);
+      }
+      if (object.ContentLength != null) {
+        res.setHeader('Content-Length', String(object.ContentLength));
+      }
+
+      const body = object.Body as any;
+      if (typeof body.pipe === 'function') {
+        return body.pipe(res);
+      }
+      return res.status(404).json({ error: 'Comprobante no encontrado' });
+    }
+
+    if (proofUrl.startsWith('/uploads/private/')) {
+      const legacyFilename = proofUrl.replace('/uploads/private/', '').trim();
+      const localPath = resolveLocalProofPath(legacyFilename);
+      if (!localPath || !fs.existsSync(localPath)) {
+        return res.status(404).json({ error: 'Comprobante no encontrado' });
+      }
+      return res.sendFile(localPath);
+    }
+
+    logger.warn({ appointmentId }, 'Formato de proofUrl privado no reconocido');
+    return res.status(404).json({ error: 'Comprobante no encontrado' });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 function parseScheduledAt(raw: string): Date | null {
@@ -723,6 +855,9 @@ router.post('/checkout', authenticate, async (req: any, res: any, next: any) => 
     if (!professional) {
       return res.status(404).json({ error: 'Profesional no encontrado' });
     }
+    if (!professional.isVerified || professional.verificationStatus !== 'APPROVED') {
+      return res.status(403).json({ error: 'El profesional aun no esta verificado para recibir pagos con tarjeta.' });
+    }
 
     if (professional.userId === clientId) {
       return res.status(400).json({ error: 'No puedes agendar una cita contigo mismo' });
@@ -848,6 +983,10 @@ router.post('/checkout', authenticate, async (req: any, res: any, next: any) => 
         targetUserId: professional.userId,
         metadata: { method: 'STRIPE_CARD', total: pricing.total },
       });
+      logger.info(
+        { appointmentId: appointment.id, sessionId: session.id, professionalId, clientId, total: pricing.total },
+        'Checkout Stripe inicializado',
+      );
 
       return res.status(201).json({
         appointmentId: appointment.id,
@@ -870,6 +1009,10 @@ router.post('/checkout', authenticate, async (req: any, res: any, next: any) => 
           notes: serializeAppointmentMeta(failedMeta),
         },
       });
+      logger.error(
+        { err: stripeError, appointmentId: appointment.id, professionalId, clientId },
+        'Error creando checkout Stripe',
+      );
 
       throw stripeError;
     }

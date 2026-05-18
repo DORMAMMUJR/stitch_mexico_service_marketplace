@@ -8,7 +8,7 @@ const router = Router();
 // POST /api/verification/upload
 router.post('/upload', authenticate, uploadPrivateDoc.single('constancia'), async (req: any, res, next) => {
   try {
-    const { professionalId, docType } = req.body;
+    const { professionalId: professionalIdFromBody, docType } = req.body;
     const file = req.file;
     const requesterUserId = req.user?.userId;
     const requesterRole = String(req.user?.role || '').toUpperCase();
@@ -17,8 +17,8 @@ router.post('/upload', authenticate, uploadPrivateDoc.single('constancia'), asyn
       return res.status(400).json({ error: 'No se cargo ningun archivo' });
     }
 
-    if (!professionalId || !docType) {
-      return res.status(400).json({ error: 'professionalId y docType son requeridos' });
+    if (!docType) {
+      return res.status(400).json({ error: 'docType es requerido' });
     }
 
     const validDocTypes = ['INE', 'CONOCER_CERT'];
@@ -26,10 +26,18 @@ router.post('/upload', authenticate, uploadPrivateDoc.single('constancia'), asyn
       return res.status(400).json({ error: `docType invalido. Validos: ${validDocTypes.join(', ')}` });
     }
 
-    const professional = await prisma.professional.findUnique({
-      where: { id: String(professionalId) },
-      select: { id: true, userId: true },
-    });
+    let professional = null;
+    if (requesterRole === 'ADMIN' && professionalIdFromBody) {
+      professional = await prisma.professional.findUnique({
+        where: { id: String(professionalIdFromBody) },
+        select: { id: true, userId: true },
+      });
+    } else if (requesterUserId) {
+      professional = await prisma.professional.findUnique({
+        where: { userId: String(requesterUserId) },
+        select: { id: true, userId: true },
+      });
+    }
 
     if (!professional) {
       return res.status(404).json({ error: 'Perfil profesional no encontrado' });
@@ -41,7 +49,9 @@ router.post('/upload', authenticate, uploadPrivateDoc.single('constancia'), asyn
       return res.status(403).json({ error: 'No tienes permiso para subir documentos a este perfil' });
     }
 
-    const fileUrl = file.location || `/uploads/private/${file.filename}`;
+    const fileUrl = typeof file.key === 'string' && file.key.startsWith('private/')
+      ? `private:s3:${file.key}`
+      : `private:local:${String(file.filename || '').trim()}`;
 
     const document = await prisma.verificationDocument.create({
       data: {

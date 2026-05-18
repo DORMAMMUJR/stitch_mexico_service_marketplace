@@ -419,7 +419,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
               disabled={isLoading}
               style={{ justifyContent: 'center' }}
             >
-              Tarjeta
+              Tarjeta (Stripe)
             </button>
           </div>
 
@@ -445,7 +445,7 @@ export function AvailabilitySelector({ professionalId, onBooked }) {
               className="btn btn-primary profile-booking-submit"
               style={{ width: '100%', justifyContent: 'center', opacity: !isLoading ? 1 : 0.6 }}
             >
-              {isLoading ? 'Redirigiendo a pago...' : isAuthenticated ? 'Pagar y confirmar (tarjeta)' : 'Crear cuenta para pagar'}
+              {isLoading ? 'Redirigiendo a Stripe...' : isAuthenticated ? 'Pagar con Stripe y confirmar' : 'Crear cuenta para pagar con Stripe'}
             </button>
           )}
         </div>

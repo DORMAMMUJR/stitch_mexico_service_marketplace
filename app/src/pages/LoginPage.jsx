@@ -1,5 +1,6 @@
-﻿import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastContext';
 
@@ -12,8 +13,48 @@ export function LoginPage() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { showToast } = useToast();
 
+  
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const oauthStatus = params.get('oauth');
+    if (!oauthStatus) return;
+
+    const completeGoogleLogin = async () => {
+      if (oauthStatus !== 'success') {
+        const reason = params.get('reason') || 'oauth_error';
+        setError(`No se pudo completar el acceso con Google (${reason}).`);
+        return;
+      }
+
+      try {
+        const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+        const meData = await meRes.json();
+        if (!meRes.ok || !meData?.user) {
+          throw new Error('No se pudo recuperar la sesion de Google.');
+        }
+
+        login(null, meData.user);
+        const redirect = params.get('redirect');
+        if (redirect) {
+          navigate(redirect, { replace: true });
+          return;
+        }
+
+        const role = meData.user?.role;
+        if (role === 'PROFESSIONAL') navigate('/dashboard', { replace: true });
+        else if (role === 'CLIENT') navigate('/mis-solicitudes', { replace: true });
+        else if (role === 'ADMIN') navigate('/admin', { replace: true });
+        else navigate('/', { replace: true });
+      } catch (err) {
+        setError(err.message || 'No se pudo completar el acceso con Google.');
+      }
+    };
+
+    completeGoogleLogin();
+  }, [location.search, login, navigate]);
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     if (!email) {
@@ -76,6 +117,41 @@ export function LoginPage() {
       else navigate('/', { replace: true });
     } catch (err) {
       setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    const credential = credentialResponse?.credential;
+    if (!credential) {
+      setError('Google no devolvio credencial valida.');
+      return;
+    }
+
+    setError('');
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Fallo en la autenticacion con Google');
+      }
+
+      login(null, data.user);
+      const role = data.user?.role;
+      if (role === 'PROFESSIONAL') navigate('/dashboard', { replace: true });
+      else if (role === 'CLIENT') navigate('/mis-solicitudes', { replace: true });
+      else if (role === 'ADMIN') navigate('/admin', { replace: true });
+      else navigate('/', { replace: true });
+    } catch (err) {
+      setError(err.message || 'Fallo en la autenticacion con Google');
     } finally {
       setIsLoading(false);
     }
@@ -169,6 +245,12 @@ export function LoginPage() {
                 'Iniciar Sesion'
               )}
             </button>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError('El popup de Google fallo o fue cerrado.')}
+              />
+            </div>
           </form>
 
           <div style={{ textAlign: 'center', marginTop: '2rem' }}>
@@ -181,3 +263,4 @@ export function LoginPage() {
     </div>
   );
 }
+

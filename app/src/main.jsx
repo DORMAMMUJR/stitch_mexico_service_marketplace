@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { HomePage } from './pages/HomePage';
 import { DirectoryPage } from './pages/DirectoryPage';
 import { CategoriesPage } from './pages/CategoriesPage';
@@ -31,16 +32,18 @@ const queryClient = new QueryClient({
     },
   },
 });
+const googleClientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || 'FALTA_CLIENT_ID';
 
 ReactDOM.createRoot(document.getElementById('app')).render(
   <React.StrictMode>
-    {/* BrowserRouter va AFUERA de AuthProvider para que useNavigate
-        funcione dentro del contexto de autenticación (interceptor 401) */}
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <ToastProvider>
-            <Routes>
+    <GoogleOAuthProvider clientId={googleClientId}>
+      {/* BrowserRouter va AFUERA de AuthProvider para que useNavigate
+          funcione dentro del contexto de autenticación (interceptor 401) */}
+      <BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <ToastProvider>
+              <Routes>
 
               {/* ── Rutas públicas ─────────────────────────────────────── */}
               <Route path="/"          element={<HomePage />} />
@@ -117,10 +120,11 @@ ReactDOM.createRoot(document.getElementById('app')).render(
               {/* ── 404 ─────────────────────────────────────────────────── */}
               <Route path="*" element={<NotFoundPage />} />
 
-            </Routes>
-          </ToastProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </BrowserRouter>
+              </Routes>
+            </ToastProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </BrowserRouter>
+    </GoogleOAuthProvider>
   </React.StrictMode>
 );

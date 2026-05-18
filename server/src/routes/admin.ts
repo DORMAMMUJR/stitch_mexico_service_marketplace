@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
+import fs from 'fs';
+import path from 'path';
 import { Role, OrderStatus, AppointmentStatus } from '@prisma/client';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { prisma } from '../lib/db';
 import { authenticate } from '../middleware/auth';
 import { sendEmail, emailTemplates } from '../lib/email';
@@ -9,6 +12,21 @@ import { logger } from '../lib/logger';
 import { DEFAULT_PROFESSIONAL_CATEGORY } from '../constants/verificationFields';
 
 const router = Router();
+const localPrivateUploadsDir = path.resolve(__dirname, '../../uploads/private');
+const hasAwsPrivateStorage =
+  !!process.env.AWS_REGION &&
+  !!process.env.AWS_ACCESS_KEY_ID &&
+  !!process.env.AWS_SECRET_ACCESS_KEY &&
+  !!process.env.AWS_S3_BUCKET_NAME;
+const privateS3Client = hasAwsPrivateStorage
+  ? new S3Client({
+      region: process.env.AWS_REGION!,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    })
+  : null;
 
 type VideoProvider = 'jitsi' | 'zoom' | 'meet';
 
@@ -92,6 +110,14 @@ function isStrongPassword(password: string) {
   const hasLower = /[a-z]/.test(password);
   const hasNumber = /\d/.test(password);
   return hasUpper && hasLower && hasNumber;
+}
+
+function resolveLocalPrivatePath(filename: string): string | null {
+  const safeName = path.basename(filename);
+  if (!safeName || safeName !== filename) return null;
+  const resolved = path.resolve(localPrivateUploadsDir, safeName);
+  if (!resolved.startsWith(localPrivateUploadsDir)) return null;
+  return resolved;
 }
 
 function toPositiveInt(value: unknown, fallback: number) {
@@ -660,7 +686,90 @@ router.get('/verifications/pending', async (req, res, next) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json(pendingDocs);
+    const docsWithSecureUrl = pendingDocs.map((doc) => ({
+      ...doc,
+      fileUrl: `/api/admin/verifications/${doc.id}/file`,
+    }));
+
+    res.json(docsWithSecureUrl);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/verifications/:id/file', async (req: any, res: any, next: any) => {
+  try {
+    const docId = String(req.params.id || '').trim();
+    if (!docId) {
+      return res.status(400).json({ error: 'Documento invalido' });
+    }
+
+    const doc = await prisma.verificationDocument.findUnique({
+      where: { id: docId },
+      select: { fileUrl: true },
+    });
+
+    if (!doc?.fileUrl) {
+      return res.status(404).json({ error: 'Documento no encontrado' });
+    }
+
+    const fileUrl = String(doc.fileUrl).trim();
+
+    if (fileUrl.startsWith('private:local:')) {
+      const filename = fileUrl.replace('private:local:', '').trim();
+      const localPath = resolveLocalPrivatePath(filename);
+      if (!localPath || !fs.existsSync(localPath)) {
+        return res.status(404).json({ error: 'Documento no encontrado' });
+      }
+      return res.sendFile(localPath);
+    }
+
+    if (fileUrl.startsWith('private:s3:')) {
+      const key = fileUrl.replace('private:s3:', '').trim();
+      if (!key || !key.startsWith('private/')) {
+        return res.status(404).json({ error: 'Documento no encontrado' });
+      }
+      if (!privateS3Client || !process.env.AWS_S3_BUCKET_NAME) {
+        logger.error({ docId }, 'S3 no configurado para lectura de documentos de verificacion');
+        return res.status(503).json({ error: 'Documento no disponible temporalmente' });
+      }
+
+      const object = await privateS3Client.send(
+        new GetObjectCommand({
+          Bucket: process.env.AWS_S3_BUCKET_NAME,
+          Key: key,
+        }),
+      );
+
+      if (!object.Body) {
+        return res.status(404).json({ error: 'Documento no encontrado' });
+      }
+
+      if (object.ContentType) {
+        res.setHeader('Content-Type', object.ContentType);
+      }
+      if (object.ContentLength != null) {
+        res.setHeader('Content-Length', String(object.ContentLength));
+      }
+
+      const body = object.Body as any;
+      if (typeof body.pipe === 'function') {
+        return body.pipe(res);
+      }
+      return res.status(404).json({ error: 'Documento no encontrado' });
+    }
+
+    if (fileUrl.startsWith('/uploads/private/')) {
+      const filename = fileUrl.replace('/uploads/private/', '').trim();
+      const localPath = resolveLocalPrivatePath(filename);
+      if (!localPath || !fs.existsSync(localPath)) {
+        return res.status(404).json({ error: 'Documento no encontrado' });
+      }
+      return res.sendFile(localPath);
+    }
+
+    logger.warn({ docId }, 'Formato de fileUrl de verificacion no reconocido');
+    return res.status(404).json({ error: 'Documento no encontrado' });
   } catch (error) {
     next(error);
   }

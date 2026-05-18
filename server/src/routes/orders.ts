@@ -29,6 +29,14 @@ const checkoutLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const REUSABLE_PAYMENT_INTENT_STATUSES = [
+  'requires_payment_method',
+  'requires_confirmation',
+  'requires_action',
+  'processing',
+  'requires_capture',
+] as const;
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /api/orders — Crear una Orden (DRAFT)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -130,21 +138,50 @@ router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res
 
     const amountInCents = Math.round(Number(order.agreedPrice) * 100);
 
-    const paymentIntent = await stripe.paymentIntents.create(
-      {
-        amount: amountInCents,
-        currency: (order.currency || 'mxn').toLowerCase(),
-        metadata: {
-          orderId: order.id,
-          clientId: order.clientId,
-          professionalId: order.professionalId,
-        },
-        description: `Intecnia Order ${order.id}: ${order.description}`,
-      },
-      {
-        idempotencyKey: `checkout-create-intent-order-${order.id}`,
+    const isReusableIntent = (paymentIntent: any) =>
+      REUSABLE_PAYMENT_INTENT_STATUSES.includes(paymentIntent.status) && Boolean(paymentIntent.client_secret);
+
+    let paymentIntent: any = null;
+    if (order.paymentIntentId) {
+      try {
+        const existingIntent = await stripe.paymentIntents.retrieve(order.paymentIntentId);
+        if (isReusableIntent(existingIntent)) {
+          paymentIntent = existingIntent;
+        } else {
+          logger.info(
+            { orderId: order.id, paymentIntentId: existingIntent.id, status: existingIntent.status },
+            'PaymentIntent previo no reusable, se creara uno nuevo'
+          );
+        }
+      } catch (error: any) {
+        logger.warn(
+          { err: error, orderId: order.id, paymentIntentId: order.paymentIntentId },
+          'No se pudo recuperar PaymentIntent previo, se creara uno nuevo'
+        );
       }
-    );
+    }
+
+    if (!paymentIntent) {
+      paymentIntent = await stripe.paymentIntents.create(
+        {
+          amount: amountInCents,
+          currency: (order.currency || 'mxn').toLowerCase(),
+          metadata: {
+            orderId: order.id,
+            clientId: order.clientId,
+            professionalId: order.professionalId,
+          },
+          description: `Intecnia Order ${order.id}: ${order.description}`,
+        },
+        {
+          idempotencyKey: `checkout-create-intent-order-${order.id}`,
+        }
+      );
+    }
+
+    if (!paymentIntent.client_secret) {
+      return res.status(409).json({ error: 'No se pudo obtener un client secret valido para esta orden.' });
+    }
 
     await EscrowStateMachine.transition(order.id, 'PAGO_PENDIENTE', {
       stripePaymentIntentId: paymentIntent.id,
@@ -182,7 +219,9 @@ router.get('/my', authenticate, async (req: any, res: any, next: any) => {
     const role = req.user.role;
 
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
+    const rawLimit = parseInt(req.query.limit as string, 10);
+    const safeLimit = Number.isFinite(rawLimit) ? rawLimit : 20;
+    const limit = Math.max(1, Math.min(50, safeLimit));
     const skip = (page - 1) * limit;
 
     let orders;

@@ -37,6 +37,29 @@ const REUSABLE_PAYMENT_INTENT_STATUSES = [
   'requires_capture',
 ] as const;
 
+function getTrustedAppBaseUrl(originHeader: unknown): string {
+  const fallback = String(env.APP_URL || '').trim();
+  const allowedOrigins = (env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (fallback) {
+    try {
+      allowedOrigins.push(new URL(fallback).origin);
+    } catch {
+      // ignore malformed APP_URL
+    }
+  }
+
+  const origin = String(originHeader || '').trim();
+  if (origin && allowedOrigins.includes(origin)) {
+    return origin;
+  }
+
+  return fallback || 'http://localhost:5173';
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /api/orders — Crear una Orden (DRAFT)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -528,10 +551,11 @@ router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: an
       });
     }
 
+    const baseUrl = getTrustedAppBaseUrl(req.headers.origin);
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
-      refresh_url: `${req.headers.origin || env.APP_URL}/dashboard?tab=finance&status=refresh`,
-      return_url: `${req.headers.origin || env.APP_URL}/dashboard?tab=finance&status=complete`,
+      refresh_url: `${baseUrl}/dashboard?tab=finance&status=refresh`,
+      return_url: `${baseUrl}/dashboard?tab=finance&status=complete`,
       type: 'account_onboarding',
     });
 

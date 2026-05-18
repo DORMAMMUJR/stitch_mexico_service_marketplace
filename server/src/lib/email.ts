@@ -33,12 +33,7 @@ export async function sendEmail({ to, subject, html }: SendEmailParams): Promise
       console.error('❌ Unexpected error sending email:', err);
     }
   } else {
-    // Fallback mode
-    console.log(`\n=== 📧 EMAIL SIMULATION (Console Fallback) ===`);
-    console.log(`To: ${to}`);
-    console.log(`Subject: ${subject}`);
-    console.log(`Body (HTML length: ${html.length} chars)`);
-    console.log(`==============================================\n`);
+    console.log('[EMAIL_FALLBACK] Email provider no configurado. Se omitio envio.');
   }
 }
 

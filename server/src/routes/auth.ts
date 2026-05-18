@@ -297,6 +297,9 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ error: 'Credenciales invalidas' });
     }
+    if (!user.isActive || user.deletionRequestedAt) {
+      return res.status(403).json({ error: 'Cuenta inactiva. Contacta a soporte.' });
+    }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {

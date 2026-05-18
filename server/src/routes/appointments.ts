@@ -135,7 +135,7 @@ const privateS3Client = hasAwsPrivateStorage
     })
   : null;
 
-router.post('/upload-transfer-proof', optionalAuthenticate, uploadPrivateDoc.single('proof'), async (req: any, res: any) => {
+router.post('/upload-transfer-proof', authenticate, uploadPrivateDoc.single('proof'), async (req: any, res: any) => {
   const file = req.file;
   if (!file) {
     return res.status(400).json({ error: 'Debes subir un comprobante de pago (PNG/JPG).' });
@@ -599,6 +599,25 @@ async function computePricing(professionalId: string) {
     depositAmount,
     currency: professional.currency || 'MXN',
   };
+}
+
+function isValidTransferProofUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const proofUrl = value.trim();
+  if (!proofUrl) return false;
+  if (proofUrl.startsWith('private:s3:')) {
+    const key = proofUrl.replace('private:s3:', '').trim();
+    return key.startsWith('private/') && key.length > 'private/'.length;
+  }
+  if (proofUrl.startsWith('private:local:')) {
+    const filename = proofUrl.replace('private:local:', '').trim();
+    return Boolean(filename) && filename === path.basename(filename);
+  }
+  if (proofUrl.startsWith('/uploads/private/')) {
+    const filename = proofUrl.replace('/uploads/private/', '').trim();
+    return Boolean(filename) && filename === path.basename(filename);
+  }
+  return false;
 }
 
 router.get('/availability/:professionalId', async (req, res, next) => {
@@ -1075,8 +1094,8 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
       return res.status(400).json({ error: 'Referencia de transferencia invalida' });
     }
 
-    if (!transferProofUrl || typeof transferProofUrl !== 'string') {
-      return res.status(400).json({ error: 'Debes adjuntar foto del comprobante de transferencia.' });
+    if (!isValidTransferProofUrl(transferProofUrl)) {
+      return res.status(400).json({ error: 'Comprobante invalido. Vuelve a subir el archivo desde el flujo seguro.' });
     }
 
     const pricing = await computePricing(professionalId);
@@ -1119,7 +1138,7 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
         method: 'BANK_TRANSFER',
         status: 'TRANSFER_SUBMITTED',
         reference: String(transferReference).trim(),
-        proofUrl: transferProofUrl,
+        proofUrl: transferProofUrl.trim(),
         basePrice: pricing.basePrice,
         commissionRate: pricing.commissionRate,
         commission: pricing.commission,

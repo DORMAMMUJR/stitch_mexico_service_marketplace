@@ -35,7 +35,7 @@ import { apiLimiter, webhookLimiter } from './middleware/rateLimiter';
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
-const trustProxyHops = Number(env.TRUST_PROXY_HOPS ?? (env.NODE_ENV === 'production' ? '1' : '0'));
+const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? (process.env.NODE_ENV === 'production' ? '1' : '0'));
 app.set('trust proxy', Number.isFinite(trustProxyHops) && trustProxyHops > 0 ? trustProxyHops : false);
 const port = process.env.PORT || 3000;
 

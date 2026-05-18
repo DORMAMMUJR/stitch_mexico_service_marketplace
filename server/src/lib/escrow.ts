@@ -14,15 +14,38 @@ import { logger } from './logger';
 const PLATFORM_FEE_RATE = 0.10;
 const MAX_PAYOUT_ATTEMPTS = 5;
 
-// Backoff exponencial en horas: intento 1→1h, 2→2h, 3→4h, 4→8h, 5→16h
-function getBackoffHours(attempt: number): number {
-  return Math.pow(2, attempt - 1);
+async function claimOrdersForInitialPayout(timeoutDate: Date): Promise<Array<{ id: string }>> {
+  return prisma.$queryRaw<Array<{ id: string }>>`
+    UPDATE "Order"
+    SET "status" = CAST('PAYOUT_INICIADO' AS "OrderStatus")
+    WHERE "id" IN (
+      SELECT "id"
+      FROM "Order"
+      WHERE "status" = CAST('COMPLETADO' AS "OrderStatus")
+        AND "completedAt" < ${timeoutDate}
+      FOR UPDATE SKIP LOCKED
+    )
+    RETURNING "id"
+  `;
 }
 
-function isBackoffElapsed(lastAttemptAt: Date | null, attempt: number): boolean {
-  if (!lastAttemptAt) return true;
-  const backoffMs = getBackoffHours(attempt) * 60 * 60 * 1000;
-  return Date.now() - lastAttemptAt.getTime() >= backoffMs;
+async function claimOrdersForRetryPayout(): Promise<Array<{ id: string; payoutAttempts: number }>> {
+  return prisma.$queryRaw<Array<{ id: string; payoutAttempts: number }>>`
+    UPDATE "Order"
+    SET "status" = CAST('PAYOUT_INICIADO' AS "OrderStatus")
+    WHERE "id" IN (
+      SELECT "id"
+      FROM "Order"
+      WHERE "status" = CAST('PAYOUT_FALLIDO' AS "OrderStatus")
+        AND "payoutAttempts" < ${MAX_PAYOUT_ATTEMPTS}
+        AND (
+          "lastPayoutAttemptAt" IS NULL OR
+          NOW() - "lastPayoutAttemptAt" >= INTERVAL '1 hour' * POWER(2, GREATEST("payoutAttempts", 1) - 1)
+        )
+      FOR UPDATE SKIP LOCKED
+    )
+    RETURNING "id", "payoutAttempts"
+  `;
 }
 
 export class EscrowStateMachine {
@@ -210,12 +233,7 @@ export class EscrowStateMachine {
     const timeoutDate = new Date(Date.now() - 72 * 60 * 60 * 1000);
 
     // ── 1. Órdenes COMPLETADO listas para su primer payout ───────────────────
-    const ordersToRelease = await prisma.order.findMany({
-      where: {
-        status:      'COMPLETADO',
-        completedAt: { lt: timeoutDate },
-      },
-    });
+    const ordersToRelease = await claimOrdersForInitialPayout(timeoutDate);
 
     if (ordersToRelease.length === 0) {
       logger.info('No hay órdenes pendientes de payout');
@@ -224,28 +242,26 @@ export class EscrowStateMachine {
 
       for (const order of ordersToRelease) {
         try {
-          await this.transition(order.id, 'PAYOUT_INICIADO', {
-            reason: 'AUTOMATIC_TIMEOUT_72H',
+          await prisma.orderEvent.create({
+            data: {
+              orderId: order.id,
+              event: 'PAYOUT_INICIADO',
+              metadata: {
+                reason: 'AUTOMATIC_TIMEOUT_72H',
+                claimedByCron: true,
+              },
+            },
           });
-          logger.info({ orderId: order.id }, 'Orden en PAYOUT_INICIADO');
+          logger.info({ orderId: order.id }, 'Orden reclamada y en PAYOUT_INICIADO');
           await this.executePayout(order.id);
         } catch (error: any) {
-          if (error.message?.includes('Invalid transition')) {
-            logger.warn({ orderId: order.id }, 'Orden ya procesada por otra instancia');
-          } else {
-            logger.error({ err: error, orderId: order.id }, 'Error procesando orden para payout');
-          }
+          logger.error({ err: error, orderId: order.id }, 'Error procesando orden para payout');
         }
       }
     }
 
     // ── 2. Reintentar PAYOUT_FALLIDO con backoff y límite ────────────────────
-    const failedOrders = await prisma.order.findMany({
-      where: {
-        status:         'PAYOUT_FALLIDO',
-        payoutAttempts: { lt: MAX_PAYOUT_ATTEMPTS },
-      },
-    });
+    const failedOrders = await claimOrdersForRetryPayout();
 
     if (failedOrders.length === 0) {
       logger.info('No hay pagos fallidos pendientes de reintento');
@@ -253,21 +269,14 @@ export class EscrowStateMachine {
       logger.info({ count: failedOrders.length }, 'Evaluando pagos fallidos para reintento');
 
       for (const order of failedOrders) {
-        // Verificar si el backoff ya transcurrió antes de reintentar
-        if (!isBackoffElapsed(order.lastPayoutAttemptAt, order.payoutAttempts)) {
-          logger.info(
-            {
-              orderId: order.id,
-              attempt: order.payoutAttempts,
-              waitHours: getBackoffHours(order.payoutAttempts),
-            },
-            'Backoff activo para reintento de payout'
-          );
-          continue;
-        }
-
         try {
-          await this.transition(order.id, 'PAYOUT_INICIADO', { reason: 'RETRY' });
+          await prisma.orderEvent.create({
+            data: {
+              orderId: order.id,
+              event: 'PAYOUT_INICIADO',
+              metadata: { reason: 'RETRY', claimedByCron: true },
+            },
+          });
           logger.info(
             {
               orderId: order.id,

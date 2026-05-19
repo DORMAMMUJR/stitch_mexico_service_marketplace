@@ -79,6 +79,14 @@
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
   --radius-full: 9999px;
+
+  /* Rhythm + Density */
+  --space-section-y: clamp(3rem, 5.5vw, 4.5rem);
+  --space-section-y-compact: clamp(2.5rem, 4.5vw, 3.75rem);
+  --space-block-gap: 1.25rem;
+  --space-component-pad: 0.875rem;
+  --font-ui-min: 0.8125rem;
+  --font-ui-base: 0.875rem;
 }
 
 /* â”€â”€ Reset â”€â”€ */
@@ -620,9 +628,23 @@ img { display: block; max-width: 100%; }
 .layout-directory {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 1.5rem;
+  gap: 1.75rem;
   padding: 0 1.5rem 3rem;
   align-items: start;
+}
+
+.layout-section-shell {
+  padding: var(--space-section-y) 1.5rem;
+}
+
+.layout-section-shell-compact {
+  padding: var(--space-section-y-compact) 1.5rem;
+}
+
+.surface-shell {
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-xl);
+  background: var(--surface-container-lowest);
 }
 
 .layout-profile {
@@ -1244,6 +1266,189 @@ img { display: block; max-width: 100%; }
 .layout-bento { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
 .dashboard-header-actions { display: flex; gap: 0.75rem; }
 
+.home-flow-section {
+  padding: var(--space-section-y) 1.5rem;
+}
+
+.home-flow-section-warm {
+  background: linear-gradient(180deg, #fff7ed 0%, #fffbf5 100%);
+}
+
+.home-flow-section-surface {
+  background: var(--surface);
+}
+
+.home-final-cta {
+  padding: clamp(3.25rem, 6vw, 5rem) 1.5rem;
+  background: #0f172a;
+  text-align: center;
+}
+
+.home-section-heading {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.directory-shell {
+  padding: 1.25rem 0 1.5rem;
+}
+
+.directory-breadcrumb {
+  font-size: var(--font-ui-min);
+  color: var(--on-surface-variant);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.directory-title {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 1.4375rem;
+  color: var(--primary);
+  margin-bottom: 0.35rem;
+  letter-spacing: -0.01em;
+}
+
+.directory-header-summary {
+  font-size: var(--font-ui-base);
+  color: var(--on-surface-variant);
+}
+
+.directory-patient-search-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 0.8fr);
+  gap: 0.875rem;
+}
+
+.directory-search-box {
+  width: 100%;
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  padding: 0.625rem 0.875rem;
+}
+
+.directory-search-input {
+  min-width: 0;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0.5rem 0.25rem !important;
+  font-size: 0.875rem;
+}
+
+.directory-quick-filters {
+  display: flex;
+  gap: 0.625rem;
+  margin-top: 0.875rem;
+  flex-wrap: wrap;
+  row-gap: 0.625rem;
+}
+
+.directory-chip-btn {
+  font-size: var(--font-ui-min) !important;
+  padding: 0.45rem 0.85rem !important;
+}
+
+.directory-meta-note {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 1rem 1.125rem;
+  background: var(--surface-container-low);
+  border-radius: var(--radius-xl);
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--outline-variant);
+}
+
+.directory-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.pro-card {
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.pro-card .directory-density-title {
+  font-size: 0.875rem !important;
+}
+
+.pro-card .directory-density-copy {
+  font-size: var(--font-ui-min) !important;
+  line-height: 1.45;
+}
+
+.pro-card .directory-density-pill {
+  font-size: 0.75rem !important;
+}
+
+.dashboard-shell {
+  padding: 2.25rem 1.25rem 3.25rem !important;
+}
+
+.dashboard-overview {
+  display: grid;
+  gap: 1.125rem;
+}
+
+.dashboard-card-pad {
+  padding: 1.125rem !important;
+}
+
+.dashboard-micro {
+  font-size: var(--font-ui-min) !important;
+}
+
+.dashboard-tiny-btn {
+  font-size: var(--font-ui-min) !important;
+  padding: 0.45rem 0.75rem !important;
+}
+
+.dashboard-appointment-item {
+  padding: 1rem !important;
+}
+
+.dashboard-appointment-item .dashboard-status-text {
+  font-size: var(--font-ui-min) !important;
+}
+
+.admin-shell {
+  padding: 3.25rem 1.25rem 3rem !important;
+  min-height: 60vh;
+}
+
+.admin-section-card {
+  padding: 1.25rem !important;
+  margin-bottom: 1.5rem !important;
+}
+
+.admin-section-title {
+  font-size: 1.1875rem !important;
+  margin-bottom: 0.875rem !important;
+}
+
+.admin-table-shell {
+  overflow-x: auto;
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+}
+
+.admin-table-shell table th,
+.admin-table-shell table td {
+  padding: 0.875rem !important;
+}
+
 /* Responsive Grid Utilities */
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
@@ -1348,9 +1553,15 @@ img { display: block; max-width: 100%; }
   /* Container Overrides */
   .container { padding: 0 1rem; }
 
-  /* Secciones: reducir padding vertical */
-  section[style*="5rem 1.5rem"] { padding: 3rem 1rem !important; }
-  section[style*="6rem 1.5rem"] { padding: 3.5rem 1rem !important; }
+  .layout-section-shell,
+  .home-flow-section {
+    padding: 3rem 1rem !important;
+  }
+
+  .layout-section-shell-compact,
+  .home-final-cta {
+    padding: 3.5rem 1rem !important;
+  }
 
   /* Hero */
   .hero-gradient[style] { padding: 2.8rem 1rem 2.25rem !important; }
@@ -1630,10 +1841,6 @@ img { display: block; max-width: 100%; }
     display: block;
   }
 
-  .directory-search-box {
-    padding: 0.5rem 0.625rem !important;
-  }
-
   .directory-patient-search-grid {
     grid-template-columns: 1fr !important;
   }
@@ -1671,6 +1878,8 @@ img { display: block; max-width: 100%; }
     justify-content: center;
   }
   .dashboard-kpi-grid { grid-template-columns: 1fr; }
+  .dashboard-shell { padding: 1.25rem 1rem 2rem !important; }
+  .admin-shell { padding: 2rem 1rem 2.5rem !important; }
 }
 
 

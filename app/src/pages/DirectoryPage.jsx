@@ -323,36 +323,36 @@ export function DirectoryPage() {
     <>
       <NavbarIntecnia activePage="directory" />
 
-      <div className="container" style={{ padding: '1rem 1.5rem' }}>
-        <nav style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center', gap: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <div className="container directory-shell" style={{ paddingBottom: 0 }}>
+        <nav className="directory-breadcrumb">
           <Link to="/">INICIO</Link>
           <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>chevron_right</span>
           <span style={{ fontWeight: 600, color: 'var(--on-surface)' }}>DIRECTORIO SALUD</span>
         </nav>
       </div>
 
-      <div className="container" style={{ padding: '0 1.5rem 1.25rem' }}>
+      <div className="container directory-shell">
         <div className="directory-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ fontFamily: 'Manrope', fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '0.25rem' }}>
+            <h1 className="directory-title">
               {queryFromUrl ? `Resultados para \"${queryFromUrl}\"` : 'Especialistas de salud verificados'}
             </h1>
-            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{summaryLabel}</p>
+            <p className="directory-header-summary">{summaryLabel}</p>
           </div>
 
           <button
             type="button"
             onClick={() => setMobileFiltersOpen((prev) => !prev)}
             className="btn btn-outline directory-mobile-filters-toggle"
-            style={{ fontSize: '0.8125rem' }}
+            style={{ fontSize: '0.875rem' }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>tune</span>
             {mobileFiltersOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
           </button>
         </div>
 
-        <div className="directory-patient-search-grid" style={{ marginTop: '0.875rem', display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 0.8fr)', gap: '0.625rem' }}>
-          <div className="directory-search-box" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.75rem' }}>
+        <div className="directory-patient-search-grid">
+          <div className="directory-search-box">
             <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>search</span>
             <input
               type="text"
@@ -360,7 +360,6 @@ export function DirectoryPage() {
               onChange={(e) => setSymptomTerm(e.target.value)}
               placeholder="Sintoma o necesidad: ansiedad, diabetes..."
               className="input-field directory-search-input"
-              style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: '0.5rem 0.25rem' }}
             />
           </div>
 
@@ -376,7 +375,7 @@ export function DirectoryPage() {
             ))}
           </select>
 
-          <div className="directory-search-box" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.75rem' }}>
+          <div className="directory-search-box">
             <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>location_on</span>
             <input
               type="text"
@@ -384,12 +383,11 @@ export function DirectoryPage() {
               onChange={(e) => setLocationTerm(e.target.value)}
               placeholder="Ubicacion"
               className="input-field directory-search-input"
-              style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: '0.5rem 0.25rem' }}
             />
           </div>
         </div>
 
-        <div className="directory-search-box" style={{ marginTop: '0.625rem', display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.5rem 0.75rem' }}>
+        <div className="directory-search-box" style={{ marginTop: '0.875rem' }}>
           <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--secondary)' }}>manage_search</span>
           <input
             type="text"
@@ -397,46 +395,42 @@ export function DirectoryPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por nombre, titulo o categoria..."
             className="input-field directory-search-input"
-            style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: '0.5rem 0.25rem' }}
           />
         </div>
 
-        <div className="directory-quick-filters" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+        <div className="directory-quick-filters">
           {PATIENT_SEARCH_SUGGESTIONS.map((suggestion) => (
             <button
               key={suggestion}
               onClick={() => setSymptomTerm(suggestion)}
-              className={`btn ${symptomTerm.toLowerCase() === suggestion ? 'btn-primary' : 'btn-outline'}`}
-              style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+              className={`btn directory-chip-btn ${symptomTerm.toLowerCase() === suggestion ? 'btn-primary' : 'btn-outline'}`}
             >
               {suggestion}
             </button>
           ))}
           <button
             onClick={() => setImmediateOnly((prev) => !prev)}
-            className={`btn ${immediateOnly ? 'btn-primary' : 'btn-outline'}`}
-            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+            className={`btn directory-chip-btn ${immediateOnly ? 'btn-primary' : 'btn-outline'}`}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>bolt</span>
             Hoy
           </button>
         </div>
 
-        <div className="directory-quick-filters" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-          <button onClick={() => setSearchTerm('')} className={`btn ${searchTerm.trim() === '' ? 'btn-primary' : 'btn-outline'}`} style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}>Todos</button>
+        <div className="directory-quick-filters">
+          <button onClick={() => setSearchTerm('')} className={`btn directory-chip-btn ${searchTerm.trim() === '' ? 'btn-primary' : 'btn-outline'}`}>Todos</button>
           {HEALTH_FILTERS.map((filter) => (
             <button
               key={filter.label}
               onClick={() => setSearchTerm(filter.query)}
-              className={`btn ${searchTerm.toLowerCase().includes(filter.query) ? 'btn-primary' : 'btn-outline'}`}
-              style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+              className={`btn directory-chip-btn ${searchTerm.toLowerCase().includes(filter.query) ? 'btn-primary' : 'btn-outline'}`}
             >
               {filter.label}
             </button>
           ))}
         </div>
 
-        <div className="directory-quick-filters" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+        <div className="directory-quick-filters">
           {PRICE_RANGES.map((range) => (
             <button
               key={range.label}
@@ -444,8 +438,7 @@ export function DirectoryPage() {
                 setPriceMin(range.min);
                 setPriceCap(range.max);
               }}
-              className={`btn ${priceMin === range.min && priceCap === range.max ? 'btn-primary' : 'btn-outline'}`}
-              style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+              className={`btn directory-chip-btn ${priceMin === range.min && priceCap === range.max ? 'btn-primary' : 'btn-outline'}`}
             >
               {range.label}
             </button>
@@ -460,7 +453,7 @@ export function DirectoryPage() {
             onChange={(e) => setVerifiedOnly(e.target.checked)}
             style={{ accentColor: 'var(--secondary)' }}
           />
-          <label htmlFor="verified-only-top" style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', cursor: 'pointer' }}>
+          <label htmlFor="verified-only-top" style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', cursor: 'pointer' }}>
             Solo verificados
           </label>
         </div>
@@ -474,9 +467,9 @@ export function DirectoryPage() {
 
       <div className="container layout-directory pb-32 max-md:pb-36" style={{ paddingBottom: '8rem' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)', marginBottom: '1rem', border: '1px solid var(--outline-variant)' }}>
+          <div className="directory-meta-note">
             <span className="material-symbols-outlined icon-filled" style={{ fontSize: '20px', color: 'var(--secondary)' }}>view_module</span>
-            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-surface)' }}>
+            <p style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--on-surface)' }}>
               Mostrando especialistas primero. Ajusta filtros solo si lo necesitas.
             </p>
           </div>
@@ -496,7 +489,7 @@ export function DirectoryPage() {
             </div>
           )}
 
-          <div className="directory-results-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: '1rem' }}>
+          <div className="directory-results-grid">
             {professionals.map((p) => {
               const profilePath = `/profile/${p.id}`;
               const chatPath = `/profile/${p.id}?tab=chat`;
@@ -550,39 +543,39 @@ export function DirectoryPage() {
                           </span>
                         </div>
 
-                        <p style={{ fontSize: '0.78rem', color: 'var(--on-surface-variant)', fontWeight: 600, margin: 0, overflowWrap: 'anywhere' }}>
+                        <p className="directory-density-title" style={{ color: 'var(--on-surface-variant)', fontWeight: 600, margin: 0, overflowWrap: 'anywhere' }}>
                           {p.title || 'Especialista de salud'}
                         </p>
 
                         <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.6875rem', color: 'var(--secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.15rem 0.4rem', borderRadius: '9999px', background: 'rgba(16,185,129,0.16)' }}>
+                          <span className="directory-density-pill" style={{ color: 'var(--secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.15rem 0.4rem', borderRadius: '9999px', background: 'rgba(16,185,129,0.16)' }}>
                             Verificado
                           </span>
-                          <span style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', fontWeight: 600, padding: '0.15rem 0.4rem', borderRadius: '9999px', border: '1px solid var(--outline-variant)' }}>
+                          <span className="directory-density-pill" style={{ color: 'var(--on-surface-variant)', fontWeight: 600, padding: '0.15rem 0.4rem', borderRadius: '9999px', border: '1px solid var(--outline-variant)' }}>
                           {CATEGORY_MAP[p.category] || 'Especialista health-first'}
                           </span>
                         </div>
 
                         {p.medicalSpecialty && (
-                          <p style={{ fontSize: '0.75rem', margin: 0, color: 'var(--on-surface-variant)' }}>
+                          <p className="directory-density-copy" style={{ margin: 0, color: 'var(--on-surface-variant)' }}>
                             Especialidad: <strong>{MEDICAL_SPECIALTY_LABELS[p.medicalSpecialty] || p.medicalSpecialty}</strong>
                           </p>
                         )}
 
                         <div style={{ display: 'grid', gap: '0.2rem' }}>
-                          <p style={{ fontSize: '0.75rem', margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
+                          <p className="directory-density-copy" style={{ margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
                             Modalidad: {consultationModesText}
                           </p>
-                          <p style={{ fontSize: '0.75rem', margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
+                          <p className="directory-density-copy" style={{ margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
                             Atiende: {conditionsText}
                           </p>
-                          <p style={{ fontSize: '0.75rem', margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
+                          <p className="directory-density-copy" style={{ margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
                             Zona: {serviceAreaText}
                           </p>
-                          <p style={{ fontSize: '0.75rem', margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
+                          <p className="directory-density-copy" style={{ margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
                             Idiomas: {languagesText}
                           </p>
-                          <p style={{ fontSize: '0.75rem', margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
+                          <p className="directory-density-copy" style={{ margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
                             Seguros: {insurersText}
                           </p>
                         </div>

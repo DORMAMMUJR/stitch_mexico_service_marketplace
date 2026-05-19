@@ -298,9 +298,9 @@ export function HomePage() {
       </div>
 
       {/* POR QUE ELEGIRNOS VS FACEBOOK */}
-      <section style={{ padding: '5rem 1.5rem', background: '#fff7ed' }}>
+      <section className="home-flow-section home-flow-section-warm">
         <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <div className="home-section-heading">
             <h2 className="text-headline-md" style={{ color: '#9a3412', marginBottom: '0.5rem', fontWeight: 800 }}>¿Por qué usar Intecnia para tu salud?</h2>
             <p style={{ color: '#c2410c', maxWidth: '480px', margin: '0 auto', fontSize: '1.0625rem', fontWeight: 500 }}>La diferencia entre dudar y tener certeza total te protegemos.</p>
           </div>
@@ -324,9 +324,9 @@ export function HomePage() {
       </section>
 
       {/* COMO TE AYUDAMOS */}
-      <section style={{ padding: '5rem 1.5rem', background: 'var(--surface)' }}>
+      <section className="home-flow-section home-flow-section-surface">
         <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
+          <div className="home-section-heading" style={{ marginBottom: '3.5rem' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#fef3c7', color: '#d97706', padding: '0.375rem 1rem', borderRadius: 'var(--radius-full)', fontWeight: 800, fontSize: '0.8125rem', letterSpacing: '0.05em', marginBottom: '1rem' }}>
               <span className="material-symbols-outlined icon-filled" style={{ fontSize: '18px' }}>smart_toy</span>
               TU ASISTENTE INTELIGENTE
@@ -359,7 +359,7 @@ export function HomePage() {
       </section>
 
       {/* CATEGORIAS */}
-      <section style={{ padding: '5rem 1.5rem', background: 'var(--surface-container-lowest)' }}>
+      <section className="home-flow-section" style={{ background: 'var(--surface-container-lowest)' }}>
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
@@ -392,7 +392,7 @@ export function HomePage() {
       </section>
 
       {/* PROFESIONALES DESTACADOS */}
-      <section style={{ padding: '5rem 1.5rem', background: 'var(--surface)' }}>
+      <section className="home-flow-section home-flow-section-surface">
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
@@ -531,9 +531,9 @@ export function HomePage() {
       </section>
 
       {/* TESTIMONIOS COMPLETOS CON HISTORIA */}
-      <section style={{ padding: '5rem 1.5rem', background: '#f8fafc' }}>
+      <section className="home-flow-section" style={{ background: '#f8fafc' }}>
         <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
+          <div className="home-section-heading" style={{ marginBottom: '3.5rem' }}>
             <p className="text-label-md" style={{ color: '#047857', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.75rem', fontWeight: 800 }}>HISTORIAS REALES</p>
             <h2 className="text-headline-md" style={{ color: 'var(--primary)', fontWeight: 800 }}>Resultados, no solo promesas</h2>
           </div>
@@ -561,7 +561,7 @@ export function HomePage() {
       </section>
 
       {/* CTA FINAL */}
-      <section style={{ padding: '6rem 1.5rem', background: '#0f172a', textAlign: 'center' }}>
+      <section className="home-final-cta">
         <div className="container" style={{ maxWidth: '700px' }}>
           <span className="material-symbols-outlined icon-filled" style={{ fontSize: '56px', color: '#10b981', marginBottom: '1.5rem', display: 'block' }}>shield_lock</span>
           <h2 style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: 'clamp(2rem, 4vw, 2.75rem)', color: 'white', marginBottom: '1.25rem', letterSpacing: '-0.02em', lineHeight: 1.1 }}>

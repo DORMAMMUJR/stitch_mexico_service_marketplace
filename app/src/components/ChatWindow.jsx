@@ -139,7 +139,7 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   return (
-    <div className="chat-window-shell" style={{ display: 'flex', height: '70vh', minHeight: '500px', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', border: '1px solid var(--outline-variant)', boxShadow: 'var(--ambient-shadow)' }}>
+    <div className="chat-window-shell" style={{ display: 'flex', height: 'clamp(420px, 66vh, 740px)', minHeight: '420px', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', border: '1px solid var(--outline-variant)', boxShadow: 'var(--ambient-shadow)' }}>
 
       {/* ── Panel Izquierdo: Lista de Conversaciones ─────────────────────────── */}
       {(!isMobile || !selectedConvId) && (

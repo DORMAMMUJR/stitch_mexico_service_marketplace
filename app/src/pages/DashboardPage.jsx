@@ -158,7 +158,7 @@ const DASHBOARD_DEFAULT_TAB = 'overview';
 
 function DashboardTabNav({ tabs, activeTab, onChange }) {
   return (
-    <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--outline-variant)', marginBottom: '1.25rem', overflowX: 'auto' }}>
+    <div style={{ display: 'flex', gap: '0.625rem', borderBottom: '1px solid var(--outline-variant)', marginBottom: '1.5rem', overflowX: 'auto' }}>
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -166,10 +166,10 @@ function DashboardTabNav({ tabs, activeTab, onChange }) {
           style={{
             background: 'none',
             border: 'none',
-            padding: '0.75rem 0.9rem',
+            padding: '0.8rem 1rem',
             fontFamily: 'Manrope',
             fontWeight: 700,
-            fontSize: '0.875rem',
+            fontSize: '0.9375rem',
             color: activeTab === tab.id ? 'var(--secondary)' : 'var(--on-surface-variant)',
             borderBottom: activeTab === tab.id ? '2px solid var(--secondary)' : '2px solid transparent',
             display: 'flex',
@@ -843,7 +843,7 @@ export function DashboardPage() {
     <div style={{ minHeight: '100vh', background: 'var(--surface)' }}>
       <NavbarIntecnia activePage="dashboard" />
 
-      <main className="container dashboard-premium" style={{ padding: '2rem 1rem 3rem' }}>
+      <main className="container dashboard-premium dashboard-shell">
         <header style={{ marginBottom: '1.5rem' }}>
           <p className="text-label-md" style={{ color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{isProfessional ? 'PANEL DEL DOCTOR' : 'PANEL DEL CLIENTE'}</p>
           <h1 className="text-headline-md" style={{ color: 'var(--primary)' }}>{isProfessional ? 'Consultas, pacientes y operaciones' : 'Dashboard cliente'}</h1>
@@ -852,15 +852,15 @@ export function DashboardPage() {
         <DashboardTabNav tabs={tabs} activeTab={activeTab} onChange={handleTabChange} />
 
         {activeTab === 'overview' && (
-          <section style={{ display: 'grid', gap: '0.875rem' }}>
-            <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem', border: '1px solid var(--outline-variant)' }}>
-              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--on-surface-variant)', letterSpacing: '0.08em', fontWeight: 700 }}>
+          <section className="dashboard-overview">
+            <div className="card glass-card dashboard-surface-1 dashboard-card-pad" style={{ border: '1px solid var(--outline-variant)' }}>
+              <p className="dashboard-micro" style={{ margin: 0, color: 'var(--on-surface-variant)', letterSpacing: '0.08em', fontWeight: 700 }}>
                 {isProfessional ? 'RESUMEN OPERATIVO' : 'RESUMEN DE CLIENTE'}
               </p>
               <h2 style={{ margin: '0.35rem 0 0.45rem', fontFamily: 'Manrope', color: 'var(--primary)', fontWeight: 800, fontSize: '1.1rem' }}>
                 {dashboardHeadline}
               </h2>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--on-surface-variant)' }}>
+              <p className="dashboard-micro" style={{ margin: 0, color: 'var(--on-surface-variant)' }}>
                 {isProfessional
                   ? `Proximas ${professionalPanelData.upcoming.length} · Pendientes ${professionalPanelData.pendingActions.length} · Historial ${professionalPanelData.history.length}`
                   : `Agendadas ${dashboardData.appointmentsScheduled} · Completadas ${dashboardData.completedAppointments}`}
@@ -868,31 +868,31 @@ export function DashboardPage() {
             </div>
 
             <div className="dashboard-kpi-grid">
-              <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{isProfessional ? 'Citas proximas' : 'Citas agendadas'}</p>
+              <div className="card glass-card dashboard-surface-1 dashboard-card-pad">
+                <p className="dashboard-micro" style={{ color: 'var(--on-surface-variant)' }}>{isProfessional ? 'Citas proximas' : 'Citas agendadas'}</p>
                 <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{isProfessional ? professionalPanelData.upcoming.length : dashboardData.appointmentsScheduled}</p>
               </div>
 
-              <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Citas completadas</p>
+              <div className="card glass-card dashboard-surface-2 dashboard-card-pad">
+                <p className="dashboard-micro" style={{ color: 'var(--on-surface-variant)' }}>Citas completadas</p>
                 <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{dashboardData.completedAppointments}</p>
               </div>
 
-              <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Ingresos</p>
+              <div className="card glass-card dashboard-surface-2 dashboard-card-pad">
+                <p className="dashboard-micro" style={{ color: 'var(--on-surface-variant)' }}>Ingresos</p>
                 <p style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)' }}>{isProfessional ? formatCurrency(professionalPanelData.revenue) : 'Proximamente'}</p>
               </div>
 
               {isProfessional && (
-                <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Perfil/verificacion</p>
+                <div className="card glass-card dashboard-surface-1 dashboard-card-pad">
+                  <p className="dashboard-micro" style={{ color: 'var(--on-surface-variant)' }}>Perfil/verificacion</p>
                   <p style={{ fontSize: '1.1rem', fontWeight: 800, color: professionalProfile?.isVerified ? '#16a34a' : 'var(--secondary)' }}>{professionalPanelData.verificationLabel}</p>
                 </div>
               )}
             </div>
 
             {isProfessional && (
-              <div className="card glass-card" style={{ padding: '1rem', border: '1px solid var(--outline-variant)', display: 'grid', gap: '0.65rem' }}>
+              <div className="card glass-card dashboard-card-pad" style={{ border: '1px solid var(--outline-variant)', display: 'grid', gap: '0.75rem' }}>
                 <p style={{ margin: 0, fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem' }}>Acciones rapidas del consultorio</p>
                 <div style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap' }}>
                   <button type="button" className="btn btn-primary" onClick={() => handleTabChange('appointments')}>Gestionar citas</button>
@@ -907,10 +907,10 @@ export function DashboardPage() {
             )}
 
             {isProfessional && (
-              <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem', border: '1px solid var(--outline-variant)' }}>
+              <div className="card glass-card dashboard-surface-2 dashboard-card-pad" style={{ border: '1px solid var(--outline-variant)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
                   <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, margin: 0, color: 'var(--primary)' }}>Checklist operativo</h3>
-                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
+                  <p className="dashboard-micro" style={{ margin: 0, color: 'var(--on-surface-variant)' }}>
                     {professionalActionChecklist.filter((item) => item.done).length}/{professionalActionChecklist.length} completado
                   </p>
                 </div>
@@ -924,7 +924,7 @@ export function DashboardPage() {
                         <p style={{ margin: 0, fontWeight: 600, color: 'var(--on-surface)' }}>{item.label}</p>
                       </div>
                       {!item.done && (
-                        <button type="button" className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.38rem 0.65rem' }} onClick={item.action}>
+                        <button type="button" className="btn btn-outline dashboard-tiny-btn" onClick={item.action}>
                           {item.actionLabel}
                         </button>
                       )}
@@ -934,7 +934,7 @@ export function DashboardPage() {
               </div>
             )}
 
-            <div className="card glass-card" style={{ padding: '1rem' }}>
+            <div className="card glass-card dashboard-card-pad">
               <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>{isProfessional ? 'Agenda inmediata' : 'Actividad reciente'}</h3>
               {(isProfessional ? professionalPanelData.upcoming : appointments).slice(0, 4).length === 0 ? (
                 <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>{isProfessional ? 'Sin citas proximas.' : 'Sin actividad reciente.'}</p>
@@ -952,12 +952,12 @@ export function DashboardPage() {
                           ? '#16a34a'
                           : 'var(--on-surface-variant)';
                     return (
-                      <div key={app.id} style={{ padding: '0.625rem 0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)' }}>
-                        <p style={{ color: 'var(--secondary)', fontWeight: 700, fontSize: '0.8rem' }}>{counterpart?.name || (isProfessional ? 'Paciente' : 'Profesional')}</p>
+                      <div key={app.id} style={{ padding: '0.75rem 0.875rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)' }}>
+                        <p className="dashboard-micro" style={{ color: 'var(--secondary)', fontWeight: 700 }}>{counterpart?.name || (isProfessional ? 'Paciente' : 'Profesional')}</p>
                         <p style={{ color: 'var(--on-surface)', fontWeight: 600, fontSize: '0.875rem' }}>{app.dateLabel} · {app.timeLabel}</p>
-                        <p style={{ color: statusTone, fontSize: '0.75rem', fontWeight: 700 }}>{normalizedStatus}</p>
+                        <p className="dashboard-status-text" style={{ color: statusTone, fontWeight: 700 }}>{normalizedStatus}</p>
                         {isProfessional && paymentSummary && (
-                          <p style={{ color: 'var(--secondary)', fontSize: '0.75rem', fontWeight: 700 }}>
+                          <p className="dashboard-status-text" style={{ color: 'var(--secondary)', fontWeight: 700 }}>
                             {paymentSummary.label}: <span style={{ color: 'var(--on-surface-variant)', fontWeight: 600 }}>{paymentSummary.detail}</span>
                           </p>
                         )}
@@ -970,20 +970,20 @@ export function DashboardPage() {
 
             {isProfessional && (
               <div className="dashboard-kpi-grid">
-                <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Acciones pendientes</p>
+                <div className="card glass-card dashboard-surface-1 dashboard-card-pad">
+                  <p className="dashboard-micro" style={{ color: 'var(--on-surface-variant)' }}>Acciones pendientes</p>
                   <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{professionalPanelData.pendingActions.length}</p>
                 </div>
-                <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Dias disponibles</p>
+                <div className="card glass-card dashboard-surface-2 dashboard-card-pad">
+                  <p className="dashboard-micro" style={{ color: 'var(--on-surface-variant)' }}>Dias disponibles</p>
                   <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{professionalPanelData.activeAvailabilityDays}</p>
                 </div>
-                <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Pacientes/historial</p>
+                <div className="card glass-card dashboard-surface-1 dashboard-card-pad">
+                  <p className="dashboard-micro" style={{ color: 'var(--on-surface-variant)' }}>Pacientes/historial</p>
                   <p style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>{professionalPanelData.history.length}</p>
                 </div>
-                <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Pagos</p>
+                <div className="card glass-card dashboard-surface-2 dashboard-card-pad">
+                  <p className="dashboard-micro" style={{ color: 'var(--on-surface-variant)' }}>Pagos</p>
                   <p style={{ fontSize: '1.1rem', fontWeight: 800, color: hasActivePayments ? '#16a34a' : 'var(--secondary)' }}>{hasActivePayments ? 'Activo' : 'Pendiente'}</p>
                 </div>
               </div>
@@ -1025,7 +1025,7 @@ export function DashboardPage() {
                   const isNoShowAppointment = appointmentActionMap[app.id] === 'no-show';
 
                   return (
-                    <div key={app.id} className="dashboard-appointment-item" style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <div key={app.id} className="dashboard-appointment-item" style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.875rem', flexWrap: 'wrap' }}>
                       <div>
                         {isProfessional ? (
                           <button
@@ -1040,9 +1040,9 @@ export function DashboardPage() {
                         )}
 
                         <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} - {app.timeLabel}</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{app.status}</p>
+                        <p className="dashboard-status-text" style={{ color: 'var(--on-surface-variant)' }}>{app.status}</p>
                         {isProfessional && paymentSummary && (
-                          <p style={{ fontSize: '0.75rem', color: paymentSummary.label === 'Pago confirmado' ? '#16a34a' : 'var(--secondary)', fontWeight: 700 }}>
+                          <p className="dashboard-status-text" style={{ color: paymentSummary.label === 'Pago confirmado' ? '#16a34a' : 'var(--secondary)', fontWeight: 700 }}>
                             {paymentSummary.label}: <span style={{ color: 'var(--on-surface-variant)', fontWeight: 600 }}>{paymentSummary.detail}</span>
                           </p>
                         )}

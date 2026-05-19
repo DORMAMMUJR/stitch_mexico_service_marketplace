@@ -389,12 +389,12 @@ export function AdminPanel() {
   return (
     <>
       <NavbarIntecnia />
-      <div className="container" style={{ padding: '3rem 1rem', minHeight: '60vh' }}>
+      <div className="container admin-shell">
         <h1 style={{ fontFamily: 'Manrope', color: 'var(--primary)', marginBottom: '0.75rem', fontSize: '2rem', fontWeight: 700 }}>Panel Superadmin</h1>
         <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem' }}>Control total de plataforma, usuarios y operacion.</p>
 
-        <div className="card glass-card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
-          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Resumen General</h2>
+        <div className="card glass-card admin-section-card">
+          <h2 className="admin-section-title" style={{ color: 'var(--primary)' }}>Resumen General</h2>
           {statsLoading ? (
             <p style={{ color: 'var(--on-surface-variant)' }}>Cargando resumen...</p>
           ) : statsError ? (
@@ -403,10 +403,10 @@ export function AdminPanel() {
               <button className="btn btn-outline" onClick={loadStats}>Reintentar</button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               {statsCards.map((card) => (
-                <div key={card.key} className="glass-card" style={{ padding: '0.875rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)' }}>
-                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem', marginBottom: '0.35rem' }}>{card.label}</p>
+                <div key={card.key} className="glass-card" style={{ padding: '1rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)' }}>
+                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.8125rem', marginBottom: '0.35rem' }}>{card.label}</p>
                   <p style={{ color: 'var(--primary)', fontSize: '1.3rem', fontWeight: 800 }}>{card.value}</p>
                 </div>
               ))}
@@ -414,8 +414,8 @@ export function AdminPanel() {
           )}
         </div>
 
-        <div className="card glass-card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
-          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Reportes de usuarios</h2>
+        <div className="card glass-card admin-section-card">
+          <h2 className="admin-section-title" style={{ color: 'var(--primary)' }}>Reportes de usuarios</h2>
 
           <form onSubmit={handleUsersSearch} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.875rem' }}>
             <input
@@ -447,7 +447,7 @@ export function AdminPanel() {
             </div>
           )}
 
-          <div style={{ overflowX: 'auto', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)' }}>
+          <div className="admin-table-shell">
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '920px' }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
@@ -538,7 +538,7 @@ export function AdminPanel() {
           </div>
         </div>
 
-        <div className="card glass-card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
+        <div className="card glass-card admin-section-card">
           <p style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Link principal de contacto/soporte</p>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <input value={supportLink} onChange={(e) => setSupportLink(e.target.value)} className="input-field" placeholder="https://wa.me/521..." style={{ flex: 1, minWidth: '260px' }} />
@@ -546,8 +546,8 @@ export function AdminPanel() {
           </div>
         </div>
 
-        <div className="card glass-card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
-          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Gestion de operadores ADMIN</h2>
+        <div className="card glass-card admin-section-card">
+          <h2 className="admin-section-title" style={{ color: 'var(--primary)' }}>Gestion de operadores ADMIN</h2>
           <form onSubmit={handleCreateOperator} style={{ display: 'grid', gap: '0.625rem', marginBottom: '1rem' }}>
             <input
               className="input-field"
@@ -598,8 +598,8 @@ export function AdminPanel() {
           </div>
         </div>
 
-        <div className="card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
-          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>Resumen rapido</h2>
+        <div className="card admin-section-card">
+          <h2 className="admin-section-title" style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>Resumen rapido</h2>
           {operationalLoading ? (
             <p>Cargando...</p>
           ) : operationalError ? (
@@ -616,14 +616,14 @@ export function AdminPanel() {
           )}
         </div>
 
-        <div className="card glass-card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
-          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>KPIs por especialidad</h2>
+        <div className="card glass-card admin-section-card">
+          <h2 className="admin-section-title" style={{ color: 'var(--primary)' }}>KPIs por especialidad</h2>
           {operationalLoading ? (
             <p style={{ color: 'var(--on-surface-variant)' }}>Cargando KPIs...</p>
           ) : specialtyKpis.length === 0 ? (
             <p style={{ color: 'var(--on-surface-variant)' }}>Aun no hay datos por especialidad.</p>
           ) : (
-            <div style={{ overflowX: 'auto', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)' }}>
+            <div className="admin-table-shell">
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '760px' }}>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
@@ -650,8 +650,8 @@ export function AdminPanel() {
           )}
         </div>
 
-        <div className="card glass-card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
-          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Disputas</h2>
+        <div className="card glass-card admin-section-card">
+          <h2 className="admin-section-title" style={{ color: 'var(--primary)' }}>Disputas</h2>
           {operationalLoading ? (
             <p style={{ color: 'var(--on-surface-variant)' }}>Cargando disputas...</p>
           ) : disputes.length === 0 ? (
@@ -673,8 +673,8 @@ export function AdminPanel() {
           )}
         </div>
 
-        <div className="card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
-          <h2 style={{ fontSize: '1.125rem', color: 'var(--primary)', marginBottom: '0.75rem' }}>Verificaciones pendientes</h2>
+        <div className="card admin-section-card">
+          <h2 className="admin-section-title" style={{ color: 'var(--primary)' }}>Verificaciones pendientes</h2>
           {operationalLoading ? (
             <p>Cargando documentos...</p>
           ) : operationalError ? (

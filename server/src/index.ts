@@ -66,6 +66,25 @@ const effectiveAllowedOrigins = isProductionEnv
   : Array.from(new Set([...localDevOrigins, ...allowedOrigins]));
 const allowedOriginSet = new Set(effectiveAllowedOrigins);
 
+function normalizeHost(host: string): string {
+  return host.trim().toLowerCase().replace(/:\d+$/, '');
+}
+
+function originMatchesRequestHost(origin: string, requestHost: string): boolean {
+  if (!origin || !requestHost) return false;
+  try {
+    const originHost = normalizeHost(new URL(origin).host);
+    const targetHost = normalizeHost(requestHost);
+    return (
+      originHost === targetHost ||
+      originHost === `www.${targetHost}` ||
+      targetHost === `www.${originHost}`
+    );
+  } catch {
+    return false;
+  }
+}
+
 type AppointmentMeta = {
   requestedScheduledAt?: string | null;
   payment?: {
@@ -149,8 +168,11 @@ const apiCorsDelegate: cors.CorsOptionsDelegate<express.Request> = (req, callbac
   const forwardedProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim();
   const requestProto = forwardedProto || req.protocol || 'https';
   const requestOrigin = requestHost ? `${requestProto}://${requestHost}` : '';
+  const isAllowedByEnv = allowedOriginSet.has(origin);
+  const isSameRequestOrigin = Boolean(requestOrigin && origin === requestOrigin);
+  const isSameHost = originMatchesRequestHost(origin, requestHost);
 
-  if (allowedOriginSet.has(origin) || (requestOrigin && origin === requestOrigin)) {
+  if (isAllowedByEnv || isSameRequestOrigin || isSameHost) {
     callback(null, { origin: true, credentials: true });
     return;
   }

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastContext';
+import { apiFetch } from '../lib/api';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -15,6 +16,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
+  const googleEnabled = Boolean(String(import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || '').trim());
 
   
   useEffect(() => {
@@ -30,9 +32,8 @@ export function LoginPage() {
       }
 
       try {
-        const meRes = await fetch('/api/auth/me', { credentials: 'include' });
-        const meData = await meRes.json();
-        if (!meRes.ok || !meData?.user) {
+        const meData = await apiFetch('/auth/me');
+        if (!meData?.user) {
           throw new Error('No se pudo recuperar la sesion de Google.');
         }
 
@@ -64,18 +65,11 @@ export function LoginPage() {
 
     try {
       showToast(`Enviando solicitud para ${email}...`, 'info');
-      const res = await fetch('/api/auth/reset-password-request', {
+      await apiFetch('/auth/reset-password-request', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email }),
       });
-
-      if (res.ok) {
-        showToast(`Se ha enviado un enlace de recuperacion a ${email}`, 'success');
-      } else {
-        throw new Error('No se pudo enviar la solicitud');
-      }
+      showToast(`Se ha enviado un enlace de recuperacion a ${email}`, 'success');
     } catch (err) {
       showToast('Hubo un error al procesar tu solicitud', 'error');
     }
@@ -87,18 +81,10 @@ export function LoginPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const data = await apiFetch('/auth/login', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al iniciar sesion');
-      }
 
       login(null, data.user);
 
@@ -132,17 +118,10 @@ export function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/google', {
+      const data = await apiFetch('/auth/google', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential }),
       });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Fallo en la autenticacion con Google');
-      }
 
       login(null, data.user);
       const role = data.user?.role;
@@ -245,12 +224,14 @@ export function LoginPage() {
                 'Iniciar Sesion'
               )}
             </button>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => setError('El popup de Google fallo o fue cerrado.')}
-              />
-            </div>
+            {googleEnabled && (
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError('El popup de Google fallo o fue cerrado.')}
+                />
+              </div>
+            )}
           </form>
 
           <div style={{ textAlign: 'center', marginTop: '2rem' }}>

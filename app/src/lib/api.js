@@ -1,10 +1,12 @@
-// En dev: Vite proxea /api -> localhost:3000 (ver vite.config.js)
-// En prod: mismo origen, Express maneja /api directamente.
-const BASE_URL = '/api';
+// En dev: Vite proxea /api -> localhost:3000 (ver vite.config.js).
+// Si VITE_API_URL existe, se usa como origen remoto.
+const ENV_API_URL = String(import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+const BASE_URL = ENV_API_URL ? `${ENV_API_URL}` : '/api';
 
 function normalizeEndpoint(endpoint) {
   if (!endpoint) return '';
-  return endpoint.startsWith('/api') ? endpoint.slice(4) : endpoint;
+  const normalized = endpoint.startsWith('/api') ? endpoint.slice(4) : endpoint;
+  return normalized.startsWith('/') ? normalized : `/${normalized}`;
 }
 
 export async function apiFetch(endpoint, options = {}) {

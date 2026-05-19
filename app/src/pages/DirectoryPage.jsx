@@ -41,6 +41,21 @@ const CONSULTATION_MODE_OPTIONS = [
   { value: 'DOMICILIO', label: 'Visita a domicilio' },
   { value: 'TELEMEDICINA', label: 'Telemedicina' },
 ];
+const CONSULTATION_MODE_LABELS = CONSULTATION_MODE_OPTIONS.reduce((acc, option) => {
+  acc[option.value] = option.label;
+  return acc;
+}, {});
+const INSURER_LABELS = {
+  GNP: 'GNP',
+  AXA: 'AXA',
+  METLIFE: 'MetLife',
+  MAPFRE: 'Mapfre',
+  ALLIANZ: 'Allianz',
+  BBVA: 'BBVA Seguros',
+  INBURSA: 'Inbursa',
+  QUALITAS: 'Qualitas',
+  PLAN_PRIVADO: 'Plan privado',
+};
 
 const PRICE_RANGES = [
   { label: 'Todos', min: 0, max: 5000 },
@@ -49,6 +64,20 @@ const PRICE_RANGES = [
   { label: '$1,000 - $2,000', min: 1000, max: 2000 },
   { label: '$2,000+', min: 2000, max: 5000 },
 ];
+
+function formatMoney(value) {
+  if (!Number.isFinite(Number(value))) return null;
+  return `$${Number(value).toLocaleString('es-MX')} MXN`;
+}
+
+function normalizeDisplayList(values, fallback = 'No especificado', limit = 3) {
+  if (!Array.isArray(values) || values.length === 0) return fallback;
+  const valid = values.map((item) => String(item || '').trim()).filter(Boolean);
+  if (valid.length === 0) return fallback;
+  const visible = valid.slice(0, limit);
+  const hidden = valid.length - visible.length;
+  return hidden > 0 ? `${visible.join(', ')} +${hidden}` : visible.join(', ');
+}
 
 export function DirectoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -473,6 +502,26 @@ export function DirectoryPage() {
               const chatPath = `/profile/${p.id}?tab=chat`;
               const reservePath = `/reserva/${p.id}`;
               const displayPrice = Number(p.presencialRate || p.telemedicineRate || p.homeVisitRate || p.hourlyRate || p.price || 2000);
+              const conditionsText = normalizeDisplayList(p.treatedConditions, 'Sin padecimientos publicados', 3);
+              const insurersText = normalizeDisplayList(
+                Array.isArray(p.acceptedInsurers) ? p.acceptedInsurers.map((insurer) => INSURER_LABELS[insurer] || insurer) : [],
+                'No acepta seguro',
+                2,
+              );
+              const languagesText = normalizeDisplayList(p.languages, 'No especificado', 2);
+              const serviceAreaText = normalizeDisplayList(p.serviceAreas, p.officeAddress || 'Sin zona declarada', 2);
+              const consultationModesText = normalizeDisplayList(
+                Array.isArray(p.consultationModes) ? p.consultationModes.map((mode) => CONSULTATION_MODE_LABELS[mode] || mode) : [],
+                'Por acordar',
+                2,
+              );
+              const rates = [
+                { label: 'Presencial', value: p.presencialRate },
+                { label: 'Telemedicina', value: p.telemedicineRate },
+                { label: 'Domicilio', value: p.homeVisitRate },
+              ].filter((rate) => Number.isFinite(Number(rate.value)));
+              const experienceLabel = Number.isFinite(Number(p.experienceYears)) ? `${p.experienceYears} anos de experiencia` : null;
+              const slotLabel = Number.isFinite(Number(p.slotIntervalMinutes)) ? `Agenda cada ${p.slotIntervalMinutes} min` : null;
 
               return (
                 <div key={p.id} className="pro-card" style={{ width: '100%', minWidth: 0, margin: 0 }}>
@@ -524,10 +573,41 @@ export function DirectoryPage() {
                           </p>
                         )}
 
-                        {Array.isArray(p.consultationModes) && p.consultationModes.length > 0 && (
+                        <div style={{ display: 'grid', gap: '0.2rem' }}>
                           <p style={{ fontSize: '0.75rem', margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
-                            Modalidad: {p.consultationModes.map((mode) => CONSULTATION_MODE_OPTIONS.find((opt) => opt.value === mode)?.label || mode).join(' | ')}
+                            Modalidad: {consultationModesText}
                           </p>
+                          <p style={{ fontSize: '0.75rem', margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
+                            Atiende: {conditionsText}
+                          </p>
+                          <p style={{ fontSize: '0.75rem', margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
+                            Zona: {serviceAreaText}
+                          </p>
+                          <p style={{ fontSize: '0.75rem', margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
+                            Idiomas: {languagesText}
+                          </p>
+                          <p style={{ fontSize: '0.75rem', margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
+                            Seguros: {insurersText}
+                          </p>
+                        </div>
+
+                        {(rates.length > 0 || experienceLabel || slotLabel) && (
+                          <div style={{ display: 'grid', gap: '0.3rem', background: 'var(--surface-container-low)', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', padding: '0.5rem 0.625rem' }}>
+                            {rates.length > 0 && (
+                              <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+                                {rates.map((rate) => (
+                                  <span key={`${p.id}-${rate.label}`} style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--on-secondary-container)', background: 'var(--secondary-container)', borderRadius: '9999px', padding: '0.2rem 0.45rem' }}>
+                                    {rate.label}: {formatMoney(rate.value)}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {(experienceLabel || slotLabel) && (
+                              <p style={{ fontSize: '0.72rem', margin: 0, color: 'var(--on-surface-variant)', overflowWrap: 'anywhere' }}>
+                                {[experienceLabel, slotLabel].filter(Boolean).join(' | ')}
+                              </p>
+                            )}
+                          </div>
                         )}
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>

@@ -32,11 +32,16 @@ const queryClient = new QueryClient({
     },
   },
 });
-const googleClientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || 'FALTA_CLIENT_ID';
+const googleClientId = String(import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || '').trim();
+
+function AppProviders({ children }) {
+  if (!googleClientId) return children;
+  return <GoogleOAuthProvider clientId={googleClientId}>{children}</GoogleOAuthProvider>;
+}
 
 ReactDOM.createRoot(document.getElementById('app')).render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={googleClientId}>
+    <AppProviders>
       {/* BrowserRouter va AFUERA de AuthProvider para que useNavigate
           funcione dentro del contexto de autenticación (interceptor 401) */}
       <BrowserRouter>
@@ -125,6 +130,6 @@ ReactDOM.createRoot(document.getElementById('app')).render(
           </AuthProvider>
         </QueryClientProvider>
       </BrowserRouter>
-    </GoogleOAuthProvider>
+    </AppProviders>
   </React.StrictMode>
 );

@@ -1,6 +1,7 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { apiFetch } from '../lib/api';
 
 export function RegisterPage() {
   const [name, setName] = useState('');
@@ -47,10 +48,8 @@ export function RegisterPage() {
     try {
       const guestId = localStorage.getItem('guest_id');
 
-      const res = await fetch('/api/auth/register', {
+      await apiFetch('/auth/register', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
           phone: phone.trim(),
@@ -66,24 +65,11 @@ export function RegisterPage() {
         }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al crear la cuenta');
-      }
-
-      const loginRes = await fetch('/api/auth/login', {
+      const loginData = await apiFetch('/auth/login', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password }),
       });
-
-      const loginData = await loginRes.json();
-
-      if (loginRes.ok) {
-        login(null, loginData.user);
-      }
+      login(null, loginData.user);
 
       const redirectTo = sessionStorage.getItem('redirectTo') || sessionStorage.getItem('returnUrl');
       if (redirectTo) {

@@ -457,6 +457,48 @@ export function DashboardPage() {
     };
   }, [appointments, availabilities, professionalProfile]);
 
+  const dashboardHeadline = useMemo(() => {
+    if (!isProfessional) return 'Control total de tus reservas y seguimiento.';
+    if (professionalPanelData.pendingActions.length > 0) return 'Tienes acciones criticas por resolver hoy.';
+    if (!hasActivePayments) return 'Activa pagos para cerrar reservas con proteccion.';
+    return 'Operacion estable: agenda, pagos y perfil en regla.';
+  }, [hasActivePayments, isProfessional, professionalPanelData.pendingActions.length]);
+
+  const professionalActionChecklist = useMemo(() => {
+    if (!isProfessional) return [];
+    return [
+      {
+        id: 'verification',
+        label: 'Verificacion de perfil',
+        done: professionalProfile?.isVerified || professionalPanelData.verificationLabel === 'Verificado',
+        action: () => handleTabChange('profile'),
+        actionLabel: 'Revisar perfil',
+      },
+      {
+        id: 'payments',
+        label: 'Cobros habilitados',
+        done: hasActivePayments,
+        action: () => navigate('/settings'),
+        actionLabel: 'Configurar pagos',
+      },
+      {
+        id: 'availability',
+        label: 'Disponibilidad semanal definida',
+        done: professionalPanelData.activeAvailabilityDays > 0,
+        action: () => handleTabChange('availability'),
+        actionLabel: 'Ajustar agenda',
+      },
+    ];
+  }, [
+    handleTabChange,
+    hasActivePayments,
+    isProfessional,
+    navigate,
+    professionalPanelData.activeAvailabilityDays,
+    professionalPanelData.verificationLabel,
+    professionalProfile?.isVerified,
+  ]);
+
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -811,6 +853,20 @@ export function DashboardPage() {
 
         {activeTab === 'overview' && (
           <section style={{ display: 'grid', gap: '0.875rem' }}>
+            <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem', border: '1px solid var(--outline-variant)' }}>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--on-surface-variant)', letterSpacing: '0.08em', fontWeight: 700 }}>
+                {isProfessional ? 'RESUMEN OPERATIVO' : 'RESUMEN DE CLIENTE'}
+              </p>
+              <h2 style={{ margin: '0.35rem 0 0.45rem', fontFamily: 'Manrope', color: 'var(--primary)', fontWeight: 800, fontSize: '1.1rem' }}>
+                {dashboardHeadline}
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--on-surface-variant)' }}>
+                {isProfessional
+                  ? `Proximas ${professionalPanelData.upcoming.length} · Pendientes ${professionalPanelData.pendingActions.length} · Historial ${professionalPanelData.history.length}`
+                  : `Agendadas ${dashboardData.appointmentsScheduled} · Completadas ${dashboardData.completedAppointments}`}
+              </p>
+            </div>
+
             <div className="dashboard-kpi-grid">
               <div className="card glass-card dashboard-surface-1" style={{ padding: '1rem' }}>
                 <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{isProfessional ? 'Citas proximas' : 'Citas agendadas'}</p>
@@ -836,19 +892,50 @@ export function DashboardPage() {
             </div>
 
             {isProfessional && (
-              <div className="card glass-card" style={{ padding: '0.875rem 1rem', border: '1px solid var(--outline-variant)', display: 'flex', gap: '0.625rem', flexWrap: 'wrap' }}>
-                <button type="button" className="btn btn-primary" onClick={() => handleTabChange('appointments')}>Gestionar citas</button>
-                <button type="button" className="btn btn-outline" onClick={() => handleTabChange('availability')}>Editar disponibilidad</button>
-                <button type="button" className="btn btn-outline" onClick={() => handleTabChange('profile')}>Perfil/verificacion</button>
-                <button type="button" className="btn btn-outline" onClick={() => handleTabChange('messages')}>Mensajes</button>
-                {!hasActivePayments && (
-                  <button type="button" className="btn btn-outline" onClick={() => navigate('/settings')}>Configurar pagos</button>
-                )}
+              <div className="card glass-card" style={{ padding: '1rem', border: '1px solid var(--outline-variant)', display: 'grid', gap: '0.65rem' }}>
+                <p style={{ margin: 0, fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem' }}>Acciones rapidas del consultorio</p>
+                <div style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn btn-primary" onClick={() => handleTabChange('appointments')}>Gestionar citas</button>
+                  <button type="button" className="btn btn-outline" onClick={() => handleTabChange('availability')}>Editar disponibilidad</button>
+                  <button type="button" className="btn btn-outline" onClick={() => handleTabChange('profile')}>Perfil/verificacion</button>
+                  <button type="button" className="btn btn-outline" onClick={() => handleTabChange('messages')}>Mensajes</button>
+                  {!hasActivePayments && (
+                    <button type="button" className="btn btn-outline" onClick={() => navigate('/settings')}>Configurar pagos</button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {isProfessional && (
+              <div className="card glass-card dashboard-surface-2" style={{ padding: '1rem', border: '1px solid var(--outline-variant)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
+                  <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, margin: 0, color: 'var(--primary)' }}>Checklist operativo</h3>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
+                    {professionalActionChecklist.filter((item) => item.done).length}/{professionalActionChecklist.length} completado
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gap: '0.5rem' }}>
+                  {professionalActionChecklist.map((item) => (
+                    <div key={item.id} style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', padding: '0.55rem 0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: item.done ? '#16a34a' : 'var(--secondary)' }}>
+                          {item.done ? 'check_circle' : 'pending'}
+                        </span>
+                        <p style={{ margin: 0, fontWeight: 600, color: 'var(--on-surface)' }}>{item.label}</p>
+                      </div>
+                      {!item.done && (
+                        <button type="button" className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.38rem 0.65rem' }} onClick={item.action}>
+                          {item.actionLabel}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
             <div className="card glass-card" style={{ padding: '1rem' }}>
-              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>{isProfessional ? 'Citas proximas' : 'Actividad reciente'}</h3>
+              <h3 style={{ fontFamily: 'Manrope', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>{isProfessional ? 'Agenda inmediata' : 'Actividad reciente'}</h3>
               {(isProfessional ? professionalPanelData.upcoming : appointments).slice(0, 4).length === 0 ? (
                 <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>{isProfessional ? 'Sin citas proximas.' : 'Sin actividad reciente.'}</p>
               ) : (
@@ -856,11 +943,19 @@ export function DashboardPage() {
                   {(isProfessional ? professionalPanelData.upcoming : appointments).slice(0, 4).map((app) => {
                     const paymentSummary = getAppointmentPaymentSummary(app);
                     const counterpart = isProfessional ? app.client : app.professional?.user;
+                    const normalizedStatus = String(app.status || '').toUpperCase();
+                    const statusTone = normalizedStatus === 'PENDING_PAYMENT'
+                      ? '#f59e0b'
+                      : normalizedStatus === 'REQUESTED'
+                        ? '#38bdf8'
+                        : normalizedStatus === 'CONFIRMED' || normalizedStatus === 'SCHEDULED'
+                          ? '#16a34a'
+                          : 'var(--on-surface-variant)';
                     return (
                       <div key={app.id} style={{ padding: '0.625rem 0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)' }}>
                         <p style={{ color: 'var(--secondary)', fontWeight: 700, fontSize: '0.8rem' }}>{counterpart?.name || (isProfessional ? 'Paciente' : 'Profesional')}</p>
                         <p style={{ color: 'var(--on-surface)', fontWeight: 600, fontSize: '0.875rem' }}>{app.dateLabel} · {app.timeLabel}</p>
-                        <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem' }}>{app.status}</p>
+                        <p style={{ color: statusTone, fontSize: '0.75rem', fontWeight: 700 }}>{normalizedStatus}</p>
                         {isProfessional && paymentSummary && (
                           <p style={{ color: 'var(--secondary)', fontSize: '0.75rem', fontWeight: 700 }}>
                             {paymentSummary.label}: <span style={{ color: 'var(--on-surface-variant)', fontWeight: 600 }}>{paymentSummary.detail}</span>

@@ -580,7 +580,36 @@ app.use('/api/reminders', remindersRouter);
 
 // â”€â”€â”€ Servir el build del frontend React â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const frontendDist = path.join(__dirname, '../public');
-app.use(express.static(frontendDist));
+const staticFileOptions = {
+  fallthrough: true,
+  index: false,
+};
+
+app.use('/assets', express.static(path.join(frontendDist, 'assets'), staticFileOptions));
+app.use(express.static(frontendDist, staticFileOptions));
+
+app.get('/favicon.ico', (req, res, next) => {
+  const faviconIcoPath = path.join(frontendDist, 'favicon.ico');
+  if (fs.existsSync(faviconIcoPath)) {
+    return res.sendFile(faviconIcoPath);
+  }
+
+  const faviconSvgPath = path.join(frontendDist, 'favicon.svg');
+  if (fs.existsSync(faviconSvgPath)) {
+    res.type('image/svg+xml');
+    return res.sendFile(faviconSvgPath);
+  }
+
+  return res.status(404).type('text/plain').send('Not Found');
+});
+
+app.get('/robots.txt', (req, res) => {
+  const robotsPath = path.join(frontendDist, 'robots.txt');
+  if (fs.existsSync(robotsPath)) {
+    return res.type('text/plain').sendFile(robotsPath);
+  }
+  return res.type('text/plain').send('User-agent: *\nAllow: /\n');
+});
 
 // â”€â”€â”€ Healthcheck â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/health', async (req, res) => {
@@ -769,7 +798,18 @@ Reglas estrictas:
   }
 });
 // â”€â”€â”€ SPA Fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-app.get('*', (req, res) => {
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+    return next();
+  }
+
+  const acceptsHtml = req.accepts(['html', 'json', 'text']) === 'html';
+  const looksLikeAsset = path.extname(req.path) !== '';
+
+  if (!acceptsHtml || looksLikeAsset) {
+    return res.status(404).type('text/plain').send('Not Found');
+  }
+
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
 

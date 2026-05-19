@@ -536,11 +536,7 @@ export function DirectoryPage() {
                             e.currentTarget.src = avatarFallback;
                           }}
                         />
-                        {p.isVerified ? (
-                          <span className="material-symbols-outlined icon-filled" style={{ position: 'absolute', bottom: '-2px', right: '-2px', fontSize: '14px', color: 'var(--secondary)', background: 'var(--surface-container-lowest)', borderRadius: '50%', padding: '1px' }}>verified</span>
-                        ) : (
-                          <span className="material-symbols-outlined" style={{ position: 'absolute', bottom: '-2px', right: '-2px', fontSize: '14px', color: '#f59e0b', background: 'var(--surface-container-lowest)', borderRadius: '50%', padding: '1px' }}>schedule</span>
-                        )}
+                        <span className="material-symbols-outlined icon-filled" style={{ position: 'absolute', bottom: '-2px', right: '-2px', fontSize: '14px', color: 'var(--secondary)', background: 'var(--surface-container-lowest)', borderRadius: '50%', padding: '1px' }}>verified</span>
                       </div>
 
                       <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: '0.3rem' }}>
@@ -559,8 +555,8 @@ export function DirectoryPage() {
                         </p>
 
                         <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.6875rem', color: p.isVerified ? 'var(--secondary)' : '#b45309', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.15rem 0.4rem', borderRadius: '9999px', background: p.isVerified ? 'rgba(16,185,129,0.16)' : 'rgba(245,158,11,0.16)' }}>
-                            {p.isVerified ? 'Verificado' : 'Perfil en revision'}
+                          <span style={{ fontSize: '0.6875rem', color: 'var(--secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.15rem 0.4rem', borderRadius: '9999px', background: 'rgba(16,185,129,0.16)' }}>
+                            Verificado
                           </span>
                           <span style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', fontWeight: 600, padding: '0.15rem 0.4rem', borderRadius: '9999px', border: '1px solid var(--outline-variant)' }}>
                           {CATEGORY_MAP[p.category] || 'Especialista health-first'}

@@ -1,4 +1,4 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { prisma } from '../lib/db';
 import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import { uploadPublicImage } from '../lib/upload';
@@ -638,6 +638,7 @@ router.get('/', async (req, res, next) => {
 
     const whereClause: any = {
       category: { in: PROFESSIONAL_CATEGORIES as any },
+      isVerified: true,  // Solo mostrar perfiles verificados en el directorio (consistente con GET /:id)
       AND: [],
     };
 

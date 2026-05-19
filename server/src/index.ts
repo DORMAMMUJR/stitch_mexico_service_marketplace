@@ -56,11 +56,15 @@ import { env } from './config/env';
 const allowedOrigins = [
   ...(env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean) : []),
 ];
+if (env.APP_URL) {
+  allowedOrigins.push(env.APP_URL.trim());
+}
 const localDevOrigins = ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:3000'];
 const isProductionEnv = env.NODE_ENV === 'production';
 const effectiveAllowedOrigins = isProductionEnv
   ? allowedOrigins
   : Array.from(new Set([...localDevOrigins, ...allowedOrigins]));
+const allowedOriginSet = new Set(effectiveAllowedOrigins);
 
 type AppointmentMeta = {
   requestedScheduledAt?: string | null;
@@ -132,17 +136,30 @@ async function markStripeEventProcessed(event: any): Promise<void> {
   });
 }
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (effectiveAllowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    logger.warn({ origin, env: env.NODE_ENV }, 'CORS bloqueado');
-    callback(new Error(`CORS bloqueado para: ${origin}`));
-  },
-  credentials: true,
-}));
+const apiCorsDelegate: cors.CorsOptionsDelegate<express.Request> = (req, callback) => {
+  const origin = req.header('origin');
+  if (!origin) {
+    callback(null, { origin: true, credentials: true });
+    return;
+  }
+
+  const forwardedHost = String(req.header('x-forwarded-host') || '').split(',')[0].trim();
+  const host = String(req.header('host') || '').trim();
+  const requestHost = forwardedHost || host;
+  const forwardedProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim();
+  const requestProto = forwardedProto || req.protocol || 'https';
+  const requestOrigin = requestHost ? `${requestProto}://${requestHost}` : '';
+
+  if (allowedOriginSet.has(origin) || (requestOrigin && origin === requestOrigin)) {
+    callback(null, { origin: true, credentials: true });
+    return;
+  }
+
+  logger.warn({ origin, env: env.NODE_ENV, requestOrigin }, 'CORS bloqueado');
+  callback(new Error(`CORS bloqueado para: ${origin}`));
+};
+
+app.use('/api', cors(apiCorsDelegate));
 
 // â”€â”€â”€ Stripe Webhook (Debe ir ANTES de express.json) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Stripe necesita el raw body para verificar la firma criptogrÃ¡fica.

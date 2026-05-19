@@ -10,10 +10,12 @@ const sourceDist = path.join(repoRoot, 'app', 'dist');
 const targetPublic = path.join(repoRoot, 'server', 'public');
 
 if (!fs.existsSync(sourceDist)) {
-  console.log('[copy-frontend-build] app/dist no existe. Se asume que Vite ya escribio en server/public.');
-  process.exit(0);
+  console.error('[copy-frontend-build] app/dist no existe. Ejecuta primero el build del frontend.');
+  process.exit(1);
 }
 
+// Evita drift: borra por completo server/public antes de copiar app/dist.
+fs.rmSync(targetPublic, { recursive: true, force: true });
 fs.mkdirSync(targetPublic, { recursive: true });
 fs.cpSync(sourceDist, targetPublic, { recursive: true, force: true });
-console.log('[copy-frontend-build] Build frontend copiado a server/public');
+console.log('[copy-frontend-build] Build frontend sincronizado: app/dist -> server/public');

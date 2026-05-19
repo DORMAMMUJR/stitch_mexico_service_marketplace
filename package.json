@@ -11,7 +11,8 @@
     "dev:backend": "npm run dev --workspace=server",
     "dev": "concurrently -n FRONTEND,BACKEND -c cyan,green \"npm run dev:frontend\" \"npm run dev:backend\"",
 
-    "build": "npm run build --workspace=app && npm run build --workspace=server",
+    "build": "npm run build --workspace=app && node scripts/copy-frontend-build.mjs && npm run build --workspace=server",
+    "build:frontend": "npm run build --workspace=app && node scripts/copy-frontend-build.mjs",
     "start": "node server/dist/index.js",
 
     "install:all": "npm install --workspace=app && npm install --workspace=server"

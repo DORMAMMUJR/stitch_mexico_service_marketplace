@@ -778,18 +778,44 @@ import { globalErrorHandler } from './middleware/errorHandler';
 Sentry.setupExpressErrorHandler(app);
 app.use(globalErrorHandler);
 
-app.listen(Number(port), '0.0.0.0', () => {
-  logger.info(
-    {
-      port: Number(port),
-      env: process.env.NODE_ENV,
-      frontendDist,
-      orm: 'Prisma Client',
-    },
-    'Intecnia backend iniciado'
-  );
+async function bootstrap() {
+  try {
+    await prisma.$connect();
+    await prisma.$queryRaw`SELECT 1`;
+    logger.info({ database: 'ok' }, 'Conexion a base de datos verificada');
+  } catch (error: any) {
+    const errorMessage = String(error?.message || error || '');
+    const likelyTlsError =
+      errorMessage.toLowerCase().includes('self-signed certificate') ||
+      errorMessage.toLowerCase().includes('certificate chain') ||
+      errorMessage.toLowerCase().includes('tls');
 
-  // âœ… AGREGAR AQUÃ:
-  startEscrowCron();
-});
+    logger.fatal(
+      {
+        err: error,
+        tlsHint: likelyTlsError
+          ? 'Configure DATABASE_SSL_CA_CERT(_BASE64) o use DATABASE_SSL_MODE=no-verify solo temporalmente.'
+          : undefined,
+      },
+      'Fallo el preflight de base de datos. Se aborta arranque para evitar API degradada.'
+    );
+    process.exit(1);
+  }
 
+  app.listen(Number(port), '0.0.0.0', () => {
+    logger.info(
+      {
+        port: Number(port),
+        env: process.env.NODE_ENV,
+        frontendDist,
+        orm: 'Prisma Client',
+      },
+      'Intecnia backend iniciado'
+    );
+
+    // AGREGAR AQUI:
+    startEscrowCron();
+  });
+}
+
+void bootstrap();

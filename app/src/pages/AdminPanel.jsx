@@ -480,7 +480,7 @@ export function AdminPanel() {
                           <select
                             value={user.role}
                             onChange={(e) => handleUpdateRole(user.id, e.target.value)}
-                            disabled={Boolean(updatingRoleMap[user.id]) || user.role === 'ADMIN'}
+                            disabled={Boolean(updatingRoleMap[user.id])}
                             style={{ background: 'var(--surface-container)', color: 'var(--on-surface)', border: '1px solid var(--outline-variant)', borderRadius: '6px', padding: '0.2rem 0.35rem', fontSize: '0.72rem' }}
                           >
                             <option value="CLIENT">CLIENT</option>

@@ -6,25 +6,10 @@ import { useToast } from '../components/ToastContext';
 import { useAuth } from '../hooks/useAuth';
 import { VideoCallModal } from '../components/VideoCallModal';
 import { apiFetch } from '../lib/api';
+import { getPaymentSummary, hasAction, normalizeAppointmentsForDashboard } from '../lib/flowState';
 
 function normalizeAppointments(list) {
-  if (!Array.isArray(list)) return [];
-
-  return [...list]
-    .sort((a, b) => {
-      const aTime = a?.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
-      const bTime = b?.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
-      return bTime - aTime;
-    })
-    .map((app) => ({
-      ...app,
-      dateLabel: app.scheduledAt
-        ? new Date(app.scheduledAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
-        : 'Fecha pendiente',
-      timeLabel: app.scheduledAt
-        ? new Date(app.scheduledAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
-        : 'Hora por confirmar',
-    }));
+  return normalizeAppointmentsForDashboard(list);
 }
 
 const MEDICAL_SPECIALTY_OPTIONS = [
@@ -84,45 +69,15 @@ function parseAppointmentMeta(notes) {
 }
 
 function getAppointmentPaymentSummary(appointment) {
-  const meta = parseAppointmentMeta(appointment?.notes);
-  const payment = meta?.payment || {};
-  const method = String(payment.method || '').toUpperCase();
-  const paymentStatus = String(payment.status || '').toUpperCase();
-  const status = String(appointment?.status || '').toUpperCase();
-
-  if (status === 'SCHEDULED' && paymentStatus === 'PAID_HELD') {
-    return { label: 'Pago confirmado', detail: method === 'BANK_TRANSFER' ? 'Transferencia validada' : 'Tarjeta aprobada' };
-  }
-
-  if (paymentStatus === 'PAID_SLOT_CONFLICT') {
-    return { label: 'Pago recibido', detail: 'Con conflicto de horario. Requiere ajuste manual.' };
-  }
-
-  if (status === 'PENDING_PAYMENT') {
-    if (method === 'BANK_TRANSFER' && paymentStatus === 'TRANSFER_SUBMITTED') {
-      return { label: 'Pago por validar', detail: 'Comprobante enviado por cliente' };
-    }
-    if (method === 'STRIPE_CARD') {
-      return { label: 'Pago con tarjeta pendiente', detail: 'Cliente aun no finaliza checkout' };
-    }
-    return { label: 'Pago pendiente', detail: 'Esperando confirmacion' };
-  }
-
-  return null;
+  return getPaymentSummary(appointment);
 }
 
 function canConfirmTransferPayment(appointment) {
-  const meta = parseAppointmentMeta(appointment?.notes);
-  const payment = meta?.payment || {};
-  const method = String(payment.method || '').toUpperCase();
-  const paymentStatus = String(payment.status || '').toUpperCase();
-  const status = String(appointment?.status || '').toUpperCase();
-  return status === 'PENDING_PAYMENT' && method === 'BANK_TRANSFER' && paymentStatus === 'TRANSFER_SUBMITTED';
+  return hasAction(appointment, 'CONFIRM_TRANSFER_PAYMENT');
 }
 
 function canConfirmAppointment(appointment) {
-  const status = String(appointment?.status || '').toUpperCase();
-  return ['REQUESTED', 'PENDING_PAYMENT', 'SCHEDULED'].includes(status) && !canConfirmTransferPayment(appointment);
+  return hasAction(appointment, 'CONFIRM_APPOINTMENT');
 }
 
 function getAppointmentAmount(appointment) {
@@ -200,6 +155,9 @@ export function DashboardPage() {
   const [videoConfigDrafts, setVideoConfigDrafts] = useState({});
   const [videoConfigSavingMap, setVideoConfigSavingMap] = useState({});
   const [appointmentActionMap, setAppointmentActionMap] = useState({});
+  const [appointmentTimelineMap, setAppointmentTimelineMap] = useState({});
+  const [appointmentTimelineLoadingMap, setAppointmentTimelineLoadingMap] = useState({});
+  const [chatBootstrap, setChatBootstrap] = useState(null);
   const [activeVideoSession, setActiveVideoSession] = useState(null);
   const [selectedClientAppointment, setSelectedClientAppointment] = useState(null);
   const [hasActivePayments, setHasActivePayments] = useState(false);
@@ -330,7 +288,7 @@ export function DashboardPage() {
               .filter((a) => String(a.status || '').toUpperCase() === 'COMPLETED')
               .reduce((sum, a) => sum + getAppointmentAmount(a), 0),
           });
-          setHasActivePayments(Boolean(proProfileJson?.stripeAccountId));
+          setHasActivePayments(true);
 
           setProfileForm({
             name: firstName,
@@ -460,7 +418,7 @@ export function DashboardPage() {
   const dashboardHeadline = useMemo(() => {
     if (!isProfessional) return 'Control total de tus reservas y seguimiento.';
     if (professionalPanelData.pendingActions.length > 0) return 'Tienes acciones criticas por resolver hoy.';
-    if (!hasActivePayments) return 'Activa pagos para cerrar reservas con proteccion.';
+    if (!hasActivePayments) return 'Pagos en revision por administracion.';
     return 'Operacion estable: agenda, pagos y perfil en regla.';
   }, [hasActivePayments, isProfessional, professionalPanelData.pendingActions.length]);
 
@@ -476,10 +434,10 @@ export function DashboardPage() {
       },
       {
         id: 'payments',
-        label: 'Cobros habilitados',
+        label: 'Cobros centralizados',
         done: hasActivePayments,
-        action: () => navigate('/settings'),
-        actionLabel: 'Configurar pagos',
+        action: () => navigate('/settings/payments'),
+        actionLabel: 'Ver estado',
       },
       {
         id: 'availability',
@@ -818,6 +776,42 @@ export function DashboardPage() {
     }
   };
 
+  const handleToggleAppointmentTimeline = async (appointmentId) => {
+    const isOpen = Array.isArray(appointmentTimelineMap[appointmentId]);
+    if (isOpen) {
+      setAppointmentTimelineMap((prev) => ({ ...prev, [appointmentId]: null }));
+      return;
+    }
+
+    setAppointmentTimelineLoadingMap((prev) => ({ ...prev, [appointmentId]: true }));
+    try {
+      const timeline = await apiFetch(`/appointments/${appointmentId}/events`);
+      setAppointmentTimelineMap((prev) => ({
+        ...prev,
+        [appointmentId]: Array.isArray(timeline) ? timeline : [],
+      }));
+    } catch (err) {
+      showToast(err.message || 'No se pudo cargar la bitacora de la cita', 'error');
+    } finally {
+      setAppointmentTimelineLoadingMap((prev) => ({ ...prev, [appointmentId]: false }));
+    }
+  };
+
+  const handleOpenContextChat = (appointment) => {
+    const isProfessionalView = isProfessional;
+    const counterpart = isProfessionalView ? appointment?.client : appointment?.professional?.user;
+    if (!counterpart?.id) {
+      showToast('No se pudo identificar el contacto para esta cita', 'error');
+      return;
+    }
+    setChatBootstrap({
+      receiverId: counterpart.id,
+      receiverName: counterpart.name || (isProfessionalView ? 'Paciente' : 'Profesional'),
+      appointmentId: appointment.id,
+    });
+    handleTabChange('messages');
+  };
+
   const handleSaveAvailability = async () => {
     const payload = availabilities.filter((a) => a.active).map((a) => ({ dayOfWeek: a.dayOfWeek, startTime: a.startTime, endTime: a.endTime }));
     try {
@@ -899,9 +893,7 @@ export function DashboardPage() {
                   <button type="button" className="btn btn-outline" onClick={() => handleTabChange('availability')}>Editar disponibilidad</button>
                   <button type="button" className="btn btn-outline" onClick={() => handleTabChange('profile')}>Perfil/verificacion</button>
                   <button type="button" className="btn btn-outline" onClick={() => handleTabChange('messages')}>Mensajes</button>
-                  {!hasActivePayments && (
-                    <button type="button" className="btn btn-outline" onClick={() => navigate('/settings')}>Configurar pagos</button>
-                  )}
+                  <button type="button" className="btn btn-outline" onClick={() => navigate('/settings/payments')}>Estado de pagos</button>
                 </div>
               </div>
             )}
@@ -984,7 +976,7 @@ export function DashboardPage() {
                 </div>
                 <div className="card glass-card dashboard-surface-2 dashboard-card-pad">
                   <p className="dashboard-micro" style={{ color: 'var(--on-surface-variant)' }}>Pagos</p>
-                  <p style={{ fontSize: '1.1rem', fontWeight: 800, color: hasActivePayments ? '#16a34a' : 'var(--secondary)' }}>{hasActivePayments ? 'Activo' : 'Pendiente'}</p>
+                  <p style={{ fontSize: '1.1rem', fontWeight: 800, color: hasActivePayments ? '#16a34a' : 'var(--secondary)' }}>{hasActivePayments ? 'Centralizado' : 'Revision'}</p>
                 </div>
               </div>
             )}
@@ -1018,8 +1010,9 @@ export function DashboardPage() {
                   const paymentSummary = getAppointmentPaymentSummary(app);
                   const showConfirmTransferButton = isProfessional && canConfirmTransferPayment(app);
                   const showConfirmButton = isProfessional && canConfirmAppointment(app);
-                  const canResolveAppointment = isProfessional && (normalizedStatus === 'CONFIRMED' || normalizedStatus === 'SCHEDULED' || normalizedStatus === 'IN_PROGRESS');
-                  const canCancelAppointment = ['REQUESTED', 'CONFIRMED', 'SCHEDULED', 'PENDING_PAYMENT'].includes(normalizedStatus);
+                  const canCompleteAppointment = isProfessional && hasAction(app, 'COMPLETE_APPOINTMENT');
+                  const canNoShowAppointment = isProfessional && hasAction(app, 'MARK_NO_SHOW');
+                  const canCancelAppointment = hasAction(app, 'CANCEL_APPOINTMENT');
                   const isConfirmingAppointment = appointmentActionMap[app.id] === 'confirm';
                   const isCompletingAppointment = appointmentActionMap[app.id] === 'complete';
                   const isNoShowAppointment = appointmentActionMap[app.id] === 'no-show';
@@ -1041,6 +1034,7 @@ export function DashboardPage() {
 
                         <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{app.dateLabel} - {app.timeLabel}</p>
                         <p className="dashboard-status-text" style={{ color: 'var(--on-surface-variant)' }}>{app.status}</p>
+                        <p className="dashboard-status-text" style={{ color: 'var(--secondary)' }}>Estado operativo: {app.state || normalizedStatus}</p>
                         {isProfessional && paymentSummary && (
                           <p className="dashboard-status-text" style={{ color: paymentSummary.label === 'Pago confirmado' ? '#16a34a' : 'var(--secondary)', fontWeight: 700 }}>
                             {paymentSummary.label}: <span style={{ color: 'var(--on-surface-variant)', fontWeight: 600 }}>{paymentSummary.detail}</span>
@@ -1134,28 +1128,62 @@ export function DashboardPage() {
                             {isConfirmingAppointment ? 'Confirmando...' : 'Confirmar cita'}
                           </button>
                         )}
-                        {canResolveAppointment && (
+                        {(canCompleteAppointment || canNoShowAppointment) && (
                           <div style={{ marginTop: '0.375rem', display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              className="btn btn-primary"
-                              onClick={() => handleCompleteAppointment(app.id)}
-                              disabled={isCompletingAppointment || isNoShowAppointment}
-                              style={{ fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
-                            >
-                              {isCompletingAppointment ? 'Completando...' : 'Completar cita'}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline"
-                              onClick={() => handleNoShowAppointment(app.id)}
-                              disabled={isCompletingAppointment || isNoShowAppointment}
-                              style={{ fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
-                            >
-                              {isNoShowAppointment ? 'Marcando...' : 'Marcar no-show'}
-                            </button>
+                            {canCompleteAppointment && (
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => handleCompleteAppointment(app.id)}
+                                disabled={isCompletingAppointment || isNoShowAppointment}
+                                style={{ fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
+                              >
+                                {isCompletingAppointment ? 'Completando...' : 'Completar cita'}
+                              </button>
+                            )}
+                            {canNoShowAppointment && (
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => handleNoShowAppointment(app.id)}
+                                disabled={isCompletingAppointment || isNoShowAppointment}
+                                style={{ fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
+                              >
+                                {isNoShowAppointment ? 'Marcando...' : 'Marcar no-show'}
+                              </button>
+                            )}
                           </div>
                         )}
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() => handleToggleAppointmentTimeline(app.id)}
+                          disabled={Boolean(appointmentTimelineLoadingMap[app.id])}
+                          style={{ marginTop: '0.375rem', fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
+                        >
+                          {appointmentTimelineLoadingMap[app.id] ? 'Cargando bitacora...' : Array.isArray(appointmentTimelineMap[app.id]) ? 'Ocultar bitacora' : 'Ver bitacora'}
+                        </button>
+                        {Array.isArray(appointmentTimelineMap[app.id]) && (
+                          <div style={{ marginTop: '0.5rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', padding: '0.5rem', display: 'grid', gap: '0.35rem' }}>
+                            {appointmentTimelineMap[app.id].length === 0 ? (
+                              <p className="dashboard-status-text" style={{ color: 'var(--on-surface-variant)' }}>Sin eventos registrados.</p>
+                            ) : (
+                              appointmentTimelineMap[app.id].map((evt) => (
+                                <p key={evt.id} className="dashboard-status-text" style={{ color: 'var(--on-surface-variant)' }}>
+                                  {evt.timelineType || evt.type || evt.event} · {evt.happenedAt ? new Date(evt.happenedAt).toLocaleString('es-MX') : 'N/D'}
+                                </p>
+                              ))
+                            )}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() => handleOpenContextChat(app)}
+                          style={{ marginTop: '0.375rem', fontSize: '0.75rem', padding: '0.45rem 0.7rem' }}
+                        >
+                          Abrir chat de cita
+                        </button>
                       </div>
                       {canCancelAppointment && (
                         <button onClick={() => handleCancelAppointment(app.id)} disabled={app._cancelling} className="btn btn-outline" style={{ borderColor: 'var(--error)', color: 'var(--error)' }}>
@@ -1172,7 +1200,11 @@ export function DashboardPage() {
 
         {activeTab === 'messages' && (
           <section className="card glass-card" style={{ padding: 0, overflow: 'hidden', minHeight: '420px' }}>
-            <ChatWindow />
+            <ChatWindow
+              initialReceiverId={chatBootstrap?.receiverId || null}
+              initialReceiverName={chatBootstrap?.receiverName || null}
+              initialAppointmentId={chatBootstrap?.appointmentId || null}
+            />
           </section>
         )}
 

@@ -10,6 +10,8 @@ import { sendEmail, emailTemplates } from '../lib/email';
 import { notifyUser } from '../lib/notifications';
 import { logger } from '../lib/logger';
 import { DEFAULT_PROFESSIONAL_CATEGORY } from '../constants/verificationFields';
+import { EscrowStateMachine } from '../lib/escrow';
+import { normalizeAppointmentForActor, normalizeOrderForActor } from '../lib/flowState';
 
 const router = Router();
 const localPrivateUploadsDir = path.resolve(__dirname, '../../uploads/private');
@@ -213,6 +215,7 @@ router.get('/stats', async (_req: any, res: any, next: any) => {
     const completedOrders = SALES_COMPLETED_STATUSES.reduce((sum, status) => sum + (statusCounts[status] || 0), 0);
     const activeDisputes = statusCounts.EN_DISPUTA || 0;
     const resolvedDisputes = (statusCounts.COMPLETADO || 0) + (statusCounts.REEMBOLSADO || 0);
+    const pendingManualPayouts = (statusCounts.PAYOUT_INICIADO || 0) + (statusCounts.PAYOUT_FALLIDO || 0);
     const pendingPaymentAppointments = appointmentStatusCounts.PENDING_PAYMENT || 0;
     const scheduledAppointments = appointmentStatusCounts.SCHEDULED || 0;
     const inProgressAppointments = appointmentStatusCounts.IN_PROGRESS || 0;
@@ -229,6 +232,7 @@ router.get('/stats', async (_req: any, res: any, next: any) => {
       completedRevenue,
       pendingPaymentAppointments,
       activeDisputes,
+      pendingManualPayouts,
       // Contrato extendido para superadmin
       users: {
         total: totalUsers,
@@ -252,6 +256,9 @@ router.get('/stats', async (_req: any, res: any, next: any) => {
         active: activeDisputes,
         resolved: resolvedDisputes,
       },
+      payouts: {
+        pendingManual: pendingManualPayouts,
+      },
       volume: {
         completedRevenue,
         completedOrders,
@@ -262,6 +269,96 @@ router.get('/stats', async (_req: any, res: any, next: any) => {
         active: activeOrders,
         completed: completedOrders,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/payouts/queue', async (req: any, res: any, next: any) => {
+  try {
+    const limit = Math.min(Math.max(toPositiveInt(req.query?.limit, 100), 1), 300);
+    const orders = await prisma.order.findMany({
+      where: { status: { in: ['PAYOUT_INICIADO', 'PAYOUT_FALLIDO'] } },
+      include: {
+        client: { select: { id: true, name: true, email: true } },
+        professional: { include: { user: { select: { id: true, name: true, email: true } } } },
+        timeline: { orderBy: { createdAt: 'desc' }, take: 10 },
+      },
+      orderBy: [{ status: 'asc' }, { updatedAt: 'asc' }],
+      take: limit,
+    });
+
+    res.json(orders.map((order) => normalizeOrderForActor(order as any, { role: 'ADMIN', userId: String(req.user?.userId || '') })));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/payouts/:id/settle', async (req: any, res: any, next: any) => {
+  try {
+    const orderId = String(req.params?.id || '').trim();
+    const action = String(req.body?.action || '').toUpperCase();
+    const reason = String(req.body?.reason || '').trim() || null;
+    const actorUserId = String(req.user?.userId || '');
+
+    if (!orderId) return res.status(400).json({ error: 'ID de orden invalido' });
+    if (!['COMPLETE', 'FAIL', 'RETRY'].includes(action)) {
+      return res.status(400).json({ error: 'Accion invalida. Usa COMPLETE, FAIL o RETRY.' });
+    }
+
+    const current = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        client: { select: { id: true, name: true, email: true } },
+        professional: { include: { user: { select: { id: true, name: true, email: true } } } },
+        timeline: { orderBy: { createdAt: 'desc' }, take: 10 },
+      },
+    });
+
+    if (!current) return res.status(404).json({ error: 'Orden no encontrada' });
+
+    if (action === 'RETRY') {
+      if (current.status !== 'PAYOUT_FALLIDO') {
+        return res.status(409).json({ error: 'Solo se puede reintentar una orden en PAYOUT_FALLIDO' });
+      }
+      await EscrowStateMachine.transition(orderId, 'PAYOUT_INICIADO', {
+        manualAction: action,
+        actorUserId,
+        reason,
+      });
+    } else if (action === 'COMPLETE') {
+      if (current.status !== 'PAYOUT_INICIADO') {
+        return res.status(409).json({ error: 'Solo se puede completar payout desde PAYOUT_INICIADO' });
+      }
+      await EscrowStateMachine.transition(orderId, 'PAYOUT_COMPLETADO', {
+        manualAction: action,
+        actorUserId,
+        reason,
+      });
+    } else {
+      if (current.status !== 'PAYOUT_INICIADO') {
+        return res.status(409).json({ error: 'Solo se puede marcar payout fallido desde PAYOUT_INICIADO' });
+      }
+      await EscrowStateMachine.transition(orderId, 'PAYOUT_FALLIDO', {
+        manualAction: action,
+        actorUserId,
+        reason,
+      });
+    }
+
+    const updated = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        client: { select: { id: true, name: true, email: true } },
+        professional: { include: { user: { select: { id: true, name: true, email: true } } } },
+        timeline: { orderBy: { createdAt: 'desc' }, take: 10 },
+      },
+    });
+
+    res.json({
+      message: 'Operacion de payout actualizada',
+      order: updated ? normalizeOrderForActor(updated as any, { role: 'ADMIN', userId: actorUserId }) : null,
     });
   } catch (error) {
     next(error);
@@ -895,11 +992,12 @@ router.get('/appointments/upcoming', async (_req: any, res: any, next: any) => {
 
     const normalized = appointments.map((a) => {
       const meta = parseAppointmentMeta(a.notes);
-      return {
+      const enriched = {
         ...a,
         meetingLink: meta?.meetingLink ?? null,
         videoSession: normalizeVideoSession(meta),
       };
+      return normalizeAppointmentForActor(enriched as any, { role: 'ADMIN', userId: String(_req.user?.userId || '') });
     });
 
     res.json(normalized);

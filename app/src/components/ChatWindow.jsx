@@ -29,13 +29,14 @@ function Avatar({ user, size = 40 }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function ChatWindow({ initialReceiverId, initialReceiverName }) {
+export function ChatWindow({ initialReceiverId, initialReceiverName, initialAppointmentId = null }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedConvId, setSelectedConvId] = useState(null);
   const [selectedContact, setSelectedContact] = useState(null);
   const [messageInput, setMessageInput] = useState('');
   const [newChatId, setNewChatId] = useState(initialReceiverId || null);
+  const [selectedAppointmentContextId, setSelectedAppointmentContextId] = useState(initialAppointmentId || null);
   const [hiddenConvs, setHiddenConvs] = useState(new Set()); // Eliminaciones visuales locales
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -53,11 +54,13 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   // Si viene un receiverId externo (desde perfil de un profesional), seleccionar directamente
   useEffect(() => {
     if (initialReceiverId && user?.id) {
-      const convId = [user.id, initialReceiverId].sort().join('_');
+      const baseConvId = [user.id, initialReceiverId].sort().join('_');
+      const convId = initialAppointmentId ? `${baseConvId}:appt:${initialAppointmentId}` : baseConvId;
       setSelectedConvId(convId);
       setSelectedContact({ id: initialReceiverId, name: initialReceiverName || 'Contacto', avatarUrl: null });
+      setSelectedAppointmentContextId(initialAppointmentId || null);
     }
-  }, [initialReceiverId, user?.id]);
+  }, [initialAppointmentId, initialReceiverId, initialReceiverName, user?.id]);
 
   // ── Lista de Conversaciones (polling cada 5s) ──────────────────────────────
   const { data: conversations = [], isLoading: loadingConvs } = useQuery({
@@ -89,7 +92,14 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   // ── Enviar Mensaje ─────────────────────────────────────────────────────────
   const sendMutation = useMutation({
     mutationFn: (content) =>
-      apiFetch('/messages', { method: 'POST', body: JSON.stringify({ receiverId: selectedContact?.id, content }) }),
+      apiFetch('/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          receiverId: selectedContact?.id,
+          content,
+          appointmentId: selectedAppointmentContextId || undefined,
+        }),
+      }),
     onSuccess: () => {
       setMessageInput('');
       queryClient.invalidateQueries(['messages', selectedConvId]);
@@ -115,6 +125,7 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
   const handleSelectConversation = (conv) => {
     setSelectedConvId(conv.conversationId);
     setSelectedContact(conv.contact);
+    setSelectedAppointmentContextId(conv?.appointmentContext?.appointmentId || null);
     setNewChatId(null);
   };
 
@@ -220,8 +231,13 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
                         </span>
                       </div>
                       <p style={{ fontSize: '0.75rem', color: conv.unreadCount > 0 ? 'var(--on-surface)' : 'var(--on-surface-variant)', fontWeight: conv.unreadCount > 0 ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {conv.lastMessage.isMine ? 'Tú: ' : ''}{conv.lastMessage.content}
+                        {conv.lastMessage.isMine ? 'Tu: ' : ''}{conv.lastMessage.content}
                       </p>
+                      {conv.appointmentContext?.appointmentId && (
+                        <p style={{ fontSize: '0.68rem', color: 'var(--secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          Contexto cita: {conv.appointmentContext.appointmentId}
+                        </p>
+                      )}
                     </div>
                   </button>
                   {/* Botón eliminar — aparece en hover */}
@@ -276,6 +292,11 @@ export function ChatWindow({ initialReceiverId, initialReceiverName }) {
                 <p style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>
                   {loadingMsgs ? 'Cargando...' : `${messages.length} mensajes`}
                 </p>
+                {selectedAppointmentContextId && (
+                  <p style={{ fontSize: '0.68rem', color: 'var(--secondary)' }}>
+                    Contexto cita: {selectedAppointmentContextId}
+                  </p>
+                )}
               </div>
             </div>
 

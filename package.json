@@ -15,7 +15,8 @@
     "build:frontend": "npm run build --workspace=app && node scripts/copy-frontend-build.mjs",
     "start": "node server/dist/index.js",
 
-    "install:all": "npm install --workspace=app && npm install --workspace=server"
+    "install:all": "npm install --workspace=app && npm install --workspace=server",
+    "test:flow": "npm run test:flow --workspace=server"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

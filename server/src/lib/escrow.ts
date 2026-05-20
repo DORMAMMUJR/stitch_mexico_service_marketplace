@@ -7,11 +7,9 @@
 
 import { Prisma, OrderStatus, Order } from '@prisma/client';
 import { prisma } from './db';
-import { getStripe } from './stripe';
 import { notifyAdmins } from './notifications';
 import { logger } from './logger';
 
-const PLATFORM_FEE_RATE = 0.10;
 const MAX_PAYOUT_ATTEMPTS = 5;
 
 async function claimOrdersForInitialPayout(timeoutDate: Date): Promise<Array<{ id: string }>> {
@@ -119,110 +117,39 @@ export class EscrowStateMachine {
   }
 
   /**
-   * Ejecuta la transferencia real de fondos via Stripe Connect.
-   * Actualiza payoutAttempts y lastPayoutAttemptAt en cada intento.
+   * Plataforma centralizada: no se ejecuta payout automático a cuentas de profesionales.
+   * Se deja la orden en PAYOUT_INICIADO para liquidación manual por admin.
    */
   static async executePayout(orderId: string): Promise<boolean> {
-    // Registrar el intento antes de cualquier llamada externa
-    await prisma.order.update({
+    const order = await prisma.order.update({
       where: { id: orderId },
       data: {
         payoutAttempts: { increment: 1 },
         lastPayoutAttemptAt: new Date(),
       },
-    });
-
-    // Verificar que Stripe esté disponible
-    let stripe;
-    try {
-      stripe = getStripe();
-    } catch {
-      logger.warn({ orderId }, 'Payout: Stripe no configurado. Requiere payout manual.');
-
-      await this.transition(orderId, 'PAYOUT_FALLIDO', {
-        error: 'STRIPE_NOT_CONFIGURED',
-        message: 'Stripe no está configurado en este entorno. Payout manual requerido.',
-      }).catch((e) => logger.error({ err: e, orderId }, 'Error marcando PAYOUT_FALLIDO (sin Stripe)'));
-
-      return false;
-    }
-
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: {
-        professional: {
-          select: { id: true, stripeAccountId: true },
-        },
+      select: {
+        id: true,
+        agreedPrice: true,
+        currency: true,
+        professionalId: true,
       },
     });
 
-    if (!order) {
-      logger.error({ orderId }, 'Payout: orden no encontrada');
-      return false;
-    }
+    logger.info({ orderId }, 'Payout automatico deshabilitado: requiere liquidacion manual por admin');
+    notifyAdmins({
+      type: 'SYSTEM',
+      title: 'Payout manual pendiente',
+      body: `La orden ${order.id} requiere liquidacion manual al profesional.`,
+      metadata: {
+        orderId: order.id,
+        agreedPrice: order.agreedPrice,
+        currency: order.currency,
+        professionalId: order.professionalId,
+        payoutMode: 'ADMIN_MANUAL',
+      },
+    }).catch((error) => logger.error({ err: error, orderId: order.id }, 'Error notificando payout manual'));
 
-    if (!order.professional.stripeAccountId) {
-      logger.warn({ orderId, professionalId: order.professionalId }, 'Payout: profesional sin cuenta Stripe Connect');
-
-      await this.transition(orderId, 'PAYOUT_FALLIDO', {
-        error: 'NO_STRIPE_ACCOUNT',
-        message: 'El profesional no ha completado el onboarding de Stripe.',
-      }).catch((e) => logger.error({ err: e, orderId }, 'Error marcando PAYOUT_FALLIDO (sin cuenta)'));
-
-      return false;
-    }
-
-    const totalAmountCents   = Math.round(Number(order.agreedPrice) * 100);
-    const platformFeeCents   = Math.round(totalAmountCents * PLATFORM_FEE_RATE);
-    const transferAmountCents = totalAmountCents - platformFeeCents;
-    const currency           = (order.currency || 'mxn').toLowerCase();
-
-    try {
-      const transfer = await stripe.transfers.create(
-        {
-          amount:      transferAmountCents,
-          currency,
-          destination: order.professional.stripeAccountId,
-          metadata: {
-            orderId:          order.id,
-            professionalId:   order.professionalId,
-            platformFeeCents: String(platformFeeCents),
-            releaseReason:    'AUTO_RELEASE_72H',
-          },
-        },
-        {
-          idempotencyKey: `payout-${orderId}`, // Crítico: evita doble pago
-        }
-      );
-
-      logger.info(
-        {
-          orderId,
-          transferId: transfer.id,
-          transferAmountCents,
-          currency: currency.toUpperCase(),
-        },
-        'Payout exitoso'
-      );
-
-      await this.transition(orderId, 'PAYOUT_COMPLETADO', {
-        stripeTransferId:     transfer.id,
-        transferAmountCents,
-        platformFeeCents,
-        currency,
-      });
-
-      return true;
-    } catch (stripeError: any) {
-      logger.error({ err: stripeError, orderId }, 'Payout fallido');
-
-      await this.transition(orderId, 'PAYOUT_FALLIDO', {
-        error:          stripeError.message,
-        stripeErrorCode: stripeError.code,
-      }).catch((e) => logger.error({ err: e, orderId }, 'Error marcando PAYOUT_FALLIDO'));
-
-      return false;
-    }
+    return true;
   }
 
   /**

@@ -16,6 +16,7 @@ import { ensureSlotInsideAvailability as ensureMedicalSlotInsideAvailability, ge
 import { recordAppointmentEvent } from '../services/appointments/events';
 import { evaluateCancellationPolicy } from '../services/appointments/policies';
 import { createDefaultReminderJobs } from '../services/reminders';
+import { normalizeAppointmentForActor, normalizeTimelineEvent } from '../lib/flowState';
 
 type PaymentMethod = 'BANK_TRANSFER' | 'STRIPE_CARD';
 type VideoProvider = 'jitsi' | 'zoom' | 'meet';
@@ -620,6 +621,39 @@ function isValidTransferProofUrl(value: unknown): value is string {
   return false;
 }
 
+async function loadNormalizedAppointmentForActor(appointmentId: string, actor: { role: string; userId: string }) {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: {
+      client: { select: { id: true, name: true, email: true, avatarUrl: true, createdAt: true, emailVerified: true } },
+      professional: { include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } } },
+    },
+  });
+
+  if (!appointment) return null;
+
+  const meta = parseAppointmentMeta(appointment.notes);
+  const meetingLink = extractMeetingLink(appointment.notes);
+  const videoSession = normalizeVideoSession(meta, meetingLink);
+  const requestedScheduledAt = parseRequestedSlotFromMeta(meta)?.toISOString() || null;
+  const createdAt = appointment.client?.createdAt ? new Date(appointment.client.createdAt) : null;
+  const daysSinceCreated = createdAt ? (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24) : null;
+
+  return normalizeAppointmentForActor({
+    ...appointment,
+    requestedScheduledAt,
+    meetingLink,
+    videoSession,
+    client: appointment.client
+      ? {
+          ...appointment.client,
+          isNew: daysSinceCreated !== null ? daysSinceCreated <= 14 : false,
+          isVerified: !!appointment.client.emailVerified,
+        }
+      : null,
+  } as any, actor);
+}
+
 router.get('/availability/:professionalId', async (req, res, next) => {
   try {
     const { professionalId } = req.params;
@@ -742,6 +776,7 @@ router.get('/my', authenticate, async (req: any, res: any, next: any) => {
         where: { professionalId: prof.id },
         include: {
           client: { select: { id: true, name: true, email: true, avatarUrl: true, createdAt: true, emailVerified: true } },
+          professional: { select: { userId: true } },
         },
         orderBy: { scheduledAt: 'desc' },
       });
@@ -778,7 +813,9 @@ router.get('/my', authenticate, async (req: any, res: any, next: any) => {
       };
     });
 
-    res.json(enhancedAppointments);
+    const actor = { role: String(role || ''), userId: String(userId || '') };
+    const normalizedAppointments = enhancedAppointments.map((appointment: any) => normalizeAppointmentForActor(appointment, actor));
+    res.json(normalizedAppointments);
   } catch (error) {
     next(error);
   }
@@ -1006,11 +1043,13 @@ router.post('/checkout', authenticate, async (req: any, res: any, next: any) => 
         { appointmentId: appointment.id, sessionId: session.id, professionalId, clientId, total: pricing.total },
         'Checkout Stripe inicializado',
       );
+      const normalizedAppointment = await loadNormalizedAppointmentForActor(appointment.id, { role: String(req.user?.role || ''), userId: String(clientId || '') });
 
       return res.status(201).json({
         appointmentId: appointment.id,
         checkoutUrl: session.url,
         sessionId: session.id,
+        appointment: normalizedAppointment,
       });
     } catch (stripeError) {
       const failedMeta: AppointmentMeta = {
@@ -1195,7 +1234,8 @@ router.post('/', optionalAuthenticate, async (req: any, res: any, next: any) => 
       metadata: { method: 'BANK_TRANSFER', total: pricing.total },
     });
 
-    res.status(201).json({ message: 'Solicitud creada con pago pendiente de validacion', appointment });
+    const normalizedAppointment = await loadNormalizedAppointmentForActor(appointment.id, { role: String(req.user?.role || 'CLIENT'), userId: String(clientId || '') });
+    res.status(201).json({ message: 'Solicitud creada con pago pendiente de validacion', appointment: normalizedAppointment || appointment });
   } catch (error) {
     next(error);
   }
@@ -1305,7 +1345,8 @@ router.patch('/:id/confirm-transfer', authenticate, async (req: any, res: any, n
       metadata: { method: 'BANK_TRANSFER', status: 'PAID_HELD' },
     });
 
-    res.json({ message: 'Pago validado y cita confirmada', appointment: updated });
+    const normalized = await loadNormalizedAppointmentForActor(appointment.id, { role: String(role || ''), userId: String(userId || '') });
+    res.json({ message: 'Pago validado y cita confirmada', appointment: normalized || updated });
   } catch (error) {
     next(error);
   }
@@ -1381,7 +1422,8 @@ router.patch('/:id/confirm', authenticate, async (req: any, res: any, next: any)
       }).catch((error) => logger.error({ err: error, appointmentId: appointment.id }, 'Error notificando confirmacion al cliente'));
     }
 
-    res.json({ message: 'Cita confirmada', appointment: updated });
+    const normalized = await loadNormalizedAppointmentForActor(appointment.id, { role, userId: String(userId || '') });
+    res.json({ message: 'Cita confirmada', appointment: normalized || updated });
   } catch (error) {
     next(error);
   }
@@ -1442,7 +1484,8 @@ router.patch('/:id/reschedule', authenticate, async (req: any, res: any, next: a
       metadata: { requestedScheduledAt: scheduledAt.toISOString(), previousScheduledAt: appointment.scheduledAt?.toISOString() || null },
     });
 
-    res.json({ message: nextStatus === 'CONFIRMED' ? 'Cita reprogramada' : 'Solicitud de reprogramacion enviada', appointment: updated });
+    const normalized = await loadNormalizedAppointmentForActor(appointment.id, { role, userId: String(userId || '') });
+    res.json({ message: nextStatus === 'CONFIRMED' ? 'Cita reprogramada' : 'Solicitud de reprogramacion enviada', appointment: normalized || updated });
   } catch (error) {
     next(error);
   }
@@ -1466,7 +1509,7 @@ router.get('/:id/events', authenticate, async (req: any, res: any, next: any) =>
       where: { appointmentId: id },
       orderBy: { createdAt: 'asc' },
     });
-    res.json(events);
+    res.json(events.map((event) => normalizeTimelineEvent(event)));
   } catch (error) {
     next(error);
   }
@@ -1748,7 +1791,8 @@ router.patch('/:id/complete', authenticate, async (req: any, res: any, next: any
       metadata: { paymentStatus: 'PAID_RELEASED' },
     });
 
-    res.json({ message: 'Cita completada y fondos liberados', appointment: updated });
+    const normalized = await loadNormalizedAppointmentForActor(appointment.id, { role: String(role || ''), userId: String(userId || '') });
+    res.json({ message: 'Cita completada y fondos liberados', appointment: normalized || updated });
   } catch (error) {
     next(error);
   }
@@ -1813,7 +1857,8 @@ router.patch('/:id/no-show', authenticate, async (req: any, res: any, next: any)
       metadata: { paymentStatus: 'NO_SHOW_HOLD' },
     });
 
-    res.json({ message: 'Cita marcada como no-show. Fondos retenidos para revision.', appointment: updated });
+    const normalized = await loadNormalizedAppointmentForActor(appointment.id, { role: String(role || ''), userId: String(userId || '') });
+    res.json({ message: 'Cita marcada como no-show. Fondos retenidos para revision.', appointment: normalized || updated });
   } catch (error) {
     next(error);
   }
@@ -1909,7 +1954,8 @@ router.patch('/:id/cancel', authenticate, async (req: any, res: any, next: any) 
       metadata: { cancellationPolicy },
     });
 
-    res.json({ message: 'Cita cancelada con exito', appointment: updated });
+    const normalized = await loadNormalizedAppointmentForActor(appointment.id, { role: String(role || ''), userId: String(userId || '') });
+    res.json({ message: 'Cita cancelada con exito', appointment: normalized || updated });
   } catch (error) {
     next(error);
   }

@@ -8,6 +8,7 @@ import { createOrderSchema, disputeOrderSchema, resolveDisputeSchema } from '../
 import { notifyUser } from '../lib/notifications';
 import { env } from '../config/env';
 import { logger } from '../lib/logger';
+import { normalizeOrderForActor, normalizeTimelineEvent } from '../lib/flowState';
 
 const router = Router();
 
@@ -37,28 +38,20 @@ const REUSABLE_PAYMENT_INTENT_STATUSES = [
   'requires_capture',
 ] as const;
 
-function getTrustedAppBaseUrl(originHeader: unknown): string {
-  const fallback = String(env.APP_URL || '').trim();
-  const allowedOrigins = (env.ALLOWED_ORIGINS || '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+async function loadNormalizedOrderForActor(orderId: string, actor: { role: string; userId: string }) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      client: { select: { name: true, avatarUrl: true, email: true } },
+      professional: { include: { user: { select: { name: true, avatarUrl: true, email: true, id: true } } } },
+      timeline: { orderBy: { createdAt: 'desc' }, take: 10 },
+    },
+  });
 
-  if (fallback) {
-    try {
-      allowedOrigins.push(new URL(fallback).origin);
-    } catch {
-      // ignore malformed APP_URL
-    }
-  }
-
-  const origin = String(originHeader || '').trim();
-  if (origin && allowedOrigins.includes(origin)) {
-    return origin;
-  }
-
-  return fallback || 'http://localhost:5173';
+  if (!order) return null;
+  return normalizeOrderForActor(order as any, actor);
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /api/orders — Crear una Orden (DRAFT)
@@ -128,7 +121,8 @@ router.post('/', authenticate, createOrderLimiter, validate(createOrderSchema), 
       logger.error({ err: error, orderId: order.id, professionalId }, 'Error cargando profesional para notificación');
     });
 
-    res.status(201).json({ message: 'Orden creada exitosamente', order });
+    const normalized = await loadNormalizedOrderForActor(order.id, { role: String(req.user.role || ''), userId: String(clientId || '') });
+    res.status(201).json({ message: 'Orden creada exitosamente', order: normalized || order });
   } catch (error) {
     next(error);
   }
@@ -215,11 +209,13 @@ router.post('/:id/checkout', authenticate, checkoutLimiter, async (req: any, res
       data: { paymentIntentId: paymentIntent.id },
     });
 
+    const normalized = await loadNormalizedOrderForActor(order.id, { role: String(req.user.role || ''), userId: String(clientId || '') });
     res.json({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
       amount: amountInCents,
       currency: order.currency,
+      order: normalized,
     });
   } catch (error: any) {
     if (error.type === 'StripeCardError') {
@@ -261,6 +257,7 @@ router.get('/my', authenticate, async (req: any, res: any, next: any) => {
           where: { professionalId: professional.id },
           include: {
             client: { select: { name: true, avatarUrl: true, email: true } },
+            professional: { select: { userId: true } },
             timeline: { orderBy: { createdAt: 'desc' }, take: 5 },
           },
           orderBy: { createdAt: 'desc' },
@@ -287,8 +284,11 @@ router.get('/my', authenticate, async (req: any, res: any, next: any) => {
       ]);
     }
 
+    const actor = { role: String(role || ''), userId: String(userId || '') };
+    const normalizedOrders = orders.map((order) => normalizeOrderForActor(order as any, actor));
+
     res.json({
-      data: orders,
+      data: normalizedOrders,
       total,
       page,
       limit,
@@ -323,10 +323,11 @@ router.patch('/:id/complete', authenticate, async (req: any, res: any, next: any
     const updated = await EscrowStateMachine.transition(id, 'COMPLETADO', {
       completedBy: userId,
     });
+    const normalized = await loadNormalizedOrderForActor(id, { role: String(req.user.role || ''), userId: String(userId || '') });
 
     res.json({
       message: 'Orden marcada como completada. Los fondos se liberaran en 72 horas.',
-      order: updated,
+      order: normalized || updated,
     });
   } catch (error: any) {
     next(error);
@@ -361,12 +362,41 @@ router.patch('/:id/start', authenticate, async (req: any, res: any, next: any) =
     const updated = await EscrowStateMachine.transition(id, 'EN_PROGRESO', {
       startedBy: userId,
     });
+    const normalized = await loadNormalizedOrderForActor(id, { role: String(req.user.role || ''), userId: String(userId || '') });
 
     res.json({
       message: 'Trabajo iniciado. Los fondos estan en escrow y se liberaran al completar.',
-      order: updated,
+      order: normalized || updated,
     });
   } catch (error: any) {
+    next(error);
+  }
+});
+
+router.get('/:id/timeline', authenticate, async (req: any, res: any, next: any) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const role = String(req.user.role || '').toUpperCase();
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { professional: { select: { userId: true } } },
+    });
+
+    if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
+
+    if (role !== 'ADMIN' && order.clientId !== userId && order.professional.userId !== userId) {
+      return res.status(403).json({ error: 'No tienes permiso para ver este historial' });
+    }
+
+    const timeline = await prisma.orderEvent.findMany({
+      where: { orderId: id },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    res.json(timeline.map((event) => normalizeTimelineEvent(event)));
+  } catch (error) {
     next(error);
   }
 });
@@ -397,10 +427,11 @@ router.patch('/:id/cancel', authenticate, async (req: any, res: any, next: any) 
     const updated = await EscrowStateMachine.transition(id, 'CANCELADO', {
       cancelledBy: userId,
     });
+    const normalized = await loadNormalizedOrderForActor(id, { role: String(req.user.role || ''), userId: String(userId || '') });
 
     res.json({
       message: 'Orden cancelada exitosamente.',
-      order: updated,
+      order: normalized || updated,
     });
   } catch (error: any) {
     next(error);
@@ -441,10 +472,11 @@ router.patch('/:id/dispute', authenticate, validate(disputeOrderSchema), async (
       reason: reason || 'Sin motivo especificado',
       disputedBy: userId,
     });
+    const normalized = await loadNormalizedOrderForActor(id, { role: String(req.user.role || ''), userId: String(userId || '') });
 
     res.json({
       message: 'Disputa abierta exitosamente. Un administrador revisara tu caso.',
-      order: updated,
+      order: normalized || updated,
     });
   } catch (error: any) {
     next(error);
@@ -507,7 +539,8 @@ router.patch('/:id/resolve', authenticate, validate(resolveDisputeSchema), async
       });
     }
 
-    res.json({ message: `Disputa resuelta: ${resolution}`, order: updated });
+    const normalized = await loadNormalizedOrderForActor(id, { role: String(user.role || ''), userId: String(user.userId || '') });
+    res.json({ message: `Disputa resuelta: ${resolution}`, order: normalized || updated });
   } catch (error: any) {
     next(error);
   }
@@ -519,47 +552,10 @@ router.patch('/:id/resolve', authenticate, validate(resolveDisputeSchema), async
 // ═══════════════════════════════════════════════════════════════════════════════
 router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: any, next: any) => {
   try {
-    // FIX: Guard explícito antes de intentar usar Stripe
-    let stripe;
-    try {
-      stripe = getStripe();
-    } catch {
-      return res.status(503).json({ error: 'Pagos no disponibles en este momento. Contacta al administrador.' });
-    }
-
-    const userId = req.user.userId;
-
-    const professional = await prisma.professional.findUnique({ where: { userId } });
-    if (!professional) {
-      return res.status(404).json({ error: 'Perfil profesional no encontrado' });
-    }
-
-    let stripeAccountId = professional.stripeAccountId;
-
-    if (!stripeAccountId) {
-      const account = await stripe.accounts.create({
-        type: 'express',
-        country: 'MX',
-        metadata: { professionalId: professional.id, userId },
-      });
-
-      stripeAccountId = account.id;
-
-      await prisma.professional.update({
-        where: { id: professional.id },
-        data: { stripeAccountId },
-      });
-    }
-
-    const baseUrl = getTrustedAppBaseUrl(req.headers.origin);
-    const accountLink = await stripe.accountLinks.create({
-      account: stripeAccountId,
-      refresh_url: `${baseUrl}/dashboard?tab=finance&status=refresh`,
-      return_url: `${baseUrl}/dashboard?tab=finance&status=complete`,
-      type: 'account_onboarding',
+    return res.status(403).json({
+      error: 'Los pagos son administrados por la plataforma. No se permite Stripe Connect por profesional.',
+      platformManaged: true,
     });
-
-    res.json({ url: accountLink.url });
   } catch (error: any) {
     next(error);
   }
@@ -572,44 +568,11 @@ router.post('/stripe-connect/onboarding', authenticate, async (req: any, res: an
 // ═══════════════════════════════════════════════════════════════════════════════
 router.get('/stripe-connect/status', authenticate, async (req: any, res: any, next: any) => {
   try {
-    const userId = req.user.userId;
-    const professional = await prisma.professional.findUnique({ where: { userId } });
-
-    // Sin perfil profesional → sin cuenta Stripe
-    if (!professional) {
-      return res.json({ connected: false, payoutsEnabled: false });
-    }
-
-    // Sin stripeAccountId → nunca completó el onboarding
-    if (!professional.stripeAccountId) {
-      return res.json({ connected: false, payoutsEnabled: false });
-    }
-
-    // FIX: Solo llamar getStripe() si hay una cuenta real que consultar.
-    // Si Stripe no está configurado, responder con estado base en lugar de 500.
-    let stripe;
-    try {
-      stripe = getStripe();
-    } catch {
-      logger.warn('[Stripe] stripe-connect/status: Stripe no configurado, devolviendo estado base.');
-      return res.json({ connected: false, payoutsEnabled: false, stripeConfigured: false });
-    }
-
-    const account = await stripe.accounts.retrieve(professional.stripeAccountId);
-
-    // Sincronizar payoutEnabled en BD si cambió en Stripe
-    if (account.payouts_enabled !== professional.payoutEnabled) {
-      await prisma.professional.update({
-        where: { id: professional.id },
-        data: { payoutEnabled: account.payouts_enabled || false },
-      });
-    }
-
     res.json({
-      connected: true,
-      payoutsEnabled: account.payouts_enabled || false,
-      chargesEnabled: account.charges_enabled || false,
-      detailsSubmitted: account.details_submitted || false,
+      connected: false,
+      payoutsEnabled: true,
+      platformManaged: true,
+      details: 'La plataforma recibe todos los cobros y liquida manualmente a profesionales.',
     });
   } catch (error: any) {
     next(error);
@@ -637,7 +600,8 @@ router.get('/admin/disputes', authenticate, async (req: any, res: any, next: any
       orderBy: { disputeOpenedAt: 'desc' },
     });
 
-    res.json(disputes);
+    const actor = { role: 'ADMIN', userId: String(req.user.userId || '') };
+    res.json(disputes.map((order) => normalizeOrderForActor(order as any, actor)));
   } catch (error) {
     next(error);
   }

@@ -11,6 +11,7 @@ const defaultStats = {
   completedRevenue: 0,
   pendingPaymentAppointments: 0,
   activeDisputes: 0,
+  pendingManualPayouts: 0,
 };
 
 const defaultPagination = {
@@ -23,6 +24,7 @@ const defaultPagination = {
 export function AdminPanel() {
   const [pendingDocs, setPendingDocs] = useState([]);
   const [disputes, setDisputes] = useState([]);
+  const [payoutQueue, setPayoutQueue] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [activeProfessionals, setActiveProfessionals] = useState([]);
   const [specialtyKpis, setSpecialtyKpis] = useState([]);
@@ -42,6 +44,10 @@ export function AdminPanel() {
   const [savingMap, setSavingMap] = useState({});
   const [featuredSavingMap, setFeaturedSavingMap] = useState({});
   const [reviewDeletingMap, setReviewDeletingMap] = useState({});
+  const [disputeActionMap, setDisputeActionMap] = useState({});
+  const [payoutActionMap, setPayoutActionMap] = useState({});
+  const [orderTimelineMap, setOrderTimelineMap] = useState({});
+  const [orderTimelineLoadingMap, setOrderTimelineLoadingMap] = useState({});
 
   const [stats, setStats] = useState(defaultStats);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -64,9 +70,10 @@ export function AdminPanel() {
     try {
       setOperationalLoading(true);
       setOperationalError('');
-      const [docsData, disputesData, apptData, prosData, opsData, kpisData, reviewsData] = await Promise.all([
+      const [docsData, disputesData, payoutData, apptData, prosData, opsData, kpisData, reviewsData] = await Promise.all([
         apiFetch('/admin/verifications/pending'),
         apiFetch('/orders/admin/disputes').catch(() => []),
+        apiFetch('/admin/payouts/queue').catch(() => []),
         apiFetch('/admin/appointments/upcoming').catch(() => []),
         apiFetch('/admin/professionals/active').catch(() => []),
         apiFetch('/admin/operators').catch(() => []),
@@ -76,6 +83,7 @@ export function AdminPanel() {
 
       setPendingDocs(Array.isArray(docsData) ? docsData : []);
       setDisputes(Array.isArray(disputesData) ? disputesData : []);
+      setPayoutQueue(Array.isArray(payoutData) ? payoutData : []);
       setAppointments(Array.isArray(apptData) ? apptData : []);
       setActiveProfessionals(Array.isArray(prosData) ? prosData : []);
       setOperators(Array.isArray(opsData) ? opsData : []);
@@ -109,6 +117,7 @@ export function AdminPanel() {
         completedRevenue: Number(data.completedRevenue || 0),
         pendingPaymentAppointments: Number(data.pendingPaymentAppointments || data.appointments?.pendingPayment || 0),
         activeDisputes: Number(data.activeDisputes || data.disputes?.active || 0),
+        pendingManualPayouts: Number(data.pendingManualPayouts || data.payouts?.pendingManual || 0),
       });
     } catch (err) {
       setStatsError(err.message || 'Error al cargar estadisticas');
@@ -253,6 +262,76 @@ export function AdminPanel() {
     }
   };
 
+  const handleResolveDispute = async (orderId, resolution) => {
+    if (!orderId || !resolution) return;
+    setDisputeActionMap((prev) => ({ ...prev, [orderId]: resolution }));
+    try {
+      const response = await apiFetch(`/orders/${orderId}/resolve`, {
+        method: 'PATCH',
+        body: JSON.stringify({ resolution }),
+      });
+      setDisputes((prev) => prev.filter((order) => order.id !== orderId));
+      if (response?.order) {
+        setPayoutQueue((prev) => [response.order, ...prev.filter((item) => item.id !== orderId)]);
+      }
+      showToast('Disputa resuelta', 'success');
+      await loadStats();
+    } catch (err) {
+      showToast(err.message || 'Error al resolver disputa', 'error');
+    } finally {
+      setDisputeActionMap((prev) => ({ ...prev, [orderId]: '' }));
+    }
+  };
+
+  const handlePayoutSettle = async (orderId, action) => {
+    if (!orderId || !action) return;
+    let reason = '';
+    if (action === 'FAIL') {
+      reason = window.prompt('Motivo del fallo de payout:') || '';
+      if (!reason.trim()) return;
+    }
+
+    setPayoutActionMap((prev) => ({ ...prev, [orderId]: action }));
+    try {
+      const response = await apiFetch(`/admin/payouts/${orderId}/settle`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action, reason: reason.trim() || undefined }),
+      });
+      const updated = response?.order;
+      if (updated) {
+        setPayoutQueue((prev) => {
+          const next = prev.map((item) => (item.id === updated.id ? updated : item));
+          if (!next.find((item) => item.id === updated.id)) return [updated, ...next];
+          return next.filter((item) => ['PAYOUT_INICIADO', 'PAYOUT_FALLIDO'].includes(String(item.status || '').toUpperCase()));
+        });
+      }
+      showToast('Cola de payout actualizada', 'success');
+      await loadStats();
+    } catch (err) {
+      showToast(err.message || 'Error al actualizar payout', 'error');
+    } finally {
+      setPayoutActionMap((prev) => ({ ...prev, [orderId]: '' }));
+    }
+  };
+
+  const handleToggleOrderTimeline = async (orderId) => {
+    const isOpen = Array.isArray(orderTimelineMap[orderId]);
+    if (isOpen) {
+      setOrderTimelineMap((prev) => ({ ...prev, [orderId]: null }));
+      return;
+    }
+
+    setOrderTimelineLoadingMap((prev) => ({ ...prev, [orderId]: true }));
+    try {
+      const timeline = await apiFetch(`/orders/${orderId}/timeline`);
+      setOrderTimelineMap((prev) => ({ ...prev, [orderId]: Array.isArray(timeline) ? timeline : [] }));
+    } catch (err) {
+      showToast(err.message || 'No se pudo cargar la bitacora de la orden', 'error');
+    } finally {
+      setOrderTimelineLoadingMap((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
   const handleCreateOperator = async (e) => {
     e.preventDefault();
     const payload = {
@@ -378,6 +457,7 @@ export function AdminPanel() {
     { key: 'orders', label: 'Ordenes Totales', value: stats.totalOrders },
     { key: 'pending-payment', label: 'Citas Pendientes de Pago', value: stats.pendingPaymentAppointments },
     { key: 'disputes', label: 'Disputas Activas', value: stats.activeDisputes },
+    { key: 'manual-payouts', label: 'Payouts Manuales Pendientes', value: stats.pendingManualPayouts },
     { key: 'reviews', label: 'Resenas en Moderacion', value: reviews.length },
     {
       key: 'revenue',
@@ -611,6 +691,7 @@ export function AdminPanel() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '0.75rem' }}>
               <p style={{ color: 'var(--on-surface-variant)' }}>Verificaciones pendientes: <strong>{pendingDocs.length}</strong></p>
               <p style={{ color: 'var(--on-surface-variant)' }}>Disputas activas: <strong>{disputes.length}</strong></p>
+              <p style={{ color: 'var(--on-surface-variant)' }}>Payouts manuales: <strong>{payoutQueue.length}</strong></p>
               <p style={{ color: 'var(--on-surface-variant)' }}>Citas proximas: <strong>{appointments.length}</strong></p>
             </div>
           )}
@@ -667,6 +748,117 @@ export function AdminPanel() {
                   <p style={{ color: 'var(--on-surface-variant)', margin: 0, fontSize: '0.82rem' }}>
                     Motivo: {order.disputeReason || 'Sin motivo registrado'} · Monto: ${Number(order.agreedPrice || 0).toLocaleString('es-MX')} {order.currency || 'MXN'}
                   </p>
+                  <p style={{ color: 'var(--secondary)', margin: 0, fontSize: '0.78rem' }}>
+                    Estado operativo: {order.state || order.status} · Pago: {order.paymentState || 'N/A'}
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleResolveDispute(order.id, 'FAVOR_CLIENT')}
+                      disabled={Boolean(disputeActionMap[order.id])}
+                    >
+                      {disputeActionMap[order.id] === 'FAVOR_CLIENT' ? 'Resolviendo...' : 'Fallo a cliente'}
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => handleResolveDispute(order.id, 'FAVOR_PROFESSIONAL')}
+                      disabled={Boolean(disputeActionMap[order.id])}
+                    >
+                      {disputeActionMap[order.id] === 'FAVOR_PROFESSIONAL' ? 'Resolviendo...' : 'Fallo a profesional'}
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => handleToggleOrderTimeline(order.id)}
+                      disabled={Boolean(orderTimelineLoadingMap[order.id])}
+                    >
+                      {orderTimelineLoadingMap[order.id] ? 'Cargando bitacora...' : Array.isArray(orderTimelineMap[order.id]) ? 'Ocultar bitacora' : 'Ver bitacora'}
+                    </button>
+                  </div>
+                  {Array.isArray(orderTimelineMap[order.id]) && (
+                    <div style={{ marginTop: '0.25rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', padding: '0.5rem', display: 'grid', gap: '0.35rem' }}>
+                      {orderTimelineMap[order.id].length === 0 ? (
+                        <p style={{ color: 'var(--on-surface-variant)', margin: 0, fontSize: '0.78rem' }}>Sin eventos registrados.</p>
+                      ) : (
+                        orderTimelineMap[order.id].map((evt) => (
+                          <p key={evt.id} style={{ color: 'var(--on-surface-variant)', margin: 0, fontSize: '0.78rem' }}>
+                            {evt.timelineType || evt.event} · {evt.happenedAt ? new Date(evt.happenedAt).toLocaleString('es-MX') : 'N/D'}
+                          </p>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card glass-card admin-section-card">
+          <h2 className="admin-section-title" style={{ color: 'var(--primary)' }}>Operacion de pagos (payout manual)</h2>
+          {operationalLoading ? (
+            <p style={{ color: 'var(--on-surface-variant)' }}>Cargando cola de payouts...</p>
+          ) : payoutQueue.length === 0 ? (
+            <p style={{ color: 'var(--on-surface-variant)' }}>No hay payouts manuales pendientes.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.625rem' }}>
+              {payoutQueue.map((order) => (
+                <div key={order.id} style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-lg)', padding: '0.75rem', display: 'grid', gap: '0.35rem' }}>
+                  <p style={{ color: 'var(--primary)', fontWeight: 800, margin: 0 }}>Orden {order.id}</p>
+                  <p style={{ color: 'var(--on-surface-variant)', margin: 0, fontSize: '0.82rem' }}>
+                    Cliente: {order.client?.name || 'N/D'} · Profesional: {order.professional?.user?.name || 'N/D'}
+                  </p>
+                  <p style={{ color: 'var(--secondary)', margin: 0, fontSize: '0.78rem' }}>
+                    Estado operativo: {order.state || order.status} · Pago: {order.paymentState || 'N/A'}
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                    {String(order.status || '').toUpperCase() === 'PAYOUT_INICIADO' && (
+                      <>
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => handlePayoutSettle(order.id, 'COMPLETE')}
+                          disabled={Boolean(payoutActionMap[order.id])}
+                        >
+                          {payoutActionMap[order.id] === 'COMPLETE' ? 'Aplicando...' : 'Marcar payout completado'}
+                        </button>
+                        <button
+                          className="btn btn-outline"
+                          onClick={() => handlePayoutSettle(order.id, 'FAIL')}
+                          disabled={Boolean(payoutActionMap[order.id])}
+                        >
+                          {payoutActionMap[order.id] === 'FAIL' ? 'Aplicando...' : 'Marcar payout fallido'}
+                        </button>
+                      </>
+                    )}
+                    {String(order.status || '').toUpperCase() === 'PAYOUT_FALLIDO' && (
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => handlePayoutSettle(order.id, 'RETRY')}
+                        disabled={Boolean(payoutActionMap[order.id])}
+                      >
+                        {payoutActionMap[order.id] === 'RETRY' ? 'Reintentando...' : 'Reintentar payout'}
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => handleToggleOrderTimeline(order.id)}
+                      disabled={Boolean(orderTimelineLoadingMap[order.id])}
+                    >
+                      {orderTimelineLoadingMap[order.id] ? 'Cargando bitacora...' : Array.isArray(orderTimelineMap[order.id]) ? 'Ocultar bitacora' : 'Ver bitacora'}
+                    </button>
+                  </div>
+                  {Array.isArray(orderTimelineMap[order.id]) && (
+                    <div style={{ marginTop: '0.25rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', padding: '0.5rem', display: 'grid', gap: '0.35rem' }}>
+                      {orderTimelineMap[order.id].length === 0 ? (
+                        <p style={{ color: 'var(--on-surface-variant)', margin: 0, fontSize: '0.78rem' }}>Sin eventos registrados.</p>
+                      ) : (
+                        orderTimelineMap[order.id].map((evt) => (
+                          <p key={evt.id} style={{ color: 'var(--on-surface-variant)', margin: 0, fontSize: '0.78rem' }}>
+                            {evt.timelineType || evt.event} · {evt.happenedAt ? new Date(evt.happenedAt).toLocaleString('es-MX') : 'N/D'}
+                          </p>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

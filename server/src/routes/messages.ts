@@ -15,14 +15,26 @@ router.use(authenticate);
  */
 const CONVERSATION_SEPARATOR = '_';
 const MEDICAL_CONVERSATION_SUFFIX = ':medical';
+const APPOINTMENT_CONTEXT_SUFFIX = ':appt:';
 
-function buildConversationId(id1: string, id2: string, sensitive: boolean): string {
+function buildConversationId(id1: string, id2: string, sensitive: boolean, appointmentId?: string | null): string {
   const baseId = [id1, id2].sort().join(CONVERSATION_SEPARATOR);
-  return sensitive ? `${baseId}${MEDICAL_CONVERSATION_SUFFIX}` : baseId;
+  const withSensitivity = sensitive ? `${baseId}${MEDICAL_CONVERSATION_SUFFIX}` : baseId;
+  if (appointmentId) return `${withSensitivity}${APPOINTMENT_CONTEXT_SUFFIX}${appointmentId}`;
+  return withSensitivity;
 }
 
 function getConversationParticipants(conversationId: string): string[] {
-  return conversationId.replace(MEDICAL_CONVERSATION_SUFFIX, '').split(CONVERSATION_SEPARATOR);
+  const withoutMedical = conversationId.replace(MEDICAL_CONVERSATION_SUFFIX, '');
+  const baseId = withoutMedical.split(APPOINTMENT_CONTEXT_SUFFIX)[0];
+  return baseId.split(CONVERSATION_SEPARATOR);
+}
+
+function extractAppointmentContext(conversationId: string): string | null {
+  const markerIndex = conversationId.indexOf(APPOINTMENT_CONTEXT_SUFFIX);
+  if (markerIndex < 0) return null;
+  const appointmentId = conversationId.slice(markerIndex + APPOINTMENT_CONTEXT_SUFFIX.length).trim();
+  return appointmentId || null;
 }
 
 function isClinicalContent(text: string): boolean {
@@ -75,9 +87,11 @@ router.get('/conversations', async (req, res, next) => {
         // El "otro" participante de la conversación
         const other = msg.senderId === myId ? msg.receiver : msg.sender;
 
+        const appointmentId = extractAppointmentContext(msg.conversationId);
         conversationsMap.set(msg.conversationId, {
           conversationId: msg.conversationId,
-          channel: msg.conversationId.endsWith(MEDICAL_CONVERSATION_SUFFIX) ? 'MEDICAL_SENSITIVE' : 'GENERAL',
+          channel: msg.conversationId.includes(MEDICAL_CONVERSATION_SUFFIX) ? 'MEDICAL_SENSITIVE' : 'GENERAL',
+          appointmentContext: appointmentId ? { appointmentId } : null,
           contact: other,
           lastMessage: {
             content: decryptMessageContent(msg),
@@ -184,7 +198,7 @@ router.get('/:conversationId', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   const me = (req as any).user;
   const myId = me.userId;
-  const { receiverId, content } = req.body;
+  const { receiverId, content, appointmentId: rawAppointmentId } = req.body;
 
   if (!receiverId || !content?.trim()) {
     return res.status(400).json({ error: 'receiverId y content son requeridos' });
@@ -201,6 +215,35 @@ router.post('/', async (req, res, next) => {
       return res.status(404).json({ error: 'Usuario receptor no encontrado' });
     }
 
+    const appointmentId = typeof rawAppointmentId === 'string' ? rawAppointmentId.trim() : '';
+    let appointmentContext: { id: string; clientId: string | null; professionalUserId: string | null; status: string; scheduledAt: Date | null } | null = null;
+    if (appointmentId) {
+      const appointment = await prisma.appointment.findUnique({
+        where: { id: appointmentId },
+        include: {
+          professional: { select: { userId: true } },
+        },
+      });
+
+      if (!appointment) {
+        return res.status(404).json({ error: 'Cita no encontrada para contexto de mensajeria' });
+      }
+
+      const professionalUserId = appointment.professional?.userId || null;
+      const participants = new Set([appointment.clientId, professionalUserId].filter(Boolean));
+      if (!participants.has(myId) || !participants.has(receiverId)) {
+        return res.status(403).json({ error: 'Solo participantes de la cita pueden usar este contexto de mensajeria' });
+      }
+
+      appointmentContext = {
+        id: appointment.id,
+        clientId: appointment.clientId,
+        professionalUserId,
+        status: appointment.status,
+        scheduledAt: appointment.scheduledAt,
+      };
+    }
+
     const trimmedContent = content.trim();
     const clinical = isClinicalContent(trimmedContent);
     const sender = await prisma.user.findUnique({
@@ -212,7 +255,7 @@ router.post('/', async (req, res, next) => {
       return res.status(403).json({ error: 'Requiere consentimiento de tratamiento de datos sensibles de salud' });
     }
 
-    const conversationId = buildConversationId(myId, receiverId, clinical);
+    const conversationId = buildConversationId(myId, receiverId, clinical, appointmentContext?.id || null);
     const encryptionEnabled = clinical && canEncryptMessages();
     const encryptedPayload = encryptionEnabled ? encryptMessage(trimmedContent) : null;
 
@@ -237,12 +280,18 @@ router.post('/', async (req, res, next) => {
       actorUserId: myId,
       targetUserId: receiverId,
       conversationId,
+      appointmentId: appointmentContext?.id || null,
       metadata: { encrypted: Boolean(encryptedPayload), sensitivity: clinical ? 'CLINICAL' : 'NORMAL' },
     });
 
     res.status(201).json({
       ...message,
       content: trimmedContent,
+      appointmentContext: appointmentContext ? {
+        appointmentId: appointmentContext.id,
+        status: appointmentContext.status,
+        scheduledAt: appointmentContext.scheduledAt,
+      } : null,
     });
   } catch (err) {
     next(err);

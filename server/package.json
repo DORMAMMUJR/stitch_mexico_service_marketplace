@@ -11,7 +11,8 @@
     "migrate:status": "npx prisma migrate status",
     "migrate:deploy": "npx prisma migrate deploy",
     "migrate:resolve:baseline": "npx prisma migrate resolve --applied 20260514000000_baseline",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:flow": "tsx scripts/e2e-flow-smoke.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1037.0",
